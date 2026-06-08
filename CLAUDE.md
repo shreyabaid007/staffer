@@ -23,9 +23,10 @@ Current state → `docs/progress.md` · Product → `docs/product.md` · Tech �
 6. **Refresh** — if reality diverged from a doc, fix it **in the same PR**. Stale docs are the main cause of drift.
 
 ## The harness — run these to verify your work
-- `make check` — format, lint, typecheck, unit tests, **eval gate**. **Must be green before any commit.**
+- `make check` — format, lint, typecheck, unit tests, import contracts. **Must be green before any commit.**
+- `make check-all` — `make check` + `make eval`. Use once eval suite is configured.
 - `uv run pytest` · `uv run pyright` · `uv run ruff check --fix && uv run ruff format`
-- `make eval` — Promptfoo + DeepEval invariants: gates-respected · hard-skill-not-cleared-by-adjacency · evidence-cited · **no-PII-leak** · determinism.
+- `make eval` — Promptfoo + DeepEval invariants: gates-respected · hard-skill-not-cleared-by-adjacency · evidence-cited · **no-PII-leak** · determinism. **Not yet configured — will fail until wired up.**
 
 **Never disable a check to make it pass.** Fix the cause, or — if the check is wrong — change it in its own commit with a note.
 
