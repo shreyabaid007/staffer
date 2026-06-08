@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      target: prod
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+
+  dev:
+    build:
+      context: .
+      target: dev
+    env_file: .env
+    volumes:
+      - .:/app
+    profiles: ["dev"]
