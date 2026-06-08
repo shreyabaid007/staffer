@@ -1,4 +1,4 @@
-.PHONY: check lint format typecheck test eval
+.PHONY: check lint format typecheck test eval docker docker-dev
 
 check: format lint typecheck test eval
 
@@ -16,3 +16,9 @@ test:
 
 eval:
 	@echo "eval suite not yet configured"
+
+docker:
+	docker compose build app
+
+docker-dev:
+	docker compose build dev
