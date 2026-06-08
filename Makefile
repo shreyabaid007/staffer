@@ -1,6 +1,6 @@
-.PHONY: check lint format typecheck test eval docker docker-dev
+.PHONY: check lint format typecheck test eval imports docker docker-dev
 
-check: format lint typecheck test eval
+check: format lint typecheck test imports eval
 
 format:
 	uv run ruff format
@@ -13,6 +13,9 @@ typecheck:
 
 test:
 	uv run pytest tests/ -v
+
+imports:
+	uv run lint-imports
 
 eval:
 	@echo "eval suite not yet configured"

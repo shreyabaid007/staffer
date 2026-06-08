@@ -7,6 +7,8 @@
       "Bash(make typecheck)",
       "Bash(make test)",
       "Bash(make eval)",
+      "Bash(make imports)",
+      "Bash(uv run lint-imports*)",
       "Bash(uv run pytest*)",
       "Bash(uv run pyright*)",
       "Bash(uv run ruff check*)",

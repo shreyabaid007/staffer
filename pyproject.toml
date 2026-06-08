@@ -22,6 +22,7 @@ dev = [
     "pytest",
     "pyright",
     "ruff",
+    "import-linter",
     "promptfoo",
     "deepeval",
 ]
@@ -32,6 +33,21 @@ line-length = 99
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.importlinter]
+root_packages = ["dsm"]
+
+[[tool.importlinter.contracts]]
+name = "Gates must not depend on PII, index, or LLM code"
+type = "forbidden"
+source_modules = ["dsm.match.gates"]
+forbidden_modules = ["dsm.pii", "dsm.index", "dspy", "modal", "httpx"]
+
+[[tool.importlinter.contracts]]
+name = "No direct LLM provider access — use PseudonymisedLM"
+type = "forbidden"
+source_modules = ["dsm.match", "dsm.ingest"]
+forbidden_modules = ["modal", "httpx"]
 
 [tool.pyright]
 pythonVersion = "3.12"
