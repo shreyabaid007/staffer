@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+data/.cache/*
+!data/.cache/.gitkeep
+*.egg-info/
+dist/
+.mypy_cache/
+.pyright/
+.ruff_cache/
