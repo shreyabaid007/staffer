@@ -1,0 +1,38 @@
+[project]
+name = "staffer"
+version = "0.1.0"
+description = "Demand-Supply Matcher — staffing decision engine"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "dspy>=2.0",
+    "presidio-analyzer",
+    "presidio-anonymizer",
+    "spacy",
+    "pymilvus",
+    "typer",
+    "docling",
+    "sentence-transformers",
+    "modal",
+    "httpx",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pyright",
+    "ruff",
+    "promptfoo",
+    "deepeval",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
