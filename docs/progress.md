@@ -5,19 +5,20 @@
 > Section headers below are stable so a `/handoff` command can target them (see foot of file). Keep them.
 
 ## Current status
-- **Build phase:** Pre-implementation. Steering + decision layer complete; Slice 0 spec complete and approved.
-- **Active slice:** Slice 0 — Foundation (spec approved on branch `spec/000-foundation`; implementation not started).
-- **Harness (`make check`):** not created yet — will be created in tasks F-001 to F-002.
-- **`main`:** clean; docs only. Spec branch ready to merge after implementation.
+- **Build phase:** Slice 0 implementation in progress — tasks F-003 and F-004 complete.
+- **Active slice:** Slice 0 — Foundation (branch `spec/000-foundation`).
+- **Harness (`make check`):** GREEN — format, lint, typecheck, 27 tests, import contracts all pass.
+- **`main`:** clean; docs only. Spec branch ready to merge after remaining tasks F-005 to F-016.
 
 ## Works end-to-end right now
-- Nothing yet. Repo contains operating-system docs + approved foundation spec (not merged).
+- `dsm/models.py` — all 19 Pydantic v2 domain contracts typed and frozen (AD-060).
+- `tests/test_models.py` — 27 passing tests: instantiation + discriminated-union + validation-rejection.
 
 ## In flight (partially done — resume exactly here)
-- _(none)_
+- Slice 0 tasks F-005 through F-016 (stubs, CLI, config, eval scaffold, end-to-end test, final green harness, docs update).
 
 ## Next up (in order)
-1. Execute tasks F-001 through F-016 from `specs/000-foundation/tasks.md` (one commit each).
+1. Execute tasks F-005 through F-016 from `specs/000-foundation/tasks.md` (one commit each).
 2. After F-015 (`make check` green), merge `spec/000-foundation` → `main`.
 3. Begin Slice 1 — implement real gates.py (location + availability filtering).
 
@@ -33,11 +34,12 @@
 - `specs/000-foundation/` — complete and approved (branch `spec/000-foundation`).
 
 ## Decisions
-- Authoritative log: `docs/decision.md` (current range AD-001 … AD-052). New ADRs this session: _(none — AD-060 will be added in task F-016)_.
+- Authoritative log: `docs/decision.md` (current range AD-001 … AD-060). AD-060 added: domain contracts frozen.
 
 ---
 
 ## Session log (append-only — newest first)
+- **2026-06-11 · slice-0-models** — Implemented tasks F-003 + F-004: wrote `dsm/models.py` (19 Pydantic v2 frozen models, all enums as `StrEnum`) and `tests/test_models.py` (27 tests — instantiation, discriminated union, validation rejection). `make check` green. Added AD-060 (contracts frozen). Also fixed `pyproject.toml` import-linter config (`include_external_packages = true`). Next: F-005 stub ingest through F-016.
 - **2026-06-11 · slice-0-spec** — Wrote and approved `specs/000-foundation/` (requirements, design, tasks). 16 tasks (F-001 to F-016) defined for frozen contracts + stubbed CLI + green harness. Committed to branch `spec/000-foundation`. No implementation yet. Next: execute tasks.
 - **2026-06-08 · setup** — Created the operating-system layer (`CLAUDE`, `product`, `tech`, `structure`, `decision`) and this file. No code. Next: Slice 0 foundation.
 

@@ -36,6 +36,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.importlinter]
 root_packages = ["dsm"]
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Gates must not depend on PII, index, or LLM code"

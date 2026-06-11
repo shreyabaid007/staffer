@@ -39,5 +39,9 @@
 - **AD-051 · Hosting & goal framing** — Accepted — BGE embedder on Modal (serverless GPU); NER local; reasoning LLM on OpenRouter. Goal = consistency + auditable rationale, **not** bias removal.
 - **AD-052 · Open-weights LLM on Modal** — Deferred — Possible (data sovereignty, $1000 credits) but out of MVP; revisit if cost/sovereignty become binding.
 
+## Foundation & contracts
+
+- **AD-060 · Domain contracts FROZEN** — Accepted — The models in `dsm/models.py` are the single typed interface between all modules. Frozen after Slice 0 task F-003/F-004; changes require team agreement + a new superseding ADR. Why: parallel lane work (Data/Reasoning/Quality) breaks if the contract shifts mid-sprint. Consequence: `dsm/models.py` is treated as a published API — backwards-incompatible changes must go through an explicit decision.
+
 ---
-*Next ADRs start at AD-060. New decisions taken during implementation are appended here, not scattered in code or commit messages.*
+*Next ADRs start at AD-061.*
