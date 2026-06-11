@@ -5,22 +5,22 @@
 > Section headers below are stable so a `/handoff` command can target them (see foot of file). Keep them.
 
 ## Current status
-- **Build phase:** Slice 0 implementation in progress — tasks F-003 and F-004 complete.
-- **Active slice:** Slice 0 — Foundation (branch `spec/000-foundation`).
-- **Harness (`make check`):** GREEN — format, lint, typecheck, 27 tests, import contracts all pass.
-- **`main`:** clean; docs only. Spec branch ready to merge after remaining tasks F-005 to F-016.
+- **Build phase:** Slice 0 complete; contracts frozen.
+- **Active slice:** Slice 0 — Foundation (branch `spec/000-foundation`), ready to merge.
+- **Harness (`make check`):** GREEN — format, lint, typecheck, 29 tests, import contracts all pass.
+- **`main`:** clean; docs only. Spec branch ready to merge.
 
 ## Works end-to-end right now
+- `uv run dsm match --role-id ROLE-STUB-01` — runs stub pipeline end-to-end, prints valid JSON.
 - `dsm/models.py` — all 19 Pydantic v2 domain contracts typed and frozen (AD-060).
-- `tests/test_models.py` — 27 passing tests: instantiation + discriminated-union + validation-rejection.
+- `make check` — 29 tests green (27 model + 1 gates + 1 CLI e2e), 0 type errors, 2 import contracts.
 
 ## In flight (partially done — resume exactly here)
-- Slice 0 tasks F-005 through F-016 (stubs, CLI, config, eval scaffold, end-to-end test, final green harness, docs update).
+- _(none — Slice 0 fully complete)_
 
 ## Next up (in order)
-1. Execute tasks F-005 through F-016 from `specs/000-foundation/tasks.md` (one commit each).
-2. After F-015 (`make check` green), merge `spec/000-foundation` → `main`.
-3. Begin Slice 1 — implement real gates.py (location + availability filtering).
+1. Merge `spec/000-foundation` → `main`.
+2. Begin Slice 1 — implement real gates.py (location + availability filtering).
 
 ## Blockers / needs a human
 - _(none)_
@@ -39,6 +39,7 @@
 ---
 
 ## Session log (append-only — newest first)
+- **2026-06-11 · slice-0-foundation** — Completed tasks F-005 through F-016: stub ingest/gates/clarify/score/rank/index/pii modules, CLI `dsm match`, `config/default.yaml`, eval scaffold, import-linter passing, 29 tests green. `make check` fully green. Slice 0 done. Next: merge to main, begin Slice 1 (real gates).
 - **2026-06-11 · slice-0-models** — Implemented tasks F-003 + F-004: wrote `dsm/models.py` (19 Pydantic v2 frozen models, all enums as `StrEnum`) and `tests/test_models.py` (27 tests — instantiation, discriminated union, validation rejection). `make check` green. Added AD-060 (contracts frozen). Also fixed `pyproject.toml` import-linter config (`include_external_packages = true`). Next: F-005 stub ingest through F-016.
 - **2026-06-11 · slice-0-spec** — Wrote and approved `specs/000-foundation/` (requirements, design, tasks). 16 tasks (F-001 to F-016) defined for frozen contracts + stubbed CLI + green harness. Committed to branch `spec/000-foundation`. No implementation yet. Next: execute tasks.
 - **2026-06-08 · setup** — Created the operating-system layer (`CLAUDE`, `product`, `tech`, `structure`, `decision`) and this file. No code. Next: Slice 0 foundation.
