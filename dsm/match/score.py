@@ -3,7 +3,9 @@
 from dsm.models import Candidate, CandidateAssessment, TargetProfileScorecard
 
 
-def score_candidate(candidate: Candidate, scorecard: TargetProfileScorecard) -> CandidateAssessment:
+def score_candidate(
+    candidate: Candidate, scorecard: TargetProfileScorecard
+) -> CandidateAssessment:
     """Stub: fixed scores."""
     return CandidateAssessment(
         candidate=candidate,

@@ -66,7 +66,9 @@ def get_stub_role() -> OpenRole:
         role_id="ROLE-STUB-01",
         title="Senior Python Engineer",
         required_skills=[
-            SkillRequirement(name="python", depth=SkillDepth.HARD, min_proficiency=ProficiencyLevel.INTERMEDIATE),
+            SkillRequirement(
+                name="python", depth=SkillDepth.HARD, min_proficiency=ProficiencyLevel.INTERMEDIATE
+            ),
             SkillRequirement(name="aws", depth=SkillDepth.DESIRED),
         ],
         location=Location(city="London", country="UK"),
