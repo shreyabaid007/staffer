@@ -9,3 +9,4 @@ dist/
 .mypy_cache/
 .pyright/
 .ruff_cache/
+.idea/

@@ -17,6 +17,9 @@ dependencies = [
     "httpx",
 ]
 
+[project.scripts]
+dsm = "dsm.cli.main:app"
+
 [project.optional-dependencies]
 dev = [
     "pytest",
@@ -36,6 +39,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.importlinter]
 root_packages = ["dsm"]
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Gates must not depend on PII, index, or LLM code"
@@ -52,3 +56,10 @@ forbidden_modules = ["modal", "httpx"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dsm"]
