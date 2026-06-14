@@ -39,4 +39,4 @@ Shared history from before the per-lane split (2026-06-14). **Frozen — do not 
 ---
 
 ## Maintaining this file
-This index describes `main`. It is refreshed **only at merge to `main`**, by whoever merges, via `/handoff-index` — which rewrites the global sections (_Current status_, _Works end-to-end_, _Active specs_, _Decisions_). See `.claude/commands/handoff-index.md`. While working on a feature branch, do **not** edit this file — update only your own lane file via `/handoff <lane>` (see `.claude/commands/handoff.md`).
+This index describes `main`. It is refreshed **only at merge to `main`**, by whoever merges, via `/handoff-index` — which rewrites the global sections (_Current status_, _Works end-to-end_, _Active specs_, _Decisions_). See `.claude/commands/handoff-index.md`. While working on a feature branch, do **not** edit this file — update only your own lane file via `/handoff` (lane resolved from `.claude/lane`; see `.claude/commands/handoff.md`).

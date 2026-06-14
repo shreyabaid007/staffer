@@ -1,4 +1,4 @@
-Refresh the shared index `docs/progress.md`. Run this **when merging a feature branch to `main`** — that's when shared state changes (a slice merged, the harness flipped, a spec moved, new ADRs landed). Run it as whoever is doing the merge; there's no separate role. For per-lane handoff on a feature branch use `/handoff <lane>` instead — this command never touches a lane file.
+Refresh the shared index `docs/progress.md`. Run this **when merging a feature branch to `main`** — that's when shared state changes (a slice merged, the harness flipped, a spec moved, new ADRs landed). Run it as whoever is doing the merge; there's no separate role. For per-lane handoff on a feature branch use `/handoff` instead (lane resolved from `.claude/lane`) — this command never touches a lane file.
 
 ## 1. Read only the index
 Read **only** `docs/progress.md`. **Do not read the lane files** — the index is refreshed from repo ground-truth, not by aggregating lane state. (That's what keeps the index thin and the lanes the single home for per-lane progress.)

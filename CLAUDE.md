@@ -19,7 +19,7 @@ Current state → `docs/progress.md` (index) + `docs/progress.{A,B,C}.md` (per-l
 2. **Spec** — write `specs/<feature>/requirements.md` → `design.md` → `tasks.md` (format in `docs/structure.md`). **Stop for human sign-off before code.**
 3. **Implement** — one task at a time; **one task = one commit**, imperative and referencing the spec (e.g. `feat(gates): availability window per AD-021`).
 4. **Verify** — `make check` green.
-5. **Record** — append `docs/decision.md` for any real decision; update your lane file `docs/progress.<lane>.md` via `/handoff <lane>` for the next session. The shared index `docs/progress.md` describes `main` — refresh it only when merging to `main`, via `/handoff-index` (AD-061).
+5. **Record** — append `docs/decision.md` for any real decision; update your lane file `docs/progress.<lane>.md` via `/handoff` (lane resolved from `.claude/lane`) for the next session. The shared index `docs/progress.md` describes `main` — refresh it only when merging to `main`, via `/handoff-index` (AD-061).
 6. **Refresh** — if reality diverged from a doc, fix it **in the same PR**. Stale docs are the main cause of drift.
 
 ## The harness — run these to verify your work
@@ -44,4 +44,4 @@ Spec acceptance criteria met · `make check` green · new behaviour has a test �
 - Load only the relevant module + its typed contract, not the whole tree.
 - One source of truth per fact — link, don't duplicate (rules in `product.md`/`tech.md`, history in `decision.md`, global state in `progress.md`, per-lane state in `progress.<lane>.md`).
 - Edit the real file; don't create `_v2`. Delete code; don't comment it out.
-- End the session via `/handoff <lane>` so your lane file `docs/progress.<lane>.md` is current — never end mid-task with a red harness without saying so there.
+- End the session via `/handoff` (lane from `.claude/lane`) so your lane file `docs/progress.<lane>.md` is current — never end mid-task with a red harness without saying so there.

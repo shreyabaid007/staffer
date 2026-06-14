@@ -1,10 +1,7 @@
 End-of-session handoff. Updates **one lane file**. Do all steps, then show the diff.
 
 ## 1. Resolve the lane
-Resolve `<lane>` (A | B | C) in this order:
-1. The argument passed to this command (e.g. `/handoff A`).
-2. The file `.claude/lane` (its contents are the lane letter).
-3. Otherwise **stop and ask the human** which lane — do not guess.
+Read the lane (A | B | C) from `.claude/lane` — its contents are the lane letter. Ignore any command argument; the lane always comes from this file. If `.claude/lane` is missing or does not contain a valid lane letter, **stop and ask the human** — do not guess.
 
 Set `LANE_FILE = docs/progress.<lane>.md`.
 
