@@ -1,7 +1,7 @@
 # progress.md — Live build state (index)
 
 > **Read this first at the start of every session, then your lane file `docs/progress.<lane>.md`.** This is the shared index: global facts only (build phase, what works, active specs, decisions). Per-lane state lives in the lane files. (The rules of *how* we work live in `CLAUDE.md`.) A fresh session should be able to orient from this file alone.
-> **Only the rotating integrator edits this file.** Per-lane progress goes in `docs/progress.A.md` / `.B.md` / `.C.md` — see _Lane files_ below. Section headers are stable so `/handoff` can target them. Keep them.
+> Per-lane progress goes in `docs/progress.A.md` / `.B.md` / `.C.md` — see _Lane files_ below. Section headers are stable so `/handoff-index` can target them. Keep them.
 
 ## Current status
 - **Build phase:** Slice 0 complete; contracts frozen.
@@ -39,4 +39,4 @@ Shared history from before the per-lane split (2026-06-14). **Frozen — do not 
 ---
 
 ## Maintaining this file
-The **rotating integrator** refreshes the global sections (_Current status_, _Works end-to-end_, _Active specs_, _Decisions_) when shared state changes, via `/handoff-index` (see `.claude/commands/handoff-index.md`). Engineers do **not** edit this file — they update only their own lane file via `/handoff <lane>` (see `.claude/commands/handoff.md`).
+This index describes `main`. It is refreshed **only at merge to `main`**, by whoever merges, via `/handoff-index` — which rewrites the global sections (_Current status_, _Works end-to-end_, _Active specs_, _Decisions_). See `.claude/commands/handoff-index.md`. While working on a feature branch, do **not** edit this file — update only your own lane file via `/handoff <lane>` (see `.claude/commands/handoff.md`).

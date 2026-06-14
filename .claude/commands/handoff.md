@@ -21,4 +21,4 @@ In `LANE_FILE` only:
 - Prepend **one** dated line to **Session log (append-only — newest first)** summarising this session and noting GREEN/RED. Never edit or delete existing log lines — append-only.
 
 ## 5. Touch no other file
-Change **no file other than your `LANE_FILE`** — not the index, not another lane file. The shared index `docs/progress.md` is refreshed separately by the integrator via `/handoff-index`. Then show the diff of `LANE_FILE`.
+Change **no file other than your `LANE_FILE`** — not the index, not another lane file. The shared index `docs/progress.md` is refreshed only at merge to `main`, by whoever merges, via `/handoff-index`. Then show the diff of `LANE_FILE`.
