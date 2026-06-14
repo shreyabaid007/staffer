@@ -1,0 +1,2 @@
+# Lane progress files are append-only; union-merge to avoid conflicts on concurrent appends.
+docs/progress.*.md merge=union
