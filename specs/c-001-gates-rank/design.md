@@ -94,6 +94,21 @@ Human-readable, not machine-parsed:
 - Location: `"Candidate is in {city}; role requires {role_city} (co-location)"`
 - Availability: `"Available {date}; role deadline is {deadline} (start {start} + {window}d)"`
 
+### Shared helper: `effective_free_date`
+
+Both the availability gate and `build_near_misses` need to derive a date from `AvailabilityState`. Factor into one function in `gates.py` to prevent drift:
+
+```python
+def effective_free_date(availability: AvailabilityState) -> date | None:
+    """Return the date the candidate becomes free, or None for FreeNow."""
+    match availability:
+        case FreeNow():       return None
+        case RollingOff():    return availability.expected_date
+        case NewJoiner():     return availability.join_date
+```
+
+`None` means "free now" — the gate treats it as always-pass, the near-miss builder skips it (FreeNow can't produce an availability miss).
+
 ### Import constraints
 
 `gates.py` imports ONLY from `dsm.models` and Python stdlib (`datetime`). No imports from `dsm.pii`, `dsm.index`, `dspy`, `modal`, `httpx`. Enforced by import-linter contract in `pyproject.toml`.
@@ -110,6 +125,10 @@ sorted(assessments, key=lambda a: (
     a.candidate.email,  # ascending for determinism
 ))[:top_k]
 ```
+
+### `top_k` source
+
+`rank_assessments` requires `top_k` as an argument — no default value. The orchestrator reads `config/default.yaml` `ranking.top_k` and passes it in. This avoids two defaults (function + config) silently diverging.
 
 ### Config snapshot
 
@@ -140,8 +159,8 @@ if not eligible_pool.candidates:
 
 For each exclusion in `exclusion_log.exclusions`, look up the original `Candidate` by email, then:
 
-1. **Availability miss**: compute `overshoot_days = free_date - deadline`. Sort key: `(0, overshoot_days)`.
-2. **Location miss**: sort key: `(1, 0 if remote_eligible else 1)`.
+1. **Availability miss**: compute `overshoot_days` using the shared `effective_free_date` helper (see below). Sort key: `(0, overshoot_days, candidate_email)`.
+2. **Location miss**: sort key: `(1, 0, candidate_email)`. All location-miss candidates have `remote_eligible=False` by construction (G-LOC-2 passes anyone with `True`), so there is no gap metric — sort alphabetically by email for determinism.
 
 The `(type_rank, ...)` tuple gives availability-first ordering per AD-063(b). Build `NearMiss` with:
 - `candidate_email`, `name` from the candidate
@@ -152,7 +171,7 @@ Cap at 3 per AD-063(d).
 
 ## Test fixtures — design
 
-All fixtures live in `tests/fixtures/__init__.py` as importable Python functions/constants. Each returns `(list[Candidate], OpenRole)` or `(list[Candidate], TargetProfileScorecard)`.
+All fixtures live in `tests/fixtures/__init__.py` as importable Python functions/constants. Each returns `(list[Candidate], TargetProfileScorecard)` — gates take the scorecard, not the raw `OpenRole`.
 
 ### ROLE-01 — partial availability exclusion
 
@@ -163,39 +182,29 @@ All fixtures live in `tests/fixtures/__init__.py` as importable Python functions
 - **Rahul**: Beach (FreeNow), Chennai → passes
 - **Vikram**: NewJoiner, join_date=2026-07-14, Chennai → passes (exactly +13d, within window). Source=NEW_JOINER, skills flagged `unverified`.
 
-### ROLE-02 — Chennai co-location filter
+### ROLE-02 — Chennai co-location filter (location gate isolation)
 
 - **Role**: React dev, Chennai, co-location=True, start=2026-07-01, window=14d
-- Reuse ROLE-01 candidates plus:
+- Own candidate set (does NOT reuse ROLE-01's Aarav — he'd fail availability and muddy the location test):
+- **Karan**: FreeNow, Chennai → passes (city match)
+- **Rahul**: FreeNow, Chennai → passes (city match)
 - **Deepa**: FreeNow, Pune, remote_eligible=False → excluded on location
 - **Nikhil**: FreeNow, Bangalore, remote_eligible=False → excluded on location
-- **Priya**: FreeNow, Pune, remote_eligible=True → passes (remote_eligible)
-- Chennai-based candidates (Karan, Rahul, etc.) pass.
+- **Priya**: FreeNow, Pune, remote_eligible=True → passes (remote_eligible per AD-063a)
 
-### ROLE-03 — total exclusion (empty pool)
+### ROLE-03 — total exclusion (empty pool, exercises both miss types)
 
 - **Role**: Java dev, Mumbai, co-location=True, start=2026-07-01, window=14d → deadline 2026-07-15
-- **Candidate A**: RollingOff, expected_date=2026-07-16, Mumbai → availability miss, overshoot 1 day
-- **Candidate B**: RollingOff, expected_date=2026-08-15, Mumbai → availability miss, overshoot 31 days
-- **Candidate C**: FreeNow, Pune, remote_eligible=True → location passes (remote_eligible), but wait — this passes. Need all to fail.
+- **Sanjay**: RollingOff, expected_date=2026-07-16, Mumbai → passes location (city match), fails availability by 1 day. Near-miss: availability, overshoot=1.
+- **Meera**: NewJoiner, join_date=2026-08-15, Mumbai → passes location (city match), fails availability by 31 days. Near-miss: availability, overshoot=31.
+- **Arjun**: FreeNow, Pune, remote_eligible=False → passes availability (FreeNow), fails location (Pune ≠ Mumbai, not remote_eligible). Near-miss: location.
+- **Kavita**: FreeNow, Kolkata, remote_eligible=False → passes availability (FreeNow), fails location (Kolkata ≠ Mumbai, not remote_eligible). Near-miss: location.
 
-Correction — all candidates must fail for ROLE-03:
-- **Candidate A**: RollingOff, expected_date=2026-07-16, Pune, remote_eligible=False → fails location (Pune ≠ Mumbai, not remote_eligible). Near-miss: location, not remote_eligible.
-- **Candidate B**: FreeNow, Delhi, remote_eligible=True → passes location (remote_eligible) but... FreeNow always passes availability. This candidate would pass both gates.
+All four fail. Near-miss ordering per AD-063(b): Sanjay (avail, +1d) → Meera (avail, +31d) → Arjun (loc, email alphabetical before Kavita). Capped at 3: **[Sanjay, Meera, Arjun]**.
 
-Design constraint: to fail ALL candidates, every candidate must fail at least one gate. With co-location=True + Mumbai:
-- **Sanjay**: RollingOff, expected_date=2026-07-16, Mumbai, remote_eligible=False → passes location (city match), fails availability by 1 day. Near-miss: availability, overshoot=1.
-- **Meera**: NewJoiner, join_date=2026-08-15, Mumbai, remote_eligible=False → passes location, fails availability by 31 days. Near-miss: availability, overshoot=31.
-- **Arjun**: FreeNow, Pune, remote_eligible=False → passes availability (FreeNow), fails location (Pune ≠ Mumbai, not remote_eligible). Near-miss: location, not remote_eligible.
-- **Kavita**: FreeNow, Delhi, remote_eligible=True → passes availability (FreeNow), passes location (remote_eligible). **This would pass.** Must not include candidates who pass both gates.
+## Test / production boundary
 
-Final ROLE-03 fixture (all fail):
-- **Sanjay**: RollingOff, expected_date=2026-07-16, Mumbai → passes location, fails availability by 1 day.
-- **Meera**: NewJoiner, join_date=2026-08-15, Mumbai → passes location, fails availability by 31 days.
-- **Arjun**: FreeNow, Pune, remote_eligible=False → passes availability, fails location.
-- **Kavita**: FreeNow, Kolkata, remote_eligible=False → passes availability, fails location.
-
-Near-miss ordering per AD-063(b): Sanjay (avail, +1d) → Meera (avail, +31d) → Arjun (loc, not remote) / Kavita (loc, not remote) → tie-break alphabetically. Capped at 3: Sanjay, Meera, Arjun.
+Test fixtures (ROLE-01/02/03) are NOT wired into the production CLI. The `dsm match` command uses whatever ingest provides (stubs for now, real data later). Integration tests drive the orchestrator logic directly with injected fixture data — they call `match()` or `build_near_misses()` with fixture inputs, not `dsm match --role-id ROLE-01`.
 
 ## Eval cases to add
 

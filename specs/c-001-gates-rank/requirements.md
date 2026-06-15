@@ -53,7 +53,7 @@ As a staffing manager, when I run `dsm match --role-id <id>`, I want candidates 
 
 **O-NM-1** WHEN `eligible_pool.candidates` is empty, the orchestrator SHALL build a `NoMatchResult` with a human-readable `reason` and `near_misses` populated from the original candidates + scorecard (AD-063c).
 
-**O-NM-2** Near-misses SHALL be ordered per AD-063(b): availability misses first (smallest overshoot in days), then location misses (`remote_eligible=True` before `False`).
+**O-NM-2** Near-misses SHALL be ordered per AD-063(b): availability misses first (smallest overshoot in days), then location misses (alphabetical by `candidate_email`).
 
 **O-NM-3** Near-misses SHALL be capped at 3 (AD-063d).
 
@@ -65,9 +65,9 @@ As a staffing manager, when I run `dsm match --role-id <id>`, I want candidates 
 
 **E-R01** WHEN the system processes ROLE-01, it SHALL exclude Aarav on `AVAILABILITY_MISMATCH` with a `detail` containing both the candidate's free-date and the role's deadline.
 
-**E-R02** WHEN the system processes ROLE-02 (co-location Chennai), it SHALL exclude every candidate who is neither Chennai-based nor `remote_eligible`.
+**E-R02** WHEN the system processes ROLE-02 (co-location Chennai), it SHALL exclude every candidate who is neither Chennai-based nor `remote_eligible`. ROLE-02 uses its own candidate set that isolates the location gate — availability-failing candidates (e.g. Aarav) are not included.
 
-**E-R03** WHEN the system processes ROLE-03, it SHALL produce `EligiblePool(candidates=[])` and the orchestrator SHALL produce a `NoMatchResult` with `near_misses` ordered per AD-063(b): availability misses first (smallest overshoot first), then location misses (`remote_eligible=True` before `False`), capped at 3.
+**E-R03** WHEN the system processes ROLE-03, it SHALL produce `EligiblePool(candidates=[])` and the orchestrator SHALL produce a `NoMatchResult` with `near_misses` ordered per AD-063(b): availability misses first (smallest overshoot first), then location misses (alphabetical by `candidate_email`), capped at 3.
 
 ## Non-requirements
 

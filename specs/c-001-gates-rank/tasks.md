@@ -12,7 +12,7 @@
 Create importable fixture functions returning `(list[Candidate], TargetProfileScorecard)` for each role:
 
 - **ROLE-01** (partial exclusion): Aarav (RollingOff, 2026-08-01, Chennai) excluded on availability; Karan (FreeNow, Chennai), Vivaan (RollingOff 2026-07-10, Chennai), Rahul (FreeNow, Chennai), Vikram (NewJoiner 2026-07-14, Chennai, unverified) pass. Role: Chennai, co_location=True, start=2026-07-01, window=14d.
-- **ROLE-02** (location filter): Chennai co-location role. Adds Deepa (Pune, not remote), Nikhil (Bangalore, not remote) excluded; Priya (Pune, remote_eligible=True) passes.
+- **ROLE-02** (location filter, isolation): Chennai co-location role. Own candidate set (no Aarav — he'd fail availability and muddy the location test). Karan (FreeNow, Chennai), Rahul (FreeNow, Chennai) pass; Deepa (FreeNow, Pune, not remote), Nikhil (FreeNow, Bangalore, not remote) excluded on location; Priya (FreeNow, Pune, remote_eligible=True) passes.
 - **ROLE-03** (total exclusion): Mumbai co-location role, start=2026-07-01, window=14d. Sanjay (RollingOff 2026-07-16, Mumbai, +1d overshoot), Meera (NewJoiner 2026-08-15, Mumbai, +31d overshoot), Arjun (FreeNow, Pune, not remote), Kavita (FreeNow, Kolkata, not remote). All fail. Expected near-miss order: Sanjay, Meera, Arjun (capped at 3).
 
 **Acceptance:** fixtures import cleanly; `make check` green (no test failures from fixture import).
@@ -42,8 +42,8 @@ Do NOT implement availability gate yet — candidates that pass location proceed
 
 **File:** `dsm/match/gates.py`
 
-Add availability gate after location gate:
-- `FreeNow` → always pass.
+Add availability gate after location gate. Extract shared `effective_free_date(availability) → date | None` helper (reused by `build_near_misses` in T-005):
+- `FreeNow` → `None` (always pass).
 - `RollingOff` → `expected_date <= deadline`. Confidence is ignored per AD-022.
 - `NewJoiner` → `join_date <= deadline`.
 - Deadline = `scorecard.start_date + timedelta(days=scorecard.availability_window_days)`.
@@ -66,7 +66,7 @@ Add availability gate after location gate:
 
 Replace the stub `rank_assessments` with:
 - Sort by `combined_score` desc → `hard_skill_coverage` desc → `desired_skill_coverage` desc → `candidate.email` asc.
-- Slice to `top_k` (from function argument, default 5).
+- Slice to `top_k` (required argument, no default — orchestrator reads `config/default.yaml` and passes it in to avoid two defaults diverging).
 - Populate `config_snapshot` with weights, top_k, model IDs.
 - Empty assessments → `ShortlistResult(ranked_assessments=[], total_eligible=0, ...)`.
 
@@ -85,10 +85,10 @@ Replace the stub `rank_assessments` with:
 
 **File:** `dsm/cli/commands.py`
 
-Add `build_near_misses(candidates, scorecard, exclusion_log)` helper and integrate into `match`:
+Add `build_near_misses(candidates, scorecard, exclusion_log)` helper and integrate into `match`. Use `effective_free_date` from gates.py to compute overshoot:
 - When `eligible_pool.candidates` is empty, build `NoMatchResult`.
 - Recompute gaps from structured data (candidate + scorecard), NOT from `Exclusion.detail`.
-- Order per AD-063(b): availability misses first (smallest overshoot), then location misses (remote_eligible=True preferred).
+- Order per AD-063(b): availability misses first (smallest overshoot), then location misses (alphabetical by `candidate_email` — all location-miss candidates have `remote_eligible=False` by construction).
 - Cap at 3 per AD-063(d).
 - Render `NoMatchResult` as JSON to CLI.
 
@@ -102,21 +102,18 @@ Add `build_near_misses(candidates, scorecard, exclusion_log)` helper and integra
 
 ---
 
-### T-006: Wire CLI end-to-end + ROLE-01/02 integration tests
+### T-006: Integration tests with injected fixtures
 
-**File:** `dsm/cli/commands.py`, `tests/cli/test_match_e2e.py`
+**File:** `tests/cli/test_match_e2e.py`
 
-Update `dsm match` to:
-- Accept `--role-id` and load fixtures for ROLE-01/02/03 (or fall back to stub for unknown IDs).
-- Show real gate exclusions in output.
-- Show real ranking over stubbed assessments (scoring is still stubbed).
-- Show no-match path for ROLE-03.
+Integration tests drive the orchestrator logic directly with injected fixture data — they do NOT wire ROLE-01/02/03 into the production `dsm match` CLI. The production command continues to use whatever ingest provides (stubs now, real data later).
 
-**Acceptance:** Integration tests verify:
-- ROLE-01: Aarav excluded with detail containing both dates; 4 candidates ranked.
-- ROLE-02: Deepa + Nikhil excluded on location; Priya + Chennai candidates ranked.
-- ROLE-03: NoMatchResult rendered with 3 near-misses.
-- `make check` green.
+Tests call the orchestrator's internal flow (gates → score → rank, or gates → no-match) with fixture inputs:
+- ROLE-01: Aarav excluded with detail containing both dates; 4 candidates pass gates and get ranked.
+- ROLE-02: Deepa + Nikhil excluded on location; Priya + Chennai-based candidates pass and get ranked.
+- ROLE-03: empty pool → NoMatchResult rendered with 3 near-misses in correct order.
+
+**Acceptance:** all three scenarios pass; `make check` green.
 
 **Criteria:** E-R01, E-R02, E-R03 (end-to-end).
 
@@ -130,6 +127,6 @@ Update `dsm match` to:
 - Verify import-linter: `gates.py` imports nothing from `pii/`, `index/`, or LLM code.
 - Verify all EARS criteria from requirements.md pass.
 
-**Acceptance:** `make check` green. All 22 acceptance criteria (G-LOC-*, G-AVL-*, G-OUT-*, R-*, O-NM-*, E-R*) covered by tests.
+**Acceptance:** `make check` green. All 24 acceptance criteria (G-LOC ×4, G-AVL ×6, G-OUT ×2, R ×4, O-NM ×5, E-R ×3) covered by tests.
 
 **Criteria:** all.
