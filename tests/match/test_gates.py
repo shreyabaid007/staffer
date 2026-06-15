@@ -258,3 +258,12 @@ def test_g_out_2_both_gates_fail_records_only_location() -> None:
     assert pool.candidates == []
     assert len(log.exclusions) == 1
     assert log.exclusions[0].reason is ExclusionReason.LOCATION_MISMATCH
+
+
+def test_empty_candidate_list_returns_empty_pool_and_log() -> None:
+    """Edge case (design.md): empty input → empty EligiblePool + empty ExclusionLog."""
+    scorecard = _scorecard(co_location_required=True)
+    pool, log = filter_candidates([], scorecard)
+    assert pool.candidates == []
+    assert log.exclusions == []
+    assert pool.scorecard_id == "ROLE-TEST"

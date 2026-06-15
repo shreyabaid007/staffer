@@ -98,3 +98,12 @@ def test_o_nm_5_no_match_result_renders_to_json() -> None:
     assert len(payload["near_misses"]) == 3
     assert payload["near_misses"][0]["candidate_email"] == "sanjay@example.com"
     assert payload["near_misses"][0]["gap_summary"] == "available 1 day after deadline"
+
+
+def test_empty_candidate_list_produces_no_match_with_no_near_misses() -> None:
+    """Edge case (design.md): empty input → NoMatchResult with empty near_misses."""
+    _, scorecard = role_03()
+    result = run_match([], scorecard)
+    assert isinstance(result, NoMatchResult)
+    assert result.near_misses == []
+    assert result.exclusion_log.exclusions == []
