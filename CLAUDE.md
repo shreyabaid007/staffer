@@ -1,10 +1,10 @@
 # CLAUDE.md — Operating system for the Demand–Supply Matcher
 
-You are an AI engineer working in this repository. **Every session: read `docs/progress.md` first (where the build is right now), then this file (the rules), then the relevant spec — not the whole repo.** This file is your constitution.
+You are an AI engineer working in this repository. **Every session: read `docs/progress.md` (index) first, then your lane file `docs/progress.<lane>.md` (where your lane's build is right now), then this file (the rules), then the relevant spec — not the whole repo.** This file is your constitution.
 
 ## What this is
 A staffing decision engine: given one open role, return a **ranked, explainable shortlist** of consultants with the trade-offs surfaced for a human to decide. Structured RAG over a vector index. A 3-engineer / 15-day POC.
-Current state → `docs/progress.md` · Product → `docs/product.md` · Tech → `docs/tech.md` · Layout & spec format → `docs/structure.md` · Decisions → `docs/decision.md`.
+Current state → `docs/progress.md` (index) + `docs/progress.{A,B,C}.md` (per-lane) · Product → `docs/product.md` · Tech → `docs/tech.md` · Layout & spec format → `docs/structure.md` · Decisions → `docs/decision.md`.
 
 ## Golden rules (never violate)
 1. **Spec before code.** No implementation without an approved spec in `specs/<feature>/`. If none exists, write `requirements.md` → `design.md` → `tasks.md` and **stop for review**.
@@ -15,11 +15,11 @@ Current state → `docs/progress.md` · Product → `docs/product.md` · Tech �
 6. **Green harness or it isn't done.** See Definition of Done.
 
 ## Workflow — the spec-driven loop
-1. **Orient** — read `docs/progress.md`, then the relevant steering docs + `docs/decision.md`.
+1. **Orient** — read `docs/progress.md` (index) + your lane file `docs/progress.<lane>.md`, then the relevant steering docs + `docs/decision.md`.
 2. **Spec** — write `specs/<feature>/requirements.md` → `design.md` → `tasks.md` (format in `docs/structure.md`). **Stop for human sign-off before code.**
 3. **Implement** — one task at a time; **one task = one commit**, imperative and referencing the spec (e.g. `feat(gates): availability window per AD-021`).
 4. **Verify** — `make check` green.
-5. **Record** — append `docs/decision.md` for any real decision; update `docs/progress.md` for the next session.
+5. **Record** — append `docs/decision.md` for any real decision; update your lane file `docs/progress.<lane>.md` via `/handoff` (lane resolved from `.claude/lane`) for the next session. The shared index `docs/progress.md` describes `main` — refresh it only when merging to `main`, via `/handoff-index` (AD-061).
 6. **Refresh** — if reality diverged from a doc, fix it **in the same PR**. Stale docs are the main cause of drift.
 
 ## The harness — run these to verify your work
@@ -31,7 +31,7 @@ Current state → `docs/progress.md` · Product → `docs/product.md` · Tech �
 **Never disable a check to make it pass.** Fix the cause, or — if the check is wrong — change it in its own commit with a note.
 
 ## Definition of Done
-Spec acceptance criteria met · `make check` green · new behaviour has a test · new decisions in `docs/decision.md` · `docs/progress.md` updated for the next session. Not before.
+Spec acceptance criteria met · `make check` green · new behaviour has a test · new decisions in `docs/decision.md` · your lane file `docs/progress.<lane>.md` updated for the next session. Not before.
 
 ## Stop and ask the human when
 - A spec is ambiguous or conflicts with `docs/decision.md`.
@@ -42,6 +42,6 @@ Spec acceptance criteria met · `make check` green · new behaviour has a test �
 
 ## Anti-drift habits
 - Load only the relevant module + its typed contract, not the whole tree.
-- One source of truth per fact — link, don't duplicate (rules in `product.md`/`tech.md`, history in `decision.md`, state in `progress.md`).
+- One source of truth per fact — link, don't duplicate (rules in `product.md`/`tech.md`, history in `decision.md`, global state in `progress.md`, per-lane state in `progress.<lane>.md`).
 - Edit the real file; don't create `_v2`. Delete code; don't comment it out.
-- End the session via `/handoff` so `docs/progress.md` is current — never end mid-task with a red harness without saying so there.
+- End the session via `/handoff` (lane from `.claude/lane`) so your lane file `docs/progress.<lane>.md` is current — never end mid-task with a red harness without saying so there.
