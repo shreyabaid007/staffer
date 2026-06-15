@@ -39,7 +39,7 @@ Each phase is a module with **one typed input and one typed output**. Build and 
 - `match/gates` (Candidates, Scorecard) → `EligiblePool`, `ExclusionLog`  *(pure, LLM-free)*
 - `index/retrieve` (EligiblePool, Scorecard) → top-K Candidates
 - `match/score` (Scorecard, Candidate) → `CandidateAssessment`
-- `match/rank` (Assessments) → `ShortlistResult | NoMatchResult`
+- `match/rank` (Assessments) → `ShortlistResult`  *(NoMatchResult built by orchestrator per AD-063(c))*
 
 ## Dependency rules (enforce with import-linter in CI)
 - `match/gates.py` imports **nothing** from `pii/`, `index/`, or LLM code. Pure functions only.
