@@ -62,6 +62,10 @@
   - **(c) Near-miss assembly** — The **orchestrator** (`dsm/cli/commands.py`) detects empty pool and builds `NoMatchResult.near_misses`. It recomputes gaps from the structured `Candidate` + `TargetProfileScorecard` objects it already holds — does NOT parse `Exclusion.detail`. `detail` stays human-readable only. Gates returns `(EligiblePool, ExclusionLog)` as typed. Rank returns `ShortlistResult` only — never `NoMatchResult`. Note: this supersedes `docs/structure.md` line 42 which previously assigned `NoMatchResult` to rank.
   - **(d) Top-3 near-misses** — `NoMatchResult.near_misses` is capped at 3 in the orchestrator. The model's list is unbounded; the cap is a presentation decision. Sufficient for "here's what came closest" without overwhelming the output.
 
+## Configuration
+
+- **AD-064 · YAML config loader + PyYAML dependency** — Accepted — Runtime config is read from `config/default.yaml` through a single cached loader, `dsm/config.py::load_config()`, which the orchestrator (`dsm/cli/commands.py`) uses to source `ranking.top_k` and build the `ShortlistResult.config_snapshot`. This adds **PyYAML** (`pyyaml>=6.0`) as a declared dependency — previously present only transitively. Why: `docs/tech.md` rule 6 ("config over constants") mandates weights/K/model IDs live in `config/`, but Slice 0 hardcoded them and nothing read the YAML; the gates/rank spec needs a real read. Per `docs/tech.md` ("no new deps without an ADR") and `CLAUDE.md` ("Stop and ask … add a dependency"), the dependency was confirmed with the human before adding. Consequence: `match/rank.py` stays **config-free** (the refinement to T-004 — `top_k` and `config_snapshot` are passed in by the orchestrator, never read inside rank), so there is one source of truth for ranking config and no two-defaults divergence. The loader resolves `config/default.yaml` relative to the repo checkout (config/ is not packaged into the wheel; acceptable for the CLI/POC). Reusable by Lanes A/B.
+
 ---
 
-*Next ADRs start at AD-064.*
+*Next ADRs start at AD-065.*
