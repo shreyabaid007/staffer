@@ -8,6 +8,9 @@ frozen models — no LLM, no network.
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
+
+import pytest
 
 from dsm.match.gates import filter_candidates
 from dsm.models import (
@@ -20,7 +23,9 @@ from dsm.models import (
     FeedbackSignals,
     FreeNow,
     Location,
+    NewJoiner,
     ProficiencyLevel,
+    RollingOff,
     Skill,
     SkillDepth,
     SkillRequirement,
@@ -131,3 +136,125 @@ def test_g_out_1_returns_typed_pool_and_log() -> None:
     assert isinstance(pool, EligiblePool)
     assert isinstance(log, ExclusionLog)
     assert pool.scorecard_id == "ROLE-TEST"
+
+
+# ---------------------------------------------------------------------------
+# Availability gate — G-AVL-1..6, G-OUT-2
+# (co-location not required, so location is a non-factor and availability is isolated)
+# ---------------------------------------------------------------------------
+
+# Deadline for these tests: 2026-07-01 + 14d = 2026-07-15.
+_DEADLINE = date(2026, 7, 15)
+
+
+def test_g_avl_1_free_now_always_included() -> None:
+    """G-AVL-1: FreeNow passes regardless of the role start date."""
+    scorecard = _scorecard(co_location_required=False)
+    pool, log = filter_candidates([_candidate(availability=FreeNow())], scorecard)
+    assert len(pool.candidates) == 1
+    assert log.exclusions == []
+
+
+def test_g_avl_2_rolling_off_within_window_included() -> None:
+    """G-AVL-2: RollingOff with expected_date <= deadline → included."""
+    scorecard = _scorecard(co_location_required=False)
+    candidate = _candidate(
+        availability=RollingOff(expected_date=date(2026, 7, 10), confidence="high")
+    )
+    pool, log = filter_candidates([candidate], scorecard)
+    assert len(pool.candidates) == 1
+    assert log.exclusions == []
+
+
+def test_g_avl_3_rolling_off_past_window_excluded_with_both_dates() -> None:
+    """G-AVL-3: RollingOff past deadline → excluded; detail has free-date and deadline."""
+    scorecard = _scorecard(co_location_required=False)
+    candidate = _candidate(
+        availability=RollingOff(expected_date=date(2026, 8, 1), confidence="high")
+    )
+    pool, log = filter_candidates([candidate], scorecard)
+    assert pool.candidates == []
+    assert len(log.exclusions) == 1
+    exclusion = log.exclusions[0]
+    assert exclusion.reason is ExclusionReason.AVAILABILITY_MISMATCH
+    assert "2026-08-01" in exclusion.detail
+    assert "2026-07-15" in exclusion.detail
+
+
+def test_g_avl_4_new_joiner_within_window_included() -> None:
+    """G-AVL-4: NewJoiner with join_date <= deadline → included."""
+    scorecard = _scorecard(co_location_required=False)
+    candidate = _candidate(availability=NewJoiner(join_date=date(2026, 7, 14)))
+    pool, log = filter_candidates([candidate], scorecard)
+    assert len(pool.candidates) == 1
+    assert log.exclusions == []
+
+
+def test_g_avl_5_new_joiner_past_window_excluded_with_both_dates() -> None:
+    """G-AVL-5: NewJoiner past deadline → excluded; detail has join_date and deadline."""
+    scorecard = _scorecard(co_location_required=False)
+    candidate = _candidate(availability=NewJoiner(join_date=date(2026, 8, 15)))
+    pool, log = filter_candidates([candidate], scorecard)
+    assert pool.candidates == []
+    assert len(log.exclusions) == 1
+    exclusion = log.exclusions[0]
+    assert exclusion.reason is ExclusionReason.AVAILABILITY_MISMATCH
+    assert "2026-08-15" in exclusion.detail
+    assert "2026-07-15" in exclusion.detail
+
+
+@pytest.mark.parametrize("confidence", ["high", "medium", "low"])
+def test_g_avl_6_confidence_does_not_affect_gating(
+    confidence: Literal["high", "medium", "low"],
+) -> None:
+    """G-AVL-6: RollingOff gates on expected_date identically at every confidence (AD-022).
+
+    Within the window passes and past it fails regardless of confidence — low confidence
+    is a downstream ROLL_OFF_UNCERTAIN flag, never a gate.
+    """
+    scorecard = _scorecard(co_location_required=False)
+    within = _candidate(
+        availability=RollingOff(expected_date=date(2026, 7, 10), confidence=confidence)
+    )
+    past = _candidate(
+        availability=RollingOff(expected_date=date(2026, 8, 1), confidence=confidence)
+    )
+    within_pool, within_log = filter_candidates([within], scorecard)
+    past_pool, past_log = filter_candidates([past], scorecard)
+    assert len(within_pool.candidates) == 1 and within_log.exclusions == []
+    assert past_pool.candidates == [] and len(past_log.exclusions) == 1
+
+
+def test_availability_boundary_exactly_on_deadline_passes() -> None:
+    """Edge case: free exactly on the deadline day (+14d) → passes (<=, not <)."""
+    scorecard = _scorecard(co_location_required=False, window_days=14)
+    candidate = _candidate(availability=RollingOff(expected_date=_DEADLINE, confidence="high"))
+    pool, log = filter_candidates([candidate], scorecard)
+    assert len(pool.candidates) == 1
+    assert log.exclusions == []
+
+
+def test_availability_boundary_one_day_past_deadline_excluded() -> None:
+    """Edge case: free one day after the deadline (+15d) → excluded."""
+    scorecard = _scorecard(co_location_required=False, window_days=14)
+    candidate = _candidate(
+        availability=RollingOff(expected_date=date(2026, 7, 16), confidence="high")
+    )
+    pool, log = filter_candidates([candidate], scorecard)
+    assert pool.candidates == []
+    assert len(log.exclusions) == 1
+    assert log.exclusions[0].reason is ExclusionReason.AVAILABILITY_MISMATCH
+
+
+def test_g_out_2_both_gates_fail_records_only_location() -> None:
+    """G-OUT-2: when location and availability both fail, only LOCATION_MISMATCH is recorded."""
+    scorecard = _scorecard(city="Chennai", co_location_required=True)
+    candidate = _candidate(
+        city="Pune",
+        remote_eligible=False,
+        availability=RollingOff(expected_date=date(2026, 8, 1), confidence="high"),
+    )
+    pool, log = filter_candidates([candidate], scorecard)
+    assert pool.candidates == []
+    assert len(log.exclusions) == 1
+    assert log.exclusions[0].reason is ExclusionReason.LOCATION_MISMATCH
