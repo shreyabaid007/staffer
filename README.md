@@ -66,74 +66,67 @@ docker compose run dev make check
 ```mermaid
 
 flowchart TD
-    %% ── FOUNDATION: what exists before any feature ──
-    subgraph FOUNDATION["FOUNDATION — read these first, every session"]
-        direction LR
-        P["product.md\nWhat to build + scope"]
-        T["tech.md\nStack + dependencies"]
-        S["structure.md\nLayout + spec format"]
-        D["decision.md\nSettled calls ADRs"]
-        PR["progress.md\nShared index of main"]
-        LN["progress.LANE.md\nYour lane state"]
-    end
-
-    %% ── STEP 1: ORIENT ──
     START(["Engineer starts a session"]) --> ORIENT
-    ORIENT["STEP 1 — ORIENT\nRead progress.md then your lane file\nRead decision.md for settled calls\nUnderstand what is done and what is next"]
-    FOUNDATION -.->|"these inform\nevery step"| ORIENT
 
-    %% ── STEP 2: SPEC ──
-    ORIENT --> SPEC
-    SPEC["STEP 2 — SPEC\nCreate specs/lane-seq-slug/ with 3 files:\n  requirements.md — EARS acceptance criteria\n  design.md — contracts, edge cases, eval cases\n  tasks.md — ordered atomic tasks, each = 1 commit"]
-
-    SPEC --> GATE{"HUMAN SIGN-OFF\non the spec?"}
-    GATE -->|"Revise"| SPEC
-    GATE -->|"Approved"| TASK
-
-    %% ── STEP 3: IMPLEMENT one task ──
-    TASK["STEP 3 — IMPLEMENT one task\nWrite code in dsm/ with Pydantic types\nWrite test in tests/\nOne task = one commit"]
-
-    %% ── STEP 4: VERIFY ──
-    TASK --> HARNESS
-
-    subgraph HARNESS["STEP 4 — make check (must be GREEN before commit)"]
+    %% ===== FOUNDATION (feedforward) =====
+    subgraph FOUNDATION["📚 FOUNDATION — read first, every session"]
         direction LR
-        H1["ruff\nformat + lint"]
-        H2["pyright\ntypecheck"]
-        H3["pytest\nunit tests"]
-        H4["import-linter\nno illegal deps"]
+        F1["product.md · tech.md · structure.md"]:::ff
+        F2["decision.md<br/>settled ADRs"]:::ff
+        F3["progress.md + your lane file<br/>where the build is"]:::ff
     end
 
-    HARNESS --> RESULT{"GREEN?"}
-    RESULT -->|"RED — fix the cause\nnever disable a check"| TASK
-    RESULT -->|"GREEN"| COMMIT["git commit\nOne task = one commit\nMsg references the spec"]
+    ORIENT["1 · ORIENT<br/>read index → lane file → ADRs"]:::step
+    FOUNDATION -. "inform every step" .-> ORIENT
 
-    %% ── Loop back for more tasks ──
-    COMMIT --> MORE{"More tasks\nin the spec?"}
-    MORE -->|"Yes — next task"| TASK
+    ORIENT --> SPEC["2 · SPEC<br/>specs/&lt;lane&gt;-&lt;seq&gt;-&lt;slug&gt;/<br/>requirements · design · tasks"]:::step
 
-    %% ── STEP 5: RECORD ──
-    MORE -->|"No — all tasks done"| RECORD
-    RECORD["STEP 5 — RECORD\nAppend any new ADRs to decision.md\nRun /handoff to update progress.LANE.md\nFix any docs that drifted in the same PR"]
+    SPEC --> GATE{"✋ HUMAN<br/>SIGN-OFF?"}:::gate
+    GATE -- revise --> SPEC
 
-    %% ── STEP 6: MERGE ──
-    RECORD --> PROPEN["STEP 6 — PR + MERGE\nOpen pull request\nAll criteria met + harness GREEN"]
-    PROPEN --> MERGED["Merged to main"]
-    MERGED --> HINDEX["Run /handoff-index\nRefreshes progress.md to match main"]
-
-    HINDEX --> NEXT(["Next feature — back to ORIENT"])
-    NEXT --> ORIENT
-
-    %% ── PARALLEL LANES sidebar ──
-    subgraph LANES["3 ENGINEERS WORK IN PARALLEL"]
+    %% ===== INNER LOOP: one task at a time =====
+    GATE -- approved --> TASK
+    subgraph INNER["🔁 INNER LOOP — one task = one commit"]
         direction TB
-        LA["Lane A — Data: ingest/ index/ modal/\nBranch: feat/a/NNN-slug"]
-        LB["Lane B — Reasoning: match/clarify match/score\nBranch: feat/b/NNN-slug"]
-        LC["Lane C — Quality: gates rank pii cli eval\nBranch: feat/c/NNN-slug"]
-        GLUE["Glued by frozen dsm/models.py\nEach lane touches only its own files\nEach lane updates only its own progress file"]
+        TASK["3 · IMPLEMENT one task<br/>code + Pydantic types + test"]:::step
+        TASK --> HARNESS["4 · VERIFY — make check"]:::harness
+        HARNESS --> RESULT{"GREEN?"}:::gate
+        RESULT -- "RED · fix the cause,<br/>never disable a check" --> TASK
+        RESULT -- green --> COMMIT["git commit<br/>msg references the spec"]:::step
+        COMMIT --> MORE{"more tasks?"}:::gate
+        MORE -- "yes" --> TASK
     end
 
-    LANES -.->|"each lane follows\nthis same loop"| ORIENT
+    HCHECKS["make check =<br/>ruff · pyright · pytest · import-linter"]:::note
+    HCHECKS -.- HARNESS
+
+    %% ===== OUTER LOOP: feature done → merge =====
+    MORE -- "no · all tasks done" --> RECORD["5 · RECORD<br/>new ADRs → decision.md<br/>/handoff → your lane file<br/>fix drifted docs in same PR"]:::step
+    RECORD --> PR["6 · PR + MERGE<br/>all criteria met · harness green"]:::step
+    PR --> MERGED["✅ merged to main"]:::done
+    MERGED --> HINDEX["/handoff-index<br/>refresh progress.md to match main"]:::step
+    HINDEX --> NEXT(["next feature"]) --> ORIENT
+
+    %% ===== PARALLEL LANES =====
+    subgraph LANES["👥 THREE LANES IN PARALLEL"]
+        direction TB
+        LA["A · Data — ingest / index / modal"]:::lane
+        LB["B · Reasoning — clarify / score"]:::lane
+        LC["C · Quality — gates / rank / pii / cli / eval"]:::lane
+        GLUE["glued by frozen dsm/models.py<br/>each lane edits only its own files + lane file"]:::note
+    end
+    LANES -. "each lane runs this same loop" .-> ORIENT
+
+    classDef ff fill:#e8f0fe,stroke:#4285f4,stroke-width:1.5px;
+    classDef step fill:#ffffff,stroke:#5f6368,stroke-width:1.5px;
+    classDef gate fill:#fef7e0,stroke:#f9ab00,stroke-width:2px;
+    classDef harness fill:#e6f4ea,stroke:#34a853,stroke-width:2px;
+    classDef done fill:#e6f4ea,stroke:#188038,stroke-width:2px;
+    classDef lane fill:#f3e8fd,stroke:#a142f4,stroke-width:1.5px;
+    classDef note fill:#fafafa,stroke:#bdbdbd,stroke-width:1px,color:#5f6368;
+    style FOUNDATION fill:#fbfdff,stroke:#90a4ae
+    style INNER fill:#f6fbf7,stroke:#66bb6a
+    style LANES fill:#fdf7ff,stroke:#ba68c8
 
 ```
 
@@ -142,81 +135,61 @@ flowchart TD
 
 ```mermaid
 
-flowchart TD
-    %% ── INPUTS ──
-    subgraph INPUTS["DATA INPUTS"]
-        direction TB
-        XLSX["Supply Sheets (xlsx)\nBeach / Rolling Off / New Joiners\nJoined by email"]
-        PDF["Consultant Profiles (PDF)\nParsed by Docling"]
-        FB["Feedback Records\nInternal EE + Client\nEqual weight in score"]
-        ROLE["Open Role Description\nOne role at a time"]
+flowchart TB
+    %% ===== LEGEND =====
+    subgraph LEGEND["LEGEND — who does the work"]
+        direction LR
+        L1["Deterministic<br/>Python"]:::pure
+        L2["LLM step<br/>(DSPy typed)"]:::llm
+        L3["External<br/>infra"]:::infra
+        L4["PII<br/>boundary"]:::pii
+        L5["I/O"]:::io
     end
 
-    %% ── PHASE 1: INGEST ──
-    XLSX --> INGEST
-    PDF --> INGEST
-    FB --> INGEST
-    INGEST["INGEST (dsm/ingest/)\nParse xlsx + Docling PDFs + feedback\nJoin on email\nOutput: dict of Candidate models + OpenRole"]
-
-    %% ── PHASE 2: PII STRIP + EMBED ──
-    INGEST --> PII_STRIP
-    PII_STRIP["PII BOUNDARY (dsm/pii/)\nPresidio + spaCy local NER\nStrip name/email from embedding text\nPseudonymise before any external call"]
-
-    PII_STRIP --> EMBED
-    EMBED["EMBED (Modal GPU)\nBAAI/bge-base-en-v1.5\nReceives PII-free text only\nBatch embed all candidates"]
-
-    EMBED --> INDEX
-    INDEX["INDEX (dsm/index/)\nMilvus Lite embedded\nHybrid: dense + BM25 + RRF"]
-
-    %% ── PHASE 3: CLARIFY THE ROLE ──
-    ROLE --> CLARIFY
-    CLARIFY["CLARIFY (dsm/match/clarify.py)\nLLM via PseudonymisedLM\nDSPy typed Signature\nRaw role text --> TargetProfileScorecard\nExtracts: skills, location, dates, hard vs desired"]
-
-    %% ── PHASE 4: DETERMINISTIC GATES ──
-    INGEST --> GATES
-    CLARIFY --> GATES
-    GATES["GATES (dsm/match/gates.py)\nPure Python — NO LLM, no imports from pii/ or index/\n─────────\nLocation gate: co-location check or remote-India\nAvailability gate: free by role start + 14 days\n─────────\nOutput: EligiblePool + ExclusionLog with reasons"]
-
-    %% ── PHASE 5: RETRIEVE ──
-    GATES --> RETRIEVE
-    INDEX --> RETRIEVE
-    CLARIFY --> RETRIEVE
-    RETRIEVE["RETRIEVE (dsm/index/)\nHybrid search over EligiblePool only\nScorecard query --> top-K candidates\nDeterministic retrieval, not agentic"]
-
-    %% ── PHASE 6: SCORE ──
-    RETRIEVE --> SCORE
-    CLARIFY --> SCORE
-    SCORE["SCORE (dsm/match/score.py)\nLLM via PseudonymisedLM\nDSPy typed Signature\nPer candidate: skill match + feedback assessment\nPython computes: 0.7 x skill + 0.3 x feedback\nAdjacency: partial credit + flag, never clears hard skill\nNew joiner skills flagged unverified"]
-
-    %% ── PHASE 7: RANK ──
-    SCORE --> RANK
-    RANK["RANK (dsm/match/rank.py)\nDeterministic Python sort + tie-break + top-k\nConfig-free — orchestrator owns config\nOutput: ShortlistResult OR NoMatchResult\n─────────\nShortlist: ranked candidates + explanations + flags\nNo-match: reason + ordered near-misses"]
-
-    %% ── OUTPUT ──
-    RANK --> OUTPUT
-
-    subgraph OUTPUT["CLI OUTPUT (dsm/cli/)"]
+    %% ===== CANDIDATE INDEXING PATH =====
+    subgraph CAND["CANDIDATE PATH — build the searchable index (offline, batch)"]
         direction TB
-        JSON_OUT["ShortlistResult JSON\nRanked top-5 candidates\nPer-candidate: structured fields + narrative\nEvery claim cites real evidence"]
-        TRADEOFFS["Trade-offs surfaced, never hidden\nRetention risk / unverified skills /\nuncertain roll-off / adjacency used"]
-        NOMATCH["OR NoMatchResult\nEmpty + reason + closest near-misses\nNever a forced match"]
+        XLSX["Supply sheets + profiles + feedback<br/>(xlsx · PDF · records)"]:::io
+        INGEST["INGEST · dsm/ingest/<br/>parse + join on email<br/>→ Candidate models"]:::pure
+        STRIP["PII STRIP · dsm/pii/<br/>drop name/email from embed text<br/>(by construction)"]:::pii
+        EMBED["EMBED · Modal GPU<br/>bge-base-en-v1.5<br/>PII-free text only"]:::infra
+        INDEX["INDEX · dsm/index/<br/>Milvus Lite · dense+BM25+RRF"]:::infra
+        XLSX --> INGEST --> STRIP --> EMBED --> INDEX
     end
 
-    %% ── PII BOUNDARY ANNOTATION ──
-    PII_STRIP -.->|"pseudonymises"| CLARIFY
-    PII_STRIP -.->|"pseudonymises"| SCORE
+    %% ===== ROLE QUERY PATH =====
+    subgraph QUERY["ROLE PATH — answer one open role"]
+        direction TB
+        ROLE["Open role description"]:::io
+        CLARIFY["CLARIFY · clarify.py<br/>role text → TargetProfileScorecard<br/>(skills · location · dates · hard vs desired)"]:::llm
+        GATES["GATES · gates.py — PURE, NO LLM<br/>location + availability (start +14d)<br/>→ EligiblePool + ExclusionLog"]:::pure
+        RETRIEVE["RETRIEVE · dsm/index/<br/>hybrid search over eligible only<br/>→ top-K"]:::infra
+        SCORE["SCORE · score.py<br/>LLM sub-scores → Python: 0.7·skill + 0.3·feedback<br/>adjacency never clears a hard skill · new joiner = unverified"]:::llm
+        RANK["RANK · rank.py<br/>deterministic sort + tie-break + top-k"]:::pure
+        ROLE --> CLARIFY --> GATES --> RETRIEVE --> SCORE --> RANK
+    end
 
-    %% ── STYLING ──
-    style INPUTS fill:#e3f2fd,stroke:#1565C0
-    style INGEST fill:#e8f5e9,stroke:#2E7D32
-    style PII_STRIP fill:#fce4ec,stroke:#c62828
-    style EMBED fill:#fff3e0,stroke:#E65100
-    style INDEX fill:#fff3e0,stroke:#E65100
-    style CLARIFY fill:#f3e5f5,stroke:#7B1FA2
-    style GATES fill:#e8f5e9,stroke:#2E7D32
-    style RETRIEVE fill:#fff3e0,stroke:#E65100
-    style SCORE fill:#f3e5f5,stroke:#7B1FA2
-    style RANK fill:#e8f5e9,stroke:#2E7D32
-    style OUTPUT fill:#e3f2fd,stroke:#1565C0
+    %% ===== CONVERGENCE =====
+    INGEST -. "candidates" .-> GATES
+    INDEX -. "vector index" .-> RETRIEVE
+
+    %% ===== PII WALL =====
+    PIIW{{"PseudonymisedLM — the ONLY path to OpenRouter<br/>pseudonymise before · de-pseudonymise after"}}:::pii
+    CLARIFY -.->|through| PIIW
+    SCORE -.->|through| PIIW
+
+    %% ===== OUTPUT =====
+    RANK --> ORCH["ORCHESTRATOR · dsm/cli/<br/>builds final result + owns config"]:::pure
+    ORCH --> OUT["ShortlistResult — ranked top-5<br/>structured fields + narrative · every claim cited<br/>trade-offs surfaced (retention · unverified · roll-off)"]:::io
+    ORCH --> NOM["…or NoMatchResult<br/>empty + reason + ordered near-misses<br/>never a forced match"]:::io
+
+    classDef pure fill:#e6f4ea,stroke:#2E7D32,stroke-width:1.5px;
+    classDef llm fill:#f3e5f5,stroke:#7B1FA2,stroke-width:1.5px;
+    classDef infra fill:#fff3e0,stroke:#E65100,stroke-width:1.5px;
+    classDef pii fill:#fce4ec,stroke:#c62828,stroke-width:1.5px;
+    classDef io fill:#e3f2fd,stroke:#1565C0,stroke-width:1.5px;
+    style LEGEND fill:#fafafa,stroke:#bdbdbd
+    style CAND fill:#fbfdff,stroke:#90a4ae
+    style QUERY fill:#fbfdff,stroke:#90a4ae
 
 ```
