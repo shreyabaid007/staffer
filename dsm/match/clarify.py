@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import re
+
 import dspy
 import yaml
 
-from dsm.models import OpenRole, TargetProfileScorecard
+from dsm.models import Location, OpenRole, SkillDepth, SkillRequirement, TargetProfileScorecard
 from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+_HARD_RE = re.compile(r"\((expert|depth)\)", re.IGNORECASE)
+_DESIRED_RE = re.compile(r"\((nice to have|desired)\)", re.IGNORECASE)
+_REMOTE_INDIA_RE = re.compile(r"remote[-\s]?india", re.IGNORECASE)
+_MARKER_RE = re.compile(r"\([^)]*\)")
 
 
 class ClarifyRole(dspy.Signature):
@@ -47,6 +54,65 @@ def _load_lm() -> PseudonymisedLM:
 
 
 dspy.configure(lm=_load_lm())
+
+
+def _skills_to_raw(skills: list[SkillRequirement]) -> str:
+    return "; ".join(f"{s.name} ({s.depth})" for s in skills)
+
+
+def _fallback_parse(role: OpenRole) -> TargetProfileScorecard:
+    """Deterministic fallback when both LLM attempts fail validation (AC-B10, AC-B11)."""
+    combined = "; ".join(
+        filter(None, [_skills_to_raw(role.required_skills), role.description or ""])
+    )
+    tokens = [t.strip() for t in re.split(r"[;,]", combined) if t.strip()]
+
+    hard: list[SkillRequirement] = []
+    desired: list[SkillRequirement] = []
+    seen_hard: set[str] = set()
+
+    for token in tokens:
+        if _HARD_RE.search(token):
+            depth = SkillDepth.HARD
+        elif _DESIRED_RE.search(token):
+            depth = SkillDepth.DESIRED
+        else:
+            depth = SkillDepth.HARD
+
+        name = _MARKER_RE.sub("", token).strip().lower()
+        if not name:
+            continue
+
+        req = SkillRequirement(name=name, depth=depth)
+        if depth == SkillDepth.HARD:
+            if name not in seen_hard:
+                hard.append(req)
+                seen_hard.add(name)
+        else:
+            if name not in seen_hard:
+                desired.append(req)
+
+    remote_eligible = bool(
+        _REMOTE_INDIA_RE.search(role.description or "")
+        or _REMOTE_INDIA_RE.search(role.location.city)
+    )
+    location = Location(
+        city=role.location.city,
+        state=role.location.state,
+        country=role.location.country,
+        remote_eligible=remote_eligible,
+    )
+
+    return TargetProfileScorecard(
+        role_id=role.role_id,
+        hard_depth_skills=hard,
+        desired_skills=desired,
+        location=location,
+        co_location_required=role.co_location_required,
+        start_date=role.start_date,
+        availability_window_days=14,
+        clarification_notes="fallback=true; LLM validation failed twice.",
+    )
 
 
 def clarify_role(role: OpenRole) -> TargetProfileScorecard:
