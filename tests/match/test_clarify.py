@@ -1,6 +1,7 @@
-"""Tests for dsm/match/clarify.py — B-001/B-002/B-003."""
+"""Tests for dsm/match/clarify.py — B-001/B-002/B-003/B-004."""
 
 from datetime import date
+from unittest.mock import MagicMock, patch
 
 import dspy
 from dspy.utils.dummies import DummyLM
@@ -210,3 +211,50 @@ def test_clarify_role_role01_kotlin_in_hard(  # AC-B06 seed eval invariant
     hard_names = [s.name for s in scorecard.hard_depth_skills]
     assert "kotlin" in hard_names
     assert all(s.name != "kotlin" for s in scorecard.desired_skills)
+
+
+# ---------------------------------------------------------------------------
+# B-004: retry-on-validation-failure
+# ---------------------------------------------------------------------------
+
+
+def _good_prediction() -> MagicMock:
+    pred = MagicMock()
+    pred.hard_depth_skills_json = _KOTLIN_HARD
+    pred.desired_skills_json = _SPRING_DESIRED
+    pred.location_json = _LOC_BLR
+    pred.clarification_notes = "Kotlin is the hard requirement."
+    return pred
+
+
+def _bad_exc() -> Exception:
+    from dspy.adapters.base import AdapterParseError
+
+    return AdapterParseError("JSONAdapter", clarify.ClarifyRole, "")
+
+
+def test_retry_succeeds_on_second_attempt() -> None:
+    # First call raises AdapterParseError; second returns valid prediction → no fallback
+    role = _role(required_skills=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)])
+    mock_predictor = MagicMock(side_effect=[_bad_exc(), _good_prediction()])
+    with patch("dsm.match.clarify._predictor", mock_predictor):
+        scorecard = clarify.clarify_role(role)
+
+    assert "fallback=true" not in (scorecard.clarification_notes or "").lower()
+    hard_names = [s.name for s in scorecard.hard_depth_skills]
+    assert "kotlin" in hard_names
+
+
+def test_fallback_activated_when_both_attempts_fail() -> None:
+    # Both calls raise AdapterParseError → fallback must activate
+    role = _role(
+        required_skills=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)],
+        description="Kotlin (expert)",
+    )
+    mock_predictor = MagicMock(side_effect=[_bad_exc(), _bad_exc()])
+    with patch("dsm.match.clarify._predictor", mock_predictor):
+        scorecard = clarify.clarify_role(role)
+
+    assert "fallback=true" in (scorecard.clarification_notes or "").lower()
+    hard_names = [s.name for s in scorecard.hard_depth_skills]
+    assert "kotlin" in hard_names
