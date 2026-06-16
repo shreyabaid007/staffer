@@ -15,6 +15,7 @@ dependencies = [
     "sentence-transformers",
     "modal",
     "httpx",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]

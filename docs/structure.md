@@ -8,7 +8,7 @@ repo/
   CLAUDE.md                 # agent constitution (auto-loaded)
   docs/
     product.md  tech.md  structure.md  decision.md  progress.md
-  specs/<feature>/
+  specs/<lane>-<seq>-<slug>/
     requirements.md  design.md  tasks.md
   dsm/
     models.py    # shared domain models (Candidate, *Scorecard, *Assessment)
@@ -25,7 +25,13 @@ repo/
   Makefile       # the harness: `make check`, `make eval`
 ```
 
-## Spec format (`specs/<feature>/`)
+## Naming conventions
+
+- **Branches:** `<type>/<lane>/<seq>-<slug>` — e.g. `feat/c/001-gates-rank`. Types: `feat`, `fix`, `docs`, `refactor`. Lane is lowercase `a`, `b`, or `c`.
+- **Spec folders:** `specs/<lane>-<seq>-<slug>/` — e.g. `specs/c-001-gates-rank/`. Lane prefix keeps specs sortable by owner.
+- **Sequence numbers** are per-lane and zero-padded to three digits (`001`, `002`, …).
+
+## Spec format (`specs/<lane>-<seq>-<slug>/`)
 - **`requirements.md`** — user story + acceptance criteria in **EARS** form (*"WHEN `<trigger>`, the system SHALL `<behaviour>`"*), machine-verifiable where possible; reference the product invariants.
 - **`design.md`** — module(s) touched, data contracts (Pydantic), phase(s) involved, edge cases, **the eval cases to add**.
 - **`tasks.md`** — ordered, atomic, independently testable; each mapped to an acceptance criterion (one task = one commit).
@@ -39,7 +45,7 @@ Each phase is a module with **one typed input and one typed output**. Build and 
 - `match/gates` (Candidates, Scorecard) → `EligiblePool`, `ExclusionLog`  *(pure, LLM-free)*
 - `index/retrieve` (EligiblePool, Scorecard) → top-K Candidates
 - `match/score` (Scorecard, Candidate) → `CandidateAssessment`
-- `match/rank` (Assessments) → `ShortlistResult | NoMatchResult`
+- `match/rank` (Assessments) → `ShortlistResult`  *(NoMatchResult built by orchestrator per AD-063(c))*
 
 ## Dependency rules (enforce with import-linter in CI)
 - `match/gates.py` imports **nothing** from `pii/`, `index/`, or LLM code. Pure functions only.
