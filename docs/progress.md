@@ -4,10 +4,10 @@
 > Per-lane progress goes in `docs/progress.A.md` / `.B.md` / `.C.md` — see _Lane files_ below. Section headers are stable so `/handoff-index` can target them. Keep them.
 
 ## Current status
-- **Build phase:** Slice 0 complete; contracts frozen.
-- **Active slice:** Slice 0 — Foundation (branch `spec/000-foundation`), ready to merge.
+- **Build phase:** Slice 0 complete and merged to `main`; contracts frozen.
+- **Active slice:** none in flight — Slice 0 done; Slice 1 (real gates) not yet started.
 - **Harness (`make check`):** GREEN — format, lint, typecheck, 29 tests, import contracts all pass.
-- **`main`:** clean; docs only. Spec branch ready to merge.
+- **`main`:** Slice 0 foundation merged (PR #3, `spec/000-foundation`) plus per-lane progress files (PR #4, `lane-specific-progress`).
 
 ## Works end-to-end right now
 - `uv run dsm match --role-id ROLE-STUB-01` — runs stub pipeline end-to-end, prints valid JSON.
@@ -21,10 +21,10 @@ Per-lane In flight / Next up / Blockers / Session log live in these append-only 
 - [`docs/progress.C.md`](progress.C.md) — **Lane C: Quality, PII & Interface** (Eng C — PII boundary, CLI, eval/quality).
 
 ## Active specs
-- `specs/000-foundation/` — complete and approved (branch `spec/000-foundation`).
+- `specs/000-foundation/` — complete, approved, and merged to `main`. No new specs in progress.
 
 ## Decisions
-- Authoritative log: `docs/decision.md` (current range AD-001 … AD-060). AD-060 added: domain contracts frozen.
+- Authoritative log: `docs/decision.md` (current range AD-001 … AD-061; next starts at AD-062). AD-061 added: per-lane progress files + index refreshed at merge.
 - **Freeze the contracts after Slice 0.** Churn breaks parallel lane work — change only via team agreement + a new ADR.
 
 ---
