@@ -59,7 +59,9 @@ docker compose run dev make check
 - [Progress](docs/progress.md) — current state of the build
 
 
-## Quick Flow Diagrams
+## Quick Diagrams
+
+### How We Build Features (spec-driven, harness-verified, lane-parallel)
 
 ```mermaid
 
@@ -132,5 +134,89 @@ flowchart TD
     end
 
     LANES -.->|"each lane follows\nthis same loop"| ORIENT
+
+```
+
+### Data Pipeline
+
+
+```mermaid
+
+flowchart TD
+    %% ── INPUTS ──
+    subgraph INPUTS["DATA INPUTS"]
+        direction TB
+        XLSX["Supply Sheets (xlsx)\nBeach / Rolling Off / New Joiners\nJoined by email"]
+        PDF["Consultant Profiles (PDF)\nParsed by Docling"]
+        FB["Feedback Records\nInternal EE + Client\nEqual weight in score"]
+        ROLE["Open Role Description\nOne role at a time"]
+    end
+
+    %% ── PHASE 1: INGEST ──
+    XLSX --> INGEST
+    PDF --> INGEST
+    FB --> INGEST
+    INGEST["INGEST (dsm/ingest/)\nParse xlsx + Docling PDFs + feedback\nJoin on email\nOutput: dict of Candidate models + OpenRole"]
+
+    %% ── PHASE 2: PII STRIP + EMBED ──
+    INGEST --> PII_STRIP
+    PII_STRIP["PII BOUNDARY (dsm/pii/)\nPresidio + spaCy local NER\nStrip name/email from embedding text\nPseudonymise before any external call"]
+
+    PII_STRIP --> EMBED
+    EMBED["EMBED (Modal GPU)\nBAAI/bge-base-en-v1.5\nReceives PII-free text only\nBatch embed all candidates"]
+
+    EMBED --> INDEX
+    INDEX["INDEX (dsm/index/)\nMilvus Lite embedded\nHybrid: dense + BM25 + RRF"]
+
+    %% ── PHASE 3: CLARIFY THE ROLE ──
+    ROLE --> CLARIFY
+    CLARIFY["CLARIFY (dsm/match/clarify.py)\nLLM via PseudonymisedLM\nDSPy typed Signature\nRaw role text --> TargetProfileScorecard\nExtracts: skills, location, dates, hard vs desired"]
+
+    %% ── PHASE 4: DETERMINISTIC GATES ──
+    INGEST --> GATES
+    CLARIFY --> GATES
+    GATES["GATES (dsm/match/gates.py)\nPure Python — NO LLM, no imports from pii/ or index/\n─────────\nLocation gate: co-location check or remote-India\nAvailability gate: free by role start + 14 days\n─────────\nOutput: EligiblePool + ExclusionLog with reasons"]
+
+    %% ── PHASE 5: RETRIEVE ──
+    GATES --> RETRIEVE
+    INDEX --> RETRIEVE
+    CLARIFY --> RETRIEVE
+    RETRIEVE["RETRIEVE (dsm/index/)\nHybrid search over EligiblePool only\nScorecard query --> top-K candidates\nDeterministic retrieval, not agentic"]
+
+    %% ── PHASE 6: SCORE ──
+    RETRIEVE --> SCORE
+    CLARIFY --> SCORE
+    SCORE["SCORE (dsm/match/score.py)\nLLM via PseudonymisedLM\nDSPy typed Signature\nPer candidate: skill match + feedback assessment\nPython computes: 0.7 x skill + 0.3 x feedback\nAdjacency: partial credit + flag, never clears hard skill\nNew joiner skills flagged unverified"]
+
+    %% ── PHASE 7: RANK ──
+    SCORE --> RANK
+    RANK["RANK (dsm/match/rank.py)\nDeterministic Python sort + tie-break + top-k\nConfig-free — orchestrator owns config\nOutput: ShortlistResult OR NoMatchResult\n─────────\nShortlist: ranked candidates + explanations + flags\nNo-match: reason + ordered near-misses"]
+
+    %% ── OUTPUT ──
+    RANK --> OUTPUT
+
+    subgraph OUTPUT["CLI OUTPUT (dsm/cli/)"]
+        direction TB
+        JSON_OUT["ShortlistResult JSON\nRanked top-5 candidates\nPer-candidate: structured fields + narrative\nEvery claim cites real evidence"]
+        TRADEOFFS["Trade-offs surfaced, never hidden\nRetention risk / unverified skills /\nuncertain roll-off / adjacency used"]
+        NOMATCH["OR NoMatchResult\nEmpty + reason + closest near-misses\nNever a forced match"]
+    end
+
+    %% ── PII BOUNDARY ANNOTATION ──
+    PII_STRIP -.->|"pseudonymises"| CLARIFY
+    PII_STRIP -.->|"pseudonymises"| SCORE
+
+    %% ── STYLING ──
+    style INPUTS fill:#e3f2fd,stroke:#1565C0
+    style INGEST fill:#e8f5e9,stroke:#2E7D32
+    style PII_STRIP fill:#fce4ec,stroke:#c62828
+    style EMBED fill:#fff3e0,stroke:#E65100
+    style INDEX fill:#fff3e0,stroke:#E65100
+    style CLARIFY fill:#f3e5f5,stroke:#7B1FA2
+    style GATES fill:#e8f5e9,stroke:#2E7D32
+    style RETRIEVE fill:#fff3e0,stroke:#E65100
+    style SCORE fill:#f3e5f5,stroke:#7B1FA2
+    style RANK fill:#e8f5e9,stroke:#2E7D32
+    style OUTPUT fill:#e3f2fd,stroke:#1565C0
 
 ```
