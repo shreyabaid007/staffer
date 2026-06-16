@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 
 import dspy
 import yaml
+from dspy.adapters.base import AdapterParseError
+from pydantic import ValidationError
 
 from dsm.models import Location, OpenRole, SkillDepth, SkillRequirement, TargetProfileScorecard
 from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+log = logging.getLogger(__name__)
 
 _HARD_RE = re.compile(r"\((expert|depth)\)", re.IGNORECASE)
 _DESIRED_RE = re.compile(r"\((nice to have|desired)\)", re.IGNORECASE)
@@ -53,7 +59,18 @@ def _load_lm() -> PseudonymisedLM:
     return PseudonymisedLM(model=model, temperature=0)
 
 
-dspy.configure(lm=_load_lm())
+def _configure_lm() -> None:
+    import os
+
+    from dspy.utils.dummies import DummyLM
+
+    if os.environ.get("DSM_STUB_LM"):
+        dspy.configure(lm=DummyLM([{}]))
+    else:
+        dspy.configure(lm=_load_lm())
+
+
+_configure_lm()
 
 
 def _skills_to_raw(skills: list[SkillRequirement]) -> str:
@@ -115,16 +132,80 @@ def _fallback_parse(role: OpenRole) -> TargetProfileScorecard:
     )
 
 
-def clarify_role(role: OpenRole) -> TargetProfileScorecard:
-    """Stub: echo role as scorecard. Real implementation lands in b-001 tasks B-003+."""
-    from dsm.models import SkillDepth
+_predictor = dspy.Predict(ClarifyRole)
+
+
+def _parse_skills(raw_json: str) -> list[SkillRequirement]:
+    items = json.loads(raw_json)
+    return [
+        SkillRequirement(
+            name=item["name"].strip().lower(),
+            depth=SkillDepth(item["depth"]),
+            min_proficiency=item.get("min_proficiency"),
+        )
+        for item in items
+    ]
+
+
+def _parse_location(raw_json: str, role: OpenRole) -> Location:
+    data = json.loads(raw_json)
+    return Location(
+        city=data.get("city", role.location.city),
+        state=data.get("state") or role.location.state,
+        country=data.get("country", role.location.country),
+        remote_eligible=bool(data.get("remote_eligible", False)),
+    )
+
+
+def _build_scorecard(pred: dspy.Prediction, role: OpenRole) -> TargetProfileScorecard:
+    hard = _parse_skills(pred.hard_depth_skills_json)
+    desired = _parse_skills(pred.desired_skills_json)
+    location = _parse_location(pred.location_json, role)
+
+    # AC-B13: hard skills must not also appear in desired (AD-033)
+    hard_names = {s.name for s in hard}
+    desired = [s for s in desired if s.name not in hard_names]
+
+    with open("config/default.yaml") as f:
+        cfg = yaml.safe_load(f)
+    window = cfg["availability"]["window_days"]
 
     return TargetProfileScorecard(
         role_id=role.role_id,
-        hard_depth_skills=[s for s in role.required_skills if s.depth == SkillDepth.HARD],
-        desired_skills=[s for s in role.required_skills if s.depth == SkillDepth.DESIRED],
-        location=role.location,
+        hard_depth_skills=hard,
+        desired_skills=desired,
+        location=location,
         co_location_required=role.co_location_required,
         start_date=role.start_date,
-        availability_window_days=14,
+        availability_window_days=window,
+        clarification_notes=pred.clarification_notes,
     )
+
+
+def clarify_role(role: OpenRole) -> TargetProfileScorecard:
+    """Replace stub: call DSPy predict, parse, retry once on failure, fallback on second."""
+    inputs = dict(
+        role_id=role.role_id,
+        role_title=role.title,
+        required_skills_raw=_skills_to_raw(role.required_skills),
+        description=role.description or "",
+    )
+
+    for attempt in range(2):
+        try:
+            pred = _predictor(**inputs)
+            return _build_scorecard(pred, role)
+        except (
+            ValidationError,
+            json.JSONDecodeError,
+            KeyError,
+            ValueError,
+            AdapterParseError,
+        ) as exc:
+            if attempt == 0:
+                log.warning("clarify attempt 1 failed, retrying: %s", type(exc).__name__)
+                inputs = {**inputs, "description": f"{inputs['description']}\n[retry: {exc}]"}
+            else:
+                log.warning("clarify attempt 2 failed, using fallback: %s", type(exc).__name__)
+
+    return _fallback_parse(role)

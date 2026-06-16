@@ -1,8 +1,9 @@
-"""Tests for dsm/match/clarify.py — B-001/B-002."""
+"""Tests for dsm/match/clarify.py — B-001/B-002/B-003."""
 
 from datetime import date
 
 import dspy
+from dspy.utils.dummies import DummyLM
 
 from dsm.match import clarify
 from dsm.match.clarify import _fallback_parse
@@ -125,3 +126,87 @@ def test_fallback_hard_skill_not_in_desired(  # AD-033
     desired_names = {s.name for s in scorecard.desired_skills}
     assert "kotlin" in hard_names
     assert "kotlin" not in desired_names
+
+
+# ---------------------------------------------------------------------------
+# B-003: clarify_role predict + Pydantic parse
+# ---------------------------------------------------------------------------
+
+_LOC_BLR = '{"city": "Bengaluru", "state": null, "country": "India", "remote_eligible": false}'
+_LOC_BLR_REMOTE = (
+    '{"city": "Bengaluru", "state": null, "country": "India", "remote_eligible": true}'
+)
+_KOTLIN_HARD = '[{"name": "kotlin", "depth": "hard", "min_proficiency": null}]'
+_SPRING_DESIRED = '[{"name": "spring boot", "depth": "desired", "min_proficiency": null}]'
+_KOTLIN_DESIRED = '[{"name": "kotlin", "depth": "desired", "min_proficiency": null}]'
+_PYTHON_HARD = '[{"name": "python", "depth": "hard", "min_proficiency": null}]'
+
+_GOOD_PREDICTION = {
+    "hard_depth_skills_json": _KOTLIN_HARD,
+    "desired_skills_json": _SPRING_DESIRED,
+    "location_json": _LOC_BLR,
+    "clarification_notes": "Kotlin is the hard requirement; Spring Boot is desirable.",
+}
+
+_REMOTE_INDIA_PREDICTION = {
+    "hard_depth_skills_json": _PYTHON_HARD,
+    "desired_skills_json": "[]",
+    "location_json": _LOC_BLR_REMOTE,
+    "clarification_notes": "Remote India accepted.",
+}
+
+
+def test_clarify_role_happy_path() -> None:
+    role = _role(
+        required_skills=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)],
+        description="Kotlin depth is the hard requirement.",
+    )
+    with dspy.context(lm=DummyLM([_GOOD_PREDICTION])):
+        scorecard = clarify.clarify_role(role)
+
+    hard_names = [s.name for s in scorecard.hard_depth_skills]
+    desired_names = [s.name for s in scorecard.desired_skills]
+    assert "kotlin" in hard_names
+    assert "spring boot" in desired_names
+    assert scorecard.role_id == "ROLE-TEST"
+    assert scorecard.availability_window_days == 14
+
+
+def test_clarify_role_remote_india_location() -> None:
+    role = _role(description="Bengaluru / remote-India candidates welcome.")
+    with dspy.context(lm=DummyLM([_REMOTE_INDIA_PREDICTION])):
+        scorecard = clarify.clarify_role(role)
+
+    assert scorecard.location.remote_eligible is True
+
+
+def test_clarify_role_hard_skill_not_in_desired() -> None:
+    # LLM mistakenly puts kotlin in both lists; post-parse must strip it from desired (AC-B13)
+    prediction = {
+        "hard_depth_skills_json": _KOTLIN_HARD,
+        "desired_skills_json": _KOTLIN_DESIRED,
+        "location_json": _LOC_BLR,
+        "clarification_notes": "Kotlin hard.",
+    }
+    role = _role()
+    with dspy.context(lm=DummyLM([prediction])):
+        scorecard = clarify.clarify_role(role)
+
+    hard_names = {s.name for s in scorecard.hard_depth_skills}
+    desired_names = {s.name for s in scorecard.desired_skills}
+    assert "kotlin" in hard_names
+    assert "kotlin" not in desired_names
+
+
+def test_clarify_role_role01_kotlin_in_hard(  # AC-B06 seed eval invariant
+) -> None:
+    role = _role(
+        required_skills=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)],
+        description="Kotlin depth is the hard requirement; payments domain experience needed.",
+    )
+    with dspy.context(lm=DummyLM([_GOOD_PREDICTION])):
+        scorecard = clarify.clarify_role(role)
+
+    hard_names = [s.name for s in scorecard.hard_depth_skills]
+    assert "kotlin" in hard_names
+    assert all(s.name != "kotlin" for s in scorecard.desired_skills)
