@@ -4,15 +4,18 @@
 > Per-lane progress goes in `docs/progress.A.md` / `.B.md` / `.C.md` — see _Lane files_ below. Section headers are stable so `/handoff-index` can target them. Keep them.
 
 ## Current status
-- **Build phase:** Slice 0 complete and merged to `main`; contracts frozen.
-- **Active slice:** none in flight — Slice 0 done; Slice 1 (real gates) not yet started.
-- **Harness (`make check`):** GREEN — format, lint, typecheck, 29 tests, import contracts all pass.
-- **`main`:** Slice 0 foundation merged (PR #3, `spec/000-foundation`) plus per-lane progress files (PR #4, `lane-specific-progress`).
+- **Build phase:** Slice 1 underway — real deterministic gates + rank merged; LLM/PII/retrieval steps still stubbed. Contracts frozen.
+- **Active slice:** Lane C `c-001-gates-rank` merged to `main` (PR #5). Lane A `feat/a/001-ingest-sheets` in flight (real xlsx ingest); Lane B reasoning not yet started.
+- **Harness (`make check`):** GREEN — format, lint, typecheck, 66 tests, 2 import contracts all pass.
+- **`main`:** Slice 0 foundation (PR #3) + per-lane progress files (PR #4); index refresh (PR #6); real gates/rank/no-match (PR #5, `feat/c/001-gates-rank`).
 
 ## Works end-to-end right now
-- `uv run dsm match --role-id ROLE-STUB-01` — runs stub pipeline end-to-end, prints valid JSON.
+- `uv run dsm match --role-id ROLE-STUB-01` — runs the full pipeline (real gates → stub retrieve/score → real rank, or real no-match) over stub ingest and prints a valid `ShortlistResult` / `NoMatchResult` JSON.
+- **Real deterministic gates** ([`dsm/match/gates.py`](../dsm/match/gates.py)) — location (AD-020/063a) + availability (AD-021/022); LLM-free, import-clean.
+- **Real ranking** ([`dsm/match/rank.py`](../dsm/match/rank.py)) — deterministic sort/tie-break/top-k; config-free (orchestrator owns config via [`dsm/config.py`](../dsm/config.py), AD-064).
+- **No-match path + near-misses** ([`dsm/cli/commands.py`](../dsm/cli/commands.py)) — orchestrator builds `NoMatchResult` with ordered, capped near-misses (AD-063b/c/d).
 - `dsm/models.py` — all 19 Pydantic v2 domain contracts typed and frozen (AD-060).
-- `make check` — 29 tests green (27 model + 1 gates + 1 CLI e2e), 0 type errors, 2 import contracts.
+- `make check` — 66 tests green (gates, rank, no-match, e2e + fixtures, models), 0 type errors, 2 import contracts. Importable ROLE-01/02/03 seed fixtures in `tests/fixtures/` (reusable by `dsm/eval/`).
 
 ## Lane files
 Per-lane In flight / Next up / Blockers / Session log live in these append-only files. Read the index, then your lane file.
@@ -21,10 +24,12 @@ Per-lane In flight / Next up / Blockers / Session log live in these append-only 
 - [`docs/progress.C.md`](progress.C.md) — **Lane C: Quality, PII & Interface** (Eng C — PII boundary, CLI, eval/quality).
 
 ## Active specs
-- `specs/000-foundation/` — complete, approved, and merged to `main`. No new specs in progress.
+- `specs/000-foundation/` — complete, approved, merged to `main`.
+- `specs/c-001-gates-rank/` — complete, approved, merged to `main` (PR #5).
+- _Next (planned):_ Lane C `c-002-*` for the real `pii/PseudonymisedLM` boundary (not yet written).
 
 ## Decisions
-- Authoritative log: `docs/decision.md` (current range AD-001 … AD-061; next starts at AD-062). AD-061 added: per-lane progress files + index refreshed at merge.
+- Authoritative log: `docs/decision.md` (current range AD-001 … AD-064; next starts at AD-065). Recently landed: AD-062 (revised lane assignments), AD-063 (gate semantics + near-miss assembly), AD-064 (YAML config loader + PyYAML dep; rank stays config-free).
 - **Freeze the contracts after Slice 0.** Churn breaks parallel lane work — change only via team agreement + a new ADR.
 
 ---
