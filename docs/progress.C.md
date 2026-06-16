@@ -9,8 +9,8 @@
 
 ## Next up
 1. Merge `feat/c/001-gates-rank` to `main`, then `/handoff-index`.
-2. Wire up `make eval` — Promptfoo + DeepEval invariants (gates-respected · hard-skill-not-cleared-by-adjacency · evidence-cited · no-PII-leak · determinism). Reuse the importable `tests/fixtures/` ROLE-01/02/03 seed cases (built for this in c-001) so `dsm/eval/` doesn't duplicate them.
-3. Real `pii/PseudonymisedLM` boundary (currently stubbed) — no PII to OpenRouter unpseudonymised; no `name`/`email` to Modal.
+2. **Real `pii/PseudonymisedLM` boundary** (currently stubbed) — Presidio/spaCy anonymise-before / deanonymise-after so no PII reaches OpenRouter unpseudonymised and no `name`/`email` reaches Modal. **Prioritised ahead of eval** so the no-PII-leak invariant tests a real boundary, not the pass-through stub. Needs a spec in `specs/c-002-*` before code (golden rule 1).
+3. Wire up `make eval` — Promptfoo + DeepEval invariants (gates-respected · hard-skill-not-cleared-by-adjacency · evidence-cited · no-PII-leak · determinism). Reuse the importable `tests/fixtures/` ROLE-01/02/03 seed cases (built for this in c-001) so `dsm/eval/` doesn't duplicate them.
 4. CLI/interface polish: the orchestrator now runs real gates/rank/no-match over **stub ingest** (`run_match` is ingest-agnostic) — swap in Lane A's real ingest when ready; consider a human-readable render for `NoMatchResult` beyond raw JSON.
 
 ## Blockers / needs a human
