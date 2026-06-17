@@ -1,0 +1,28 @@
+{
+  "input": {
+    "role_id": "ROLE-02",
+    "title": "Data Engineer – Chennai",
+    "required_skills": [
+      {"name": "spark", "depth": "hard", "min_proficiency": "advanced"},
+      {"name": "python", "depth": "hard", "min_proficiency": "intermediate"},
+      {"name": "airflow", "depth": "desired", "min_proficiency": null}
+    ],
+    "location": {"city": "Chennai", "state": null, "country": "India", "remote_eligible": false},
+    "co_location_required": true,
+    "start_date": "2026-09-01",
+    "description": "Chennai-based or Chennai-open candidates only. Spark and Python are hard requirements."
+  },
+  "expected_lm_response": {
+    "hard_depth_skills_json": "[{\"name\": \"spark\", \"depth\": \"hard\", \"min_proficiency\": \"advanced\"}, {\"name\": \"python\", \"depth\": \"hard\", \"min_proficiency\": \"intermediate\"}]",
+    "desired_skills_json": "[{\"name\": \"airflow\", \"depth\": \"desired\", \"min_proficiency\": null}]",
+    "location_json": "{\"city\": \"Chennai\", \"state\": null, \"country\": \"India\", \"remote_eligible\": false}",
+    "clarification_notes": "Spark and Python are hard requirements; Airflow is desirable. Chennai location is required."
+  },
+  "assertions": {
+    "spark_in_hard_depth_skills": true,
+    "python_in_hard_depth_skills": true,
+    "remote_eligible": false,
+    "co_location_required": true,
+    "location_city": "Chennai"
+  }
+}

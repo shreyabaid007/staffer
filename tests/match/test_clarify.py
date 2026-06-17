@@ -1,15 +1,21 @@
-"""Tests for dsm/match/clarify.py — B-001/B-002/B-003/B-004."""
+"""Tests for dsm/match/clarify.py — B-001/B-002/B-003/B-004/B-005."""
 
-from datetime import date
+import json
+import os
+from datetime import date, datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import dspy
+import pytest
 from dspy.utils.dummies import DummyLM
 
 from dsm.match import clarify
 from dsm.match.clarify import _fallback_parse
 from dsm.models import Location, OpenRole, SkillDepth, SkillRequirement
 from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+_FIXTURES_DIR = Path(__file__).parent / "fixtures" / "roles"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -228,9 +234,7 @@ def _good_prediction() -> MagicMock:
 
 
 def _bad_exc() -> Exception:
-    from dspy.adapters.base import AdapterParseError
-
-    return AdapterParseError("JSONAdapter", clarify.ClarifyRole, "")
+    return ValueError("simulated LM parse failure")
 
 
 def test_retry_succeeds_on_second_attempt() -> None:
@@ -258,3 +262,98 @@ def test_fallback_activated_when_both_attempts_fail() -> None:
     assert "fallback=true" in (scorecard.clarification_notes or "").lower()
     hard_names = [s.name for s in scorecard.hard_depth_skills]
     assert "kotlin" in hard_names
+
+
+# ---------------------------------------------------------------------------
+# B-005: golden fixtures (auto-discovered from tests/match/fixtures/roles/)
+# ---------------------------------------------------------------------------
+
+
+def _load_role(data: dict) -> OpenRole:
+    inp = data["input"]
+    from dsm.models import ProficiencyLevel, SkillDepth, SkillRequirement
+
+    return OpenRole(
+        role_id=inp["role_id"],
+        title=inp["title"],
+        required_skills=[
+            SkillRequirement(
+                name=s["name"],
+                depth=SkillDepth(s["depth"]),
+                min_proficiency=ProficiencyLevel(s["min_proficiency"])
+                if s.get("min_proficiency")
+                else None,
+            )
+            for s in inp["required_skills"]
+        ],
+        location=Location(**inp["location"]),
+        co_location_required=inp["co_location_required"],
+        start_date=datetime.strptime(inp["start_date"], "%Y-%m-%d").date(),
+        description=inp.get("description"),
+    )
+
+
+_fixture_files = sorted(_FIXTURES_DIR.glob("*.json"))
+
+
+@pytest.mark.parametrize("fixture_path", _fixture_files, ids=[f.stem for f in _fixture_files])
+def test_golden_fixture_mock_lm(fixture_path: Path) -> None:
+    data = json.loads(fixture_path.read_text())
+    role = _load_role(data)
+    lm_response = data["expected_lm_response"]
+    assertions = data["assertions"]
+
+    mock_pred = MagicMock()
+    mock_pred.hard_depth_skills_json = lm_response["hard_depth_skills_json"]
+    mock_pred.desired_skills_json = lm_response["desired_skills_json"]
+    mock_pred.location_json = lm_response["location_json"]
+    mock_pred.clarification_notes = lm_response["clarification_notes"]
+
+    with patch("dsm.match.clarify._predictor", return_value=mock_pred):
+        scorecard = clarify.clarify_role(role)
+
+    hard_names = {s.name for s in scorecard.hard_depth_skills}
+    desired_names = {s.name for s in scorecard.desired_skills}
+
+    for key, expected in assertions.items():
+        if key.endswith("_in_hard_depth_skills"):
+            skill = key.replace("_in_hard_depth_skills", "").replace("_", " ")
+            assert (skill in hard_names) == expected, f"{key}: {skill!r} not found in {hard_names}"
+        elif key.endswith("_not_in_desired_skills"):
+            skill = key.replace("_not_in_desired_skills", "").replace("_", " ")
+            assert (skill not in desired_names) == expected, (
+                f"{key}: {skill!r} unexpectedly in {desired_names}"
+            )
+        elif key == "remote_eligible":
+            assert scorecard.location.remote_eligible == expected
+        elif key == "co_location_required":
+            assert scorecard.co_location_required == expected
+        elif key == "location_city":
+            assert scorecard.location.city == expected
+
+
+@pytest.mark.skipif(not os.environ.get("DSM_LIVE_LM"), reason="DSM_LIVE_LM not set")
+@pytest.mark.parametrize("fixture_path", _fixture_files, ids=[f.stem for f in _fixture_files])
+def test_golden_fixture_live_lm(fixture_path: Path) -> None:
+    data = json.loads(fixture_path.read_text())
+    role = _load_role(data)
+    assertions = data["assertions"]
+
+    scorecard = clarify.clarify_role(role)
+
+    hard_names = {s.name for s in scorecard.hard_depth_skills}
+    desired_names = {s.name for s in scorecard.desired_skills}
+
+    for key, expected in assertions.items():
+        if key.endswith("_in_hard_depth_skills"):
+            skill = key.replace("_in_hard_depth_skills", "").replace("_", " ")
+            assert (skill in hard_names) == expected
+        elif key.endswith("_not_in_desired_skills"):
+            skill = key.replace("_not_in_desired_skills", "").replace("_", " ")
+            assert (skill not in desired_names) == expected
+        elif key == "remote_eligible":
+            assert scorecard.location.remote_eligible == expected
+        elif key == "co_location_required":
+            assert scorecard.co_location_required == expected
+        elif key == "location_city":
+            assert scorecard.location.city == expected

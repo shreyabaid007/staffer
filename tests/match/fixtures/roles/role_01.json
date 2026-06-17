@@ -1,0 +1,26 @@
+{
+  "input": {
+    "role_id": "ROLE-01",
+    "title": "Senior Kotlin Engineer – Payments",
+    "required_skills": [
+      {"name": "kotlin", "depth": "hard", "min_proficiency": "expert"},
+      {"name": "payments domain", "depth": "desired", "min_proficiency": null}
+    ],
+    "location": {"city": "Bengaluru", "state": null, "country": "India", "remote_eligible": false},
+    "co_location_required": true,
+    "start_date": "2026-08-01",
+    "description": "Kotlin depth is the hard requirement. Payments domain experience is a plus."
+  },
+  "expected_lm_response": {
+    "hard_depth_skills_json": "[{\"name\": \"kotlin\", \"depth\": \"hard\", \"min_proficiency\": \"expert\"}]",
+    "desired_skills_json": "[{\"name\": \"payments domain\", \"depth\": \"desired\", \"min_proficiency\": null}]",
+    "location_json": "{\"city\": \"Bengaluru\", \"state\": null, \"country\": \"India\", \"remote_eligible\": false}",
+    "clarification_notes": "Kotlin is the hard depth requirement; payments domain is desirable."
+  },
+  "assertions": {
+    "kotlin_in_hard_depth_skills": true,
+    "kotlin_not_in_desired_skills": true,
+    "remote_eligible": false,
+    "co_location_required": true
+  }
+}
