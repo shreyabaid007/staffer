@@ -1,14 +1,16 @@
 # a-001-ingest-sheets — Requirements
 
 > Lane A (Data & Retrieval). Replace the Slice-0 ingest stub (`dsm/ingest/stub.py`) with
-> real ingestion of `data/demand-supply.xlsx` using openpyxl. **Sheets-only** — Docling
-> profile enrichment is deferred to a later slice (per `docs/progress.A.md` Next-up #2).
+> real ingestion of the **candidate supply sheets** in `data/demand-supply.xlsx` using
+> openpyxl. **Sheets-only** — Docling profile enrichment is deferred to a later slice (per
+> `docs/progress.A.md` Next-up #2). **Candidate-only** — Open Roles mapping is **out of
+> scope** for this feature (it may or may not be needed; not decided here).
 
 ## User story
-As the staffing engine, I need to load the current supply/demand snapshot from the Excel
-workbook into typed `Candidate` and `OpenRole` records, so the gate → retrieve → score →
-rank pipeline runs over real people and roles instead of hardcoded stubs — and so any row
-that can't be trusted is **reported, never silently dropped**.
+As the staffing engine, I need to load the current consultant supply snapshot from the Excel
+workbook into typed `Candidate` records, so the gate → retrieve → score → rank pipeline runs
+over real people instead of hardcoded stubs — and so any row that can't be trusted is
+**reported, never silently dropped**.
 
 ## Product invariants referenced
 - **Candidate universe = the three supply sheets** (Beach / Rolling Off / New Joiners),
@@ -19,20 +21,22 @@ that can't be trusted is **reported, never silently dropped**.
   silently swallowed" (`docs/tech.md` §Coding standards).
 
 ## Scope
-- **In:** read all 4 tabs of `data/demand-supply.xlsx`; map supply rows → `Candidate`,
-  Open Roles rows → `OpenRole`; produce a typed ingest summary of what was loaded and what
-  failed validation; handle duplicate emails, blank rows, unparseable dates.
-- **Out:** profile (PDF) enrichment, feedback parsing, the vector index, any CLI wiring
-  (Lane C owns `cli/`; this spec exposes the function it will call). `Candidate.feedback`
-  is left empty (`FeedbackSignals()`); `profile_summary` / `years_experience` stay `None`.
+- **In:** read the three supply tabs (`Beach`, `Rolling Off`, `New Joiners`) of
+  `data/demand-supply.xlsx`; map supply rows → `Candidate`; produce a typed ingest summary of
+  what was loaded and what failed validation; handle duplicate emails, blank rows,
+  unparseable dates.
+- **Out:** **Open Roles mapping → `OpenRole` (out of scope — not part of this feature)**; profile
+  (PDF) enrichment, feedback parsing, the vector index, any CLI wiring (Lane C owns `cli/`;
+  this spec exposes the function it will call). `Candidate.feedback` is left empty
+  (`FeedbackSignals()`); `profile_summary` / `years_experience` stay `None`.
 
 ## Acceptance criteria (EARS)
 
 ### Loading
-- **I-LOAD-1** — WHEN `ingest_workbook(path)` is called with a readable `.xlsx`, the system
-  SHALL open it with openpyxl in `data_only=True` mode and locate the tabs `Open Roles`,
-  `Beach`, `Rolling Off`, `New Joiners` by sheet name.
-- **I-LOAD-2** — WHEN an expected tab is absent or its header row is missing required
+- **I-LOAD-1** — WHEN `ingest_candidates(path)` is called with a readable `.xlsx`, the system
+  SHALL open it with openpyxl in `data_only=True` mode and locate the tabs `Beach`,
+  `Rolling Off`, `New Joiners` by sheet name. (Any other tab, e.g. `Open Roles`, is ignored.)
+- **I-LOAD-2** — WHEN an expected supply tab is absent or its header row is missing required
   columns, the system SHALL raise a typed `IngestError` (a structural failure is fatal —
   it is not a per-row issue) naming the offending tab/column.
 - **I-LOAD-3** — Each tab's **title row is row 1**, the **header row is row 2**, and **data
@@ -61,33 +65,13 @@ that can't be trusted is **reported, never silently dropped**.
   field**; new-joiner-ness is represented by `source`, from which the downstream
   `unverified_skills` flag is derived (AD-032). See **OQ-1**.
 
-### Open Role mapping
-- **I-ROLE-1** — WHEN an Open Roles row is valid, the system SHALL emit one `OpenRole` with
-  `role_id`, `title`, `location`, `co_location_required` (from *Co-location*: `Yes`→True,
-  `No`→False), and `start_date` (from *Start*).
-- **I-ROLE-2 (skills parsed; depth deferred to clarify)** — Ingest SHALL parse *Required
-  Skills* into `required_skills: list[SkillRequirement]` **mechanically**: split on `;`, trim,
-  lowercase the skill name, drop blanks, de-dupe. Each requirement's `depth` SHALL be
-  `SkillDepth.DESIRED` **uniformly** — ingest NEVER asserts `HARD`; `match/clarify` (the LLM,
-  authoritative) promotes skills to `HARD` from the title/notes (AD-033, AD-001). See **OQ-3**.
-- **I-ROLE-3 (proficiency hint)** — A trailing parenthetical naming a proficiency band (e.g.
-  `Kotlin (expert)`) SHALL set that requirement's `min_proficiency`; a non-proficiency
-  parenthetical (e.g. `(nice to have)`) SHALL be stripped from the name and otherwise ignored
-  (the requirement is already `DESIRED`). Each `;`-fragment is **one** requirement — ingest
-  SHALL NOT split `"Selenium or Cypress"` or interpret domain phrases (e.g. `payments domain`);
-  those pass through as a single verbatim name for `clarify` to refine.
-- **I-ROLE-4 (raw text preserved)** — The raw *Required Skills* text and *Notes / Constraints*
-  SHALL also be preserved in `OpenRole.description` so `clarify` has the context it needs to
-  promote depth. *Client / Sector / Priority* columns have no model field and are dropped.
-  `preferred_skills` SHALL be left empty `[]`.
-
 ### Validation, summary & edge cases
 - **I-VAL-1** — WHEN a row fails validation (missing email/name, unparseable or missing
-  required date, bad confidence, or any `Candidate`/`OpenRole` `ValidationError`), the system
-  SHALL skip that row, NOT raise, and record a `RowIssue{sheet, row_number, email, reason}`.
-- **I-SUM-1** — The system SHALL return an `IngestSummary` with counts (rows seen, candidates
-  ingested, roles ingested, blank rows skipped, duplicate emails skipped) and the full list
-  of `RowIssue`s. **No failure is silent** (`docs/tech.md`).
+  required date, bad confidence, or any `Candidate` `ValidationError`), the system SHALL skip
+  that row, NOT raise, and record a `RowIssue{sheet, row_number, email, reason}`.
+- **I-SUM-1** — The system SHALL return an `IngestSummary` with counts (candidate rows seen,
+  candidates ingested, blank rows skipped, duplicate emails skipped) and the full list of
+  `RowIssue`s. **No failure is silent** (`docs/tech.md`).
 - **I-EDGE-1 (duplicate emails)** — WHEN two supply rows share an email (within or across
   tabs), the **first occurrence wins** (tab order Beach → Rolling Off → New Joiners, then row
   order); each later duplicate SHALL be skipped, counted in `duplicate_emails_skipped`, and
@@ -98,8 +82,8 @@ that can't be trusted is **reported, never silently dropped**.
   or an ISO `YYYY-MM-DD` string; anything else is a validation failure (I-VAL-1).
 
 ### Determinism
-- **I-DET-1** — Same workbook → same `IngestResult` every run: stable ordering (sheet order,
-  then row order), deterministic de-duplication, no wall-clock or randomness (AD-001;
+- **I-DET-1** — Same workbook → same `(candidates, summary)` every run: stable ordering (sheet
+  order, then row order), deterministic de-duplication, no wall-clock or randomness (AD-001;
   `docs/tech.md` §Determinism).
 
 ## Resolved decisions (signed off 2026-06-16)
@@ -115,21 +99,14 @@ These were conflicts/gaps between the task brief and the **frozen** contract (AD
   sheet-sourced skill defaults to INTERMEDIATE, to be overwritten when profiles (later slice)
   supply real levels. → **new ADR.** (Grade-based inference rejected: grade is seniority, not
   per-skill proficiency.)
-- **OQ-3 — Required Skills parsing.** ✅ **Ingest parses *Required Skills* into
-  `required_skills` mechanically (name + `min_proficiency`), with `depth=DESIRED` uniformly;
-  `clarify` promotes skills to `HARD`.** *(Revised 2026-06-17 — supersedes the earlier
-  "leave raw, don't parse" call.)* Rationale: only `clarify` consumes `OpenRole.required_skills`,
-  and the current clarify stub already maps `required_skills[].depth` → the scorecard's
-  hard/desired split — so a uniform `DESIRED` keeps ingest from silently owning the hard-skill
-  invariant (AD-033) while making the pipeline work end-to-end now. Raw text + Notes are still
-  kept in `description` for clarify's context (I-ROLE-4). *Client / Sector / Priority* dropped.
-  → **new ADR + Lane B (clarify) coordination**: real clarify must remain authoritative on
-  depth, treating ingest's `DESIRED` as a hint, not the final word.
+- **OQ-3 — Required Skills parsing.** ⛔ **Moot — Open Roles mapping is out of scope** for this
+  candidate-only feature. (If Open Roles ingest is ever taken on, revisit then whether ingest
+  parses skills or leaves them for `clarify`.)
 - **OQ-4 — openpyxl dependency.** ✅ **Declare `openpyxl>=3.1` explicitly in `pyproject.toml`.**
   It is in `uv.lock` only transitively (via docling); relying on that is fragile. → **new ADR**
   (`docs/tech.md`: no new deps without an ADR).
-- **OQ-5 — return contract shape.** ✅ **Keep the documented `dict + list`; add the summary as
-  a third typed return element.** `ingest_workbook` returns
-  `tuple[dict[str, Candidate], list[OpenRole], IngestSummary]` — **no `IngestResult` wrapper**
-  (declined). `docs/structure.md` line 42 stays accurate (dict, list); a one-line note records
-  the summary as a third element.
+- **OQ-5 — return contract shape.** ✅ **Return `tuple[dict[str, Candidate], IngestSummary]`** —
+  candidates keyed by email (AD-012) plus the typed summary; **no `IngestResult` wrapper**
+  (declined). `docs/structure.md` line 42 lists the ingest phase as producing
+  `dict[email, Candidate]` (and `list[OpenRole]`, which this feature does not build); a
+  one-line note records that candidate ingest also returns the summary.
