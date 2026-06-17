@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -3932,6 +3932,7 @@ dependencies = [
     { name = "dspy" },
     { name = "httpx" },
     { name = "modal" },
+    { name = "openpyxl" },
     { name = "presidio-analyzer" },
     { name = "presidio-anonymizer" },
     { name = "pydantic" },
@@ -3960,6 +3961,7 @@ requires-dist = [
     { name = "httpx" },
     { name = "import-linter", marker = "extra == 'dev'" },
     { name = "modal" },
+    { name = "openpyxl", specifier = ">=3.1" },
     { name = "presidio-analyzer" },
     { name = "presidio-anonymizer" },
     { name = "promptfoo", marker = "extra == 'dev'" },

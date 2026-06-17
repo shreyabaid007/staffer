@@ -16,6 +16,7 @@ dependencies = [
     "modal",
     "httpx",
     "pyyaml>=6.0",
+    "openpyxl>=3.1",
 ]
 
 [project.scripts]
