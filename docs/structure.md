@@ -39,7 +39,7 @@ repo/
 
 ## Module contracts — the seven phases
 Each phase is a module with **one typed input and one typed output**. Build and test them independently.
-- `ingest` → `dict[email, Candidate]`, `list[OpenRole]`
+- `ingest` → `dict[email, Candidate]`, `list[OpenRole]`  *(candidate ingest `ingest_candidates` also returns a typed `IngestSummary` alongside the dict — OQ-5; Open Roles ingest is out of scope for a-001)*
 - `index` (Candidates) → Milvus collection  *(embed text excludes PII)*
 - `match/clarify` (RawRole | text) → `TargetProfileScorecard`
 - `match/gates` (Candidates, Scorecard) → `EligiblePool`, `ExclusionLog`  *(pure, LLM-free)*

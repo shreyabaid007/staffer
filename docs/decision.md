@@ -15,6 +15,7 @@
 - **AD-011 · Embedder receives PII-free text** — Accepted — `name`/`email` excluded from embedding input by construction; Modal sees no identity. Why: keeps the boundary intact while hosting the embedder externally.
 - **AD-012 · Email is the join key** — Accepted — Join xlsx ↔ profiles ↔ feedback on email; first names collide in the data.
 - **AD-013 · Candidate universe = supply sheets** — Accepted — Candidates are the people in Beach / Rolling Off / New Joiners; profiles enrich. A profile with no supply row = staffed → not a candidate.
+- **AD-066 · Sheet-sourced skills default to `INTERMEDIATE` proficiency** — Accepted (a-001-ingest-sheets, OQ-2) — The supply sheets carry skills as a flat comma-separated *Key Skills* list with **no proficiency**, but `Skill.proficiency` is required on the frozen model (AD-060). Every skill parsed from a sheet is therefore assigned `ProficiencyLevel.INTERMEDIATE` as a neutral placeholder, to be overwritten when profile (PDF) enrichment supplies real per-skill levels in a later slice (AD-012/013). Why: a required field needs a deterministic default and INTERMEDIATE is the least-biased band. Grade-based inference was **rejected** — Grade (e.g. "Lead Consultant") is seniority, not per-skill proficiency, and inferring one from the other would fabricate signal. Consequence: downstream scoring must not treat an INTERMEDIATE on a sheet-only candidate as a verified level; new-joiner uncertainty is already flagged separately via `source=NEW_JOINER` (OQ-1, AD-032).
 
 ## Gating rules
 
@@ -66,6 +67,8 @@
 
 - **AD-064 · YAML config loader + PyYAML dependency** — Accepted — Runtime config is read from `config/default.yaml` through a single cached loader, `dsm/config.py::load_config()`, which the orchestrator (`dsm/cli/commands.py`) uses to source `ranking.top_k` and build the `ShortlistResult.config_snapshot`. This adds **PyYAML** (`pyyaml>=6.0`) as a declared dependency — previously present only transitively. Why: `docs/tech.md` rule 6 ("config over constants") mandates weights/K/model IDs live in `config/`, but Slice 0 hardcoded them and nothing read the YAML; the gates/rank spec needs a real read. Per `docs/tech.md` ("no new deps without an ADR") and `CLAUDE.md` ("Stop and ask … add a dependency"), the dependency was confirmed with the human before adding. Consequence: `match/rank.py` stays **config-free** (the refinement to T-004 — `top_k` and `config_snapshot` are passed in by the orchestrator, never read inside rank), so there is one source of truth for ranking config and no two-defaults divergence. The loader resolves `config/default.yaml` relative to the repo checkout (config/ is not packaged into the wheel; acceptable for the CLI/POC). Reusable by Lanes A/B.
 
+- **AD-065 · openpyxl declared as a direct dependency** — Accepted (a-001-ingest-sheets, OQ-4) — Real candidate ingestion (`dsm/ingest/sheets.py`) reads `data/demand-supply.xlsx` with **openpyxl**, so `openpyxl>=3.1` is now declared explicitly in `pyproject.toml`. Why: it was present in `uv.lock` only transitively (via docling); relying on a transitive pin is fragile and violates `docs/tech.md` ("no new deps without an ADR"). Per `CLAUDE.md` ("Stop and ask … add a dependency") the dependency was confirmed with the human before adding. Consequence: ingest stays pure/offline — the import contract "`dsm.ingest` must not import `modal`/`httpx`" remains green; the only side effect is the single file read at the `ingest_candidates` edge.
+
 ---
 
-*Next ADRs start at AD-065.*
+*Next ADRs start at AD-067.*
