@@ -15,9 +15,13 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 from datetime import date, datetime
-from typing import Literal, cast
+from pathlib import Path
+from typing import Literal, NamedTuple, cast
 
-from dsm.ingest.models import IngestError
+from openpyxl import load_workbook
+from pydantic import ValidationError
+
+from dsm.ingest.models import IngestError, IngestSummary, RowIssue
 from dsm.models import (
     AvailabilityState,
     Candidate,
@@ -33,6 +37,30 @@ from dsm.models import (
 
 _REMOTE_RE = re.compile(r"remote", re.IGNORECASE)
 _CONFIDENCE_VALUES = ("high", "medium", "low")
+
+# Header row is row 2; data begins at row 3 (I-LOAD-3).
+_HEADER_ROW = 2
+_FIRST_DATA_ROW = 3
+
+
+class _SupplyTab(NamedTuple):
+    """A supply tab to ingest, in fixed processing order (I-DET-1)."""
+
+    sheet: str
+    source: CandidateSource
+    required: tuple[str, ...]  # headers without which the tab can't be mapped (I-LOAD-2)
+
+
+# Fixed order: Beach → Rolling Off → New Joiners (I-EDGE-1 first-occurrence, I-DET-1).
+_SUPPLY_TABS: tuple[_SupplyTab, ...] = (
+    _SupplyTab("Beach", CandidateSource.BEACH, ("Name", "Email")),
+    _SupplyTab(
+        "Rolling Off",
+        CandidateSource.ROLLING_OFF,
+        ("Name", "Email", "Roll-off Date", "Confidence"),
+    ),
+    _SupplyTab("New Joiners", CandidateSource.NEW_JOINER, ("Name", "Email", "Join Date")),
+)
 
 
 def _norm(value: object) -> str:
@@ -116,7 +144,7 @@ def _header_index(ws: object, *, sheet: str, required: Iterable[str]) -> dict[st
     (I-LOAD-2).
     """
     headers: dict[str, int] = {}
-    for col, cell in enumerate(ws[2], start=1):  # type: ignore[index]
+    for col, cell in enumerate(ws[_HEADER_ROW], start=1):  # type: ignore[index]
         if cell.value is None:
             continue
         headers[_norm(cell.value)] = col
@@ -203,3 +231,91 @@ def _row_to_candidate(
         feedback=FeedbackSignals(),
         source=source,
     )
+
+
+def _read_email(values: Sequence[object], headers: dict[str, int]) -> str | None:
+    """Best-effort email read for a ``RowIssue`` on an otherwise-invalid row."""
+    raw = _cell(values, headers, "Email")
+    text = "" if raw is None else str(raw).strip()
+    return text or None
+
+
+def ingest_candidates(
+    path: str | Path,
+) -> tuple[dict[str, Candidate], IngestSummary]:
+    """Load candidate supply sheets into typed ``Candidate`` records (I-LOAD-1).
+
+    Opens ``path`` once with openpyxl (``data_only=True``) and iterates the three
+    supply tabs in fixed order (Beach → Rolling Off → New Joiners); any other tab
+    (e.g. ``Open Roles``) is ignored. Blank rows are skipped, duplicate emails keep
+    the first occurrence, and any row that fails validation becomes a ``RowIssue``
+    rather than aborting the run (I-VAL-1, I-EDGE-1/2/3). A missing tab or required
+    header is fatal (``IngestError``, I-LOAD-2).
+
+    Returns ``(candidates_by_email, summary)`` — no ``IngestResult`` wrapper (OQ-5).
+    Deterministic: same workbook → same result, no clock/RNG (I-DET-1).
+    """
+    workbook_path = str(path)
+    wb = load_workbook(workbook_path, data_only=True)
+
+    candidates: dict[str, Candidate] = {}
+    first_seen: dict[str, tuple[str, int]] = {}  # email → (sheet, row) of first occurrence
+    issues: list[RowIssue] = []
+    rows_seen = 0
+    blank_skipped = 0
+    duplicate_skipped = 0
+
+    for tab in _SUPPLY_TABS:
+        if tab.sheet not in wb.sheetnames:
+            raise IngestError(f"missing required supply tab: {tab.sheet!r}")
+        ws = wb[tab.sheet]
+        headers = _header_index(ws, sheet=tab.sheet, required=tab.required)
+
+        for offset, values in enumerate(ws.iter_rows(min_row=_FIRST_DATA_ROW, values_only=True)):
+            row_number = _FIRST_DATA_ROW + offset
+            if _is_blank(values):
+                blank_skipped += 1
+                continue
+
+            rows_seen += 1
+            try:
+                candidate = _row_to_candidate(values, headers, tab.source)
+            except (ValueError, ValidationError) as exc:
+                issues.append(
+                    RowIssue(
+                        sheet=tab.sheet,
+                        row_number=row_number,
+                        email=_read_email(values, headers),
+                        reason=str(exc).replace("\n", " "),
+                    )
+                )
+                continue
+
+            prior = first_seen.get(candidate.email)
+            if prior is not None:
+                duplicate_skipped += 1
+                issues.append(
+                    RowIssue(
+                        sheet=tab.sheet,
+                        row_number=row_number,
+                        email=candidate.email,
+                        reason=(
+                            "duplicate email; kept first occurrence from "
+                            f"{prior[0]} row {prior[1]}"
+                        ),
+                    )
+                )
+                continue
+
+            first_seen[candidate.email] = (tab.sheet, row_number)
+            candidates[candidate.email] = candidate
+
+    summary = IngestSummary(
+        workbook_path=workbook_path,
+        candidate_rows_seen=rows_seen,
+        candidates_ingested=len(candidates),
+        blank_rows_skipped=blank_skipped,
+        duplicate_emails_skipped=duplicate_skipped,
+        issues=issues,
+    )
+    return candidates, summary
