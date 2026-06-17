@@ -65,10 +65,21 @@ that can't be trusted is **reported, never silently dropped**.
 - **I-ROLE-1** — WHEN an Open Roles row is valid, the system SHALL emit one `OpenRole` with
   `role_id`, `title`, `location`, `co_location_required` (from *Co-location*: `Yes`→True,
   `No`→False), and `start_date` (from *Start*).
-- **I-ROLE-2 (raw skills, not parsed)** — Ingest SHALL **not** parse *Required Skills* into
-  `SkillRequirement`s; `required_skills` SHALL be left empty `[]`. The raw *Required Skills*
-  text SHALL be preserved verbatim in `OpenRole.description` (alongside *Notes / Constraints*)
-  so that `match/clarify` parses it later (`docs/structure.md` clarify contract). See **OQ-3**.
+- **I-ROLE-2 (skills parsed; depth deferred to clarify)** — Ingest SHALL parse *Required
+  Skills* into `required_skills: list[SkillRequirement]` **mechanically**: split on `;`, trim,
+  lowercase the skill name, drop blanks, de-dupe. Each requirement's `depth` SHALL be
+  `SkillDepth.DESIRED` **uniformly** — ingest NEVER asserts `HARD`; `match/clarify` (the LLM,
+  authoritative) promotes skills to `HARD` from the title/notes (AD-033, AD-001). See **OQ-3**.
+- **I-ROLE-3 (proficiency hint)** — A trailing parenthetical naming a proficiency band (e.g.
+  `Kotlin (expert)`) SHALL set that requirement's `min_proficiency`; a non-proficiency
+  parenthetical (e.g. `(nice to have)`) SHALL be stripped from the name and otherwise ignored
+  (the requirement is already `DESIRED`). Each `;`-fragment is **one** requirement — ingest
+  SHALL NOT split `"Selenium or Cypress"` or interpret domain phrases (e.g. `payments domain`);
+  those pass through as a single verbatim name for `clarify` to refine.
+- **I-ROLE-4 (raw text preserved)** — The raw *Required Skills* text and *Notes / Constraints*
+  SHALL also be preserved in `OpenRole.description` so `clarify` has the context it needs to
+  promote depth. *Client / Sector / Priority* columns have no model field and are dropped.
+  `preferred_skills` SHALL be left empty `[]`.
 
 ### Validation, summary & edge cases
 - **I-VAL-1** — WHEN a row fails validation (missing email/name, unparseable or missing
@@ -104,10 +115,16 @@ These were conflicts/gaps between the task brief and the **frozen** contract (AD
   sheet-sourced skill defaults to INTERMEDIATE, to be overwritten when profiles (later slice)
   supply real levels. → **new ADR.** (Grade-based inference rejected: grade is seniority, not
   per-skill proficiency.)
-- **OQ-3 — raw Required Skills placement.** ✅ **`required_skills=[]` + "Required Skills: …\n
-  Notes: …" in `description`.** `OpenRole.required_skills` is typed `list[SkillRequirement]`,
-  so raw text can't live there. *Client / Sector / Priority* have no model field and are
-  **dropped** (not folded in).
+- **OQ-3 — Required Skills parsing.** ✅ **Ingest parses *Required Skills* into
+  `required_skills` mechanically (name + `min_proficiency`), with `depth=DESIRED` uniformly;
+  `clarify` promotes skills to `HARD`.** *(Revised 2026-06-17 — supersedes the earlier
+  "leave raw, don't parse" call.)* Rationale: only `clarify` consumes `OpenRole.required_skills`,
+  and the current clarify stub already maps `required_skills[].depth` → the scorecard's
+  hard/desired split — so a uniform `DESIRED` keeps ingest from silently owning the hard-skill
+  invariant (AD-033) while making the pipeline work end-to-end now. Raw text + Notes are still
+  kept in `description` for clarify's context (I-ROLE-4). *Client / Sector / Priority* dropped.
+  → **new ADR + Lane B (clarify) coordination**: real clarify must remain authoritative on
+  depth, treating ingest's `DESIRED` as a hint, not the final word.
 - **OQ-4 — openpyxl dependency.** ✅ **Declare `openpyxl>=3.1` explicitly in `pyproject.toml`.**
   It is in `uv.lock` only transitively (via docling); relying on that is fragile. → **new ADR**
   (`docs/tech.md`: no new deps without an ADR).

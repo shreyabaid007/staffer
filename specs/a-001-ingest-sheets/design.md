@@ -14,6 +14,9 @@
   still imports it (Lane C). Keep the stub until Lane C re-points the orchestrator; this spec
   does **not** touch `cli/`. (Recorded as a Lane C handoff, see tasks T-006.)
 - **Config:** `pyproject.toml` gains `openpyxl>=3.1` as a declared dependency (OQ-4).
+- **Cross-lane (Lane B):** OQ-3 has ingest emit `required_skills` with `depth=DESIRED`; real
+  `match/clarify` must stay **authoritative on depth**, promoting to `HARD` from title/notes
+  (ingest's `DESIRED` is a hint). Coordinate before clarify is built; recorded in T-006.
 
 ## Data contracts (Pydantic)
 
@@ -60,8 +63,14 @@ Small, independently-testable, pure helpers + one orchestrating reader:
 
 - `parse_date(cell) -> date` — accepts `date` / `datetime` / ISO `YYYY-MM-DD` `str`; raises
   `ValueError` otherwise (caught → `RowIssue`, I-EDGE-3).
-- `parse_skills(raw: str | None) -> list[Skill]` — split on `,`, strip, lowercase, drop
-  blanks, de-dupe preserving order; proficiency = `INTERMEDIATE` default (OQ-2).
+- `parse_skills(raw: str | None) -> list[Skill]` — (candidate skills) split on `,`, strip,
+  lowercase, drop blanks, de-dupe preserving order; proficiency = `INTERMEDIATE` default (OQ-2).
+- `parse_skill_requirements(raw: str | None) -> list[SkillRequirement]` — (role skills,
+  OQ-3/I-ROLE-2..4) split on `;`, strip, de-dupe; for each fragment extract a trailing
+  `(...)`: if it names a `ProficiencyLevel` → `min_proficiency`, else (e.g. `nice to have`)
+  drop it; `name` = remaining text lowercased; `depth = SkillDepth.DESIRED` for **every**
+  requirement (clarify promotes to HARD). Each `;`-fragment is one requirement — no `or`-split,
+  no domain-phrase interpretation.
 - `parse_location(location_text, chennai_open) -> Location` — split *Location* on `/`;
   `remote_eligible = chennai_open=="Yes" OR any segment matches /remote/i`; `city` = first
   non-remote segment (or the canonical remote label if all segments are remote);
@@ -73,8 +82,10 @@ Small, independently-testable, pure helpers + one orchestrating reader:
 - `_is_blank(row) -> bool` — all cells `None`/`""` after strip (I-EDGE-2).
 - `_row_to_candidate(values, headers, source) -> Candidate` — builds the row's `Candidate`;
   raises `ValueError`/`ValidationError` on bad data (caught by the reader → `RowIssue`).
-- `_row_to_role(values, headers) -> OpenRole` — builds the `OpenRole`; `required_skills=[]`,
-  `description = "Required Skills: <raw>\nNotes: <notes>"` (OQ-3).
+- `_row_to_role(values, headers) -> OpenRole` — builds the `OpenRole`; `required_skills =
+  parse_skill_requirements(<raw>)` (all `DESIRED`), `preferred_skills=[]`, and
+  `description = "Required Skills: <raw>\nNotes: <notes>"` so clarify keeps the context to
+  promote depth (OQ-3, I-ROLE-2..4).
 - `ingest_workbook(path)` — loads once, iterates the 4 tabs in fixed order
   (Open Roles, then Beach → Rolling Off → New Joiners), applies blank/duplicate/validation
   rules, accumulates counts + `RowIssue`s, returns the `(candidates, roles, summary)` tuple.
@@ -117,14 +128,20 @@ or LLM**, `docs/tech.md`). The real `data/demand-supply.xlsx` is used in one smo
     `42`.
   - `parse_skills("Java, Kotlin , java")` → `[java, kotlin]` (lowercase, trimmed, de-duped),
     each `INTERMEDIATE`; `parse_skills(None)` → `[]`.
+  - `parse_skill_requirements("Kotlin (expert); Spring Boot; LLMs/RAG (nice to have)")` →
+    3 reqs, all `DESIRED`; `kotlin.min_proficiency==EXPERT`; `(nice to have)` stripped, no
+    `min_proficiency`. `parse_skill_requirements(None)` → `[]`. No fragment is `or`-split.
   - `parse_location("Bengaluru / remote-India", None)` → city=Bengaluru, remote=True;
     `("Chennai", "No")` → city=Chennai, remote=False; `("Chennai", "Yes")` → remote=True;
     `("Remote (India)", "No")` → remote=True.
 - **test_sheets.py** (synthetic workbooks)
   - Beach row → `FreeNow`, `source=beach`. Rolling Off row → `RollingOff` with confidence.
     New Joiner row → `NewJoiner` + `source=new_joiner` (asserts OQ-1 representation).
-  - Open Roles row → `required_skills==[]`, raw skills present verbatim in `description`,
-    `co_location_required` correct, `start_date` parsed (I-ROLE-1/2).
+  - Open Roles row `"Kotlin (expert); Spring Boot; LLMs/RAG (nice to have)"` → three
+    `SkillRequirement`s, **all `depth==DESIRED`**, `kotlin` has `min_proficiency==EXPERT`,
+    `llms/rag` name has no parenthetical and no `min_proficiency`; raw skills + notes present
+    verbatim in `description`; `co_location_required` + `start_date` correct (I-ROLE-1..4).
+  - `"Selenium or Cypress"` → a single requirement named `"selenium or cypress"` (not split).
   - Duplicate email across Beach+New Joiners → one candidate (Beach kept),
     `duplicate_emails_skipped==1`, one `RowIssue` (I-EDGE-1).
   - Fully-blank row → `blank_rows_skipped==1`, no issue (I-EDGE-2).

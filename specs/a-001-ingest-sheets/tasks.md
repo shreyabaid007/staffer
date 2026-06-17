@@ -25,12 +25,14 @@
   new-joiner `source=NEW_JOINER` assertion.
   *Verifies:* I-CAND-1, I-CAND-2, I-CAND-5, I-CAND-6. *Commit:* `feat(ingest): map supply rows to Candidate per I-CAND-1..6`.
 
-- [ ] **T-004 — Open Role row mapping (raw skills preserved).**
-  Implement `_row_to_role`: `required_skills=[]`, raw *Required Skills* + *Notes* folded into
-  `description` (OQ-3), `co_location_required` from *Co-location*, `start_date` from *Start*,
-  `location` via `parse_location(..., None)`. Unit-test that skills are NOT parsed and the raw
-  text survives verbatim.
-  *Verifies:* I-ROLE-1, I-ROLE-2. *Commit:* `feat(ingest): map Open Roles rows to OpenRole, raw skills per I-ROLE-2`.
+- [ ] **T-004 — Open Role row mapping (skills parsed, depth=DESIRED).**
+  Add `parse_skill_requirements` (name + `min_proficiency`, `depth=DESIRED` uniformly;
+  `;`-split only). Implement `_row_to_role`: `required_skills=parse_skill_requirements(<raw>)`,
+  `preferred_skills=[]`, raw *Required Skills* + *Notes* also folded into `description` (OQ-3),
+  `co_location_required` from *Co-location*, `start_date` from *Start*, `location` via
+  `parse_location(..., None)`. Unit-test all-DESIRED, `(expert)`→`min_proficiency`, `(nice to
+  have)` stripped, no `or`-split, and raw text survives in `description`.
+  *Verifies:* I-ROLE-1, I-ROLE-2, I-ROLE-3, I-ROLE-4. *Commit:* `feat(ingest): map Open Roles to OpenRole, parse skills depth=DESIRED per I-ROLE-2..4`.
 
 - [ ] **T-005 — `ingest_workbook` orchestration + summary + edge cases.**
   Tie the helpers together: open the workbook (`data_only=True`), iterate the 4 tabs in fixed
@@ -41,7 +43,9 @@
   *Verifies:* I-LOAD-1/2, I-VAL-1, I-SUM-1, I-EDGE-1/2/3, I-DET-1. *Commit:* `feat(ingest): assemble ingest_workbook + summary per I-SUM-1, I-EDGE-1..3`.
 
 - [ ] **T-006 — Docs, handoff & stub-retirement note.**
-  Append the accepted ADR(s) to `docs/decision.md` (OQ-2 proficiency default, OQ-4 openpyxl).
+  Append the accepted ADR(s) to `docs/decision.md` (OQ-2 proficiency default, OQ-3 ingest
+  parses role skills as `DESIRED` + clarify owns depth promotion, OQ-4 openpyxl). Flag the
+  Lane B (clarify-authoritative-on-depth) coordination in `docs/progress.A.md`.
   Add a one-line note to `docs/structure.md` line 42 that ingest also returns the typed
   `IngestSummary` as a third element (contract still `dict + list`). Record in
   `docs/progress.A.md` (via
@@ -57,7 +61,7 @@
 | T-001 | I-SUM-1 (shape), OQ-4, OQ-5 |
 | T-002 | I-LOAD-3, I-CAND-3, I-CAND-4, I-EDGE-3 |
 | T-003 | I-CAND-1, I-CAND-2, I-CAND-5, I-CAND-6 |
-| T-004 | I-ROLE-1, I-ROLE-2 |
+| T-004 | I-ROLE-1, I-ROLE-2, I-ROLE-3, I-ROLE-4 |
 | T-005 | I-LOAD-1, I-LOAD-2, I-VAL-1, I-SUM-1, I-EDGE-1, I-EDGE-2, I-EDGE-3, I-DET-1 |
 | T-006 | record-keeping / DoD |
 
