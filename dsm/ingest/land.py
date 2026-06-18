@@ -14,6 +14,7 @@ from pathlib import Path
 from dsm.ingest.blobstore import BlobStore, hash_bytes
 from dsm.ingest.manifest import Manifest
 from dsm.ingest.models import LandingStatus, ManifestEntry, SourceType
+from dsm.ingest.parse.csv import read_banner_date
 
 _log = logging.getLogger(__name__)  # T-009 swaps invalid logging to lineage.log_invalid
 
@@ -22,6 +23,7 @@ _SUPPLY_FILES = {
     "rolling_off.csv": SourceType.SUPPLY_ROLLING_OFF,
     "new_joiners.csv": SourceType.SUPPLY_NEW_JOINERS,
 }
+_SUPPLY_TYPES = frozenset(_SUPPLY_FILES.values())
 
 
 def classify(path: Path) -> SourceType | None:
@@ -46,7 +48,9 @@ def _discover(raw_root: Path) -> list[Path]:
 
 def _snapshot_date(source_type: SourceType, data: bytes) -> date | None:
     """Snapshot date stamped on the manifest entry. Supply CSVs carry an ``as of`` banner;
-    resumes/feedback have none. Wired to ``parse.csv.read_banner_date`` in T-006."""
+    resumes/feedback have none (LAND-ASOF-1/2)."""
+    if source_type in _SUPPLY_TYPES:
+        return read_banner_date(data)
     return None
 
 
