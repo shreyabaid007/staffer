@@ -7,6 +7,7 @@ between the two simply re-lands cleanly on the next run (ee-ingestion-architectu
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -16,22 +17,31 @@ from dsm.ingest.manifest import Manifest
 from dsm.ingest.models import LandingStatus, ManifestEntry, SourceType
 from dsm.ingest.parse.csv import read_banner_date
 
+# Keyed on the normalized stem so real-world filenames match regardless of case and
+# space/underscore/hyphen separators (e.g. "Beach.csv", "Rolling Off.csv", "New Joiners.csv").
 _SUPPLY_FILES = {
-    "beach.csv": SourceType.SUPPLY_BEACH,
-    "rolling_off.csv": SourceType.SUPPLY_ROLLING_OFF,
-    "new_joiners.csv": SourceType.SUPPLY_NEW_JOINERS,
+    "beach": SourceType.SUPPLY_BEACH,
+    "rollingoff": SourceType.SUPPLY_ROLLING_OFF,
+    "newjoiners": SourceType.SUPPLY_NEW_JOINERS,
 }
 _SUPPLY_TYPES = frozenset(_SUPPLY_FILES.values())
+
+
+def _normalize_stem(name: str) -> str:
+    return re.sub(r"[\s_-]+", "", Path(name).stem.lower())
 
 
 def classify(path: Path) -> SourceType | None:
     """Map a raw file to its ``SourceType`` by directory + name, or ``None`` if unrecognized.
 
-    Pure function (no I/O) so it is unit-testable in isolation (LAND-CLASSIFY-1).
+    Supply filenames are matched case- and separator-insensitively (LAND-CLASSIFY-1).
+    Pure function (no I/O) so it is unit-testable in isolation.
     """
     category = path.parent.name
     if category == "supply":
-        return _SUPPLY_FILES.get(path.name)
+        if path.suffix.lower() != ".csv":
+            return None
+        return _SUPPLY_FILES.get(_normalize_stem(path.name))
     if category == "resumes":
         return SourceType.RESUME if path.suffix.lower() == ".pdf" else None
     if category == "feedback":

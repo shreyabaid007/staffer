@@ -40,6 +40,14 @@ def test_classify_table(tmp_path: Path) -> None:
     assert classify(raw / "feedback" / "note.txt") is None
 
 
+def test_classify_real_filenames_case_and_separator_insensitive(tmp_path: Path) -> None:
+    """Real supply files use Title Case + spaces (e.g. 'Rolling Off.csv')."""
+    raw = _raw_dir(tmp_path)
+    assert classify(raw / "supply" / "Beach.csv") is SourceType.SUPPLY_BEACH
+    assert classify(raw / "supply" / "Rolling Off.csv") is SourceType.SUPPLY_ROLLING_OFF
+    assert classify(raw / "supply" / "New Joiners.csv") is SourceType.SUPPLY_NEW_JOINERS
+
+
 def test_new_file_is_landed_and_blob_written(tmp_path: Path) -> None:
     raw = _raw_dir(tmp_path)
     (raw / "supply" / "beach.csv").write_bytes(b"as of 2026-06-01\nName\nAarav\n")

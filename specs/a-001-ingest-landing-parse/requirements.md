@@ -72,7 +72,7 @@ enforcement, the `dsm ingest` CLI command wiring.
 
 **LAND-DISCOVER-1** WHEN landing runs over `data/raw/`, the system SHALL discover every file under `supply/`, `resumes/`, and `feedback/` in a **deterministic order** (sorted by path).
 
-**LAND-CLASSIFY-1** The system SHALL classify each file to a `SourceType` deterministically: `supply/beach.csv → SUPPLY_BEACH`, `supply/rolling_off.csv → SUPPLY_ROLLING_OFF`, `supply/new_joiners.csv → SUPPLY_NEW_JOINERS`, `resumes/*.pdf → RESUME`, `feedback/*.md → FEEDBACK`.
+**LAND-CLASSIFY-1** The system SHALL classify each file to a `SourceType` deterministically by directory + name: `supply/*.csv` whose filename stem normalizes (lowercased, spaces/`_`/`-` removed) to `beach`/`rollingoff`/`newjoiners` → `SUPPLY_BEACH`/`SUPPLY_ROLLING_OFF`/`SUPPLY_NEW_JOINERS` (so real files like `Beach.csv`, `Rolling Off.csv`, `New Joiners.csv` classify correctly); `resumes/*.pdf → RESUME`; `feedback/*.md → FEEDBACK`.
 
 **LAND-CLASSIFY-2** WHEN a file cannot be classified (unknown directory, unexpected extension, or unrecognized supply filename), the system SHALL record a `ManifestEntry` with `status=INVALID`, log it (reason + payload + run_id), count it, and SHALL NOT write a blob.
 
