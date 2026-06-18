@@ -12,15 +12,15 @@ repo/
     requirements.md  design.md  tasks.md
   dsm/
     models.py    # shared domain models (Candidate, *Scorecard, *Assessment)
-    ingest/      # xlsx + Docling profile + feedback parsers; per-module schemas; cache
-    pii/         # Presidio/spaCy; PseudonymisedLM  (the ONLY path to OpenRouter)
-    index/       # Modal embed client; Milvus client; hybrid retrieval
+    ingest/      # CSV supply + Docling resume + feedback parsers → bronze/silver/gold (land·parse·silver·enrich·merge·reconcile·index); see ee-ingestion-architecture §13
+    pii/         # Presidio/spaCy; PseudonymisedLM (the ONLY path to OpenRouter); redact·leakscan·vault (encrypted identity store)
+    index/       # Modal embed client; Milvus client; hybrid retrieval + rerank
     match/       # gates.py (pure), clarify.py (DSPy), score.py (DSPy), rank.py
     cli/         # Typer: ingest / match / explain
     eval/        # Promptfoo configs; DeepEval cases; invariants
   modal/         # Modal app: embedder.py (BGE function, GPU spec)
   config/        # weights, adjacency map, gate rules, model IDs, K
-  data/          # input symlinks; .cache/ (content-hash)
+  data/          # raw/ inputs · bronze/ silver/ gold/ (content-addressed, immutable) · .cache/ (content+version keyed)
   tests/         # unit tests (mock all network/LLM)
   Makefile       # the harness: `make check`, `make eval`
 ```
@@ -39,11 +39,11 @@ repo/
 
 ## Module contracts — the seven phases
 Each phase is a module with **one typed input and one typed output**. Build and test them independently.
-- `ingest` → `dict[email, Candidate]`, `list[OpenRole]`
-- `index` (Candidates) → Milvus collection  *(embed text excludes PII)*
+- `ingest` (CSV snapshots + resumes + feedback) → `dict[candidate_id, Candidate]`  *(candidates only — roles enter at query time via `match/clarify`; `candidate_id` = HMAC(email), AD-067; snapshot reconcile + tombstones, AD-070)*
+- `index` (Candidates) → Milvus collection  *(capability-only embed text excludes PII; dense + `skill_set`/BM25, AD-072)*
 - `match/clarify` (RawRole | text) → `TargetProfileScorecard`
 - `match/gates` (Candidates, Scorecard) → `EligiblePool`, `ExclusionLog`  *(pure, LLM-free)*
-- `index/retrieve` (EligiblePool, Scorecard) → top-K Candidates
+- `index/retrieve` (EligiblePool, Scorecard) → top-K Candidates  *(hybrid recall → rerank, AD-071)*
 - `match/score` (Scorecard, Candidate) → `CandidateAssessment`
 - `match/rank` (Assessments) → `ShortlistResult`  *(NoMatchResult built by orchestrator per AD-063(c))*
 
