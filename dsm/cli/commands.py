@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any
+from pathlib import Path
+from typing import Annotated, Any
 
 import typer
 
@@ -146,3 +147,80 @@ def match(role_id: str = typer.Option("ROLE-STUB-01", "--role-id")) -> None:
     result = run_match(candidates, scorecard)
 
     typer.echo(result.model_dump_json(indent=2))
+
+
+_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+_RAW_DEFAULT = _DATA_DIR / "raw"
+_BRONZE_DEFAULT = _DATA_DIR / "bronze"
+
+
+def ingest(
+    raw_dir: Annotated[Path, typer.Option("--raw-dir")] = _RAW_DEFAULT,
+    bronze_dir: Annotated[Path, typer.Option("--bronze-dir")] = _BRONZE_DEFAULT,
+    run_id: Annotated[str, typer.Option("--run-id")] = "",
+) -> None:
+    """Land + parse raw files into the bronze layer and print a summary."""
+    import uuid
+
+    from dsm.ingest.blobstore import LocalFSBlobStore, write_records
+    from dsm.ingest.land import land
+    from dsm.ingest.lineage import build_run_manifest
+    from dsm.ingest.manifest import JSONLManifest
+    from dsm.ingest.models import LandingStatus
+    from dsm.ingest.parse import parse_blob
+
+    if not raw_dir.is_dir():
+        typer.echo(f"Raw directory not found: {raw_dir}", err=True)
+        raise typer.Exit(1)
+
+    rid = run_id or f"run-{uuid.uuid4().hex[:8]}"
+    blobs = LocalFSBlobStore(bronze_dir)
+    manifest = JSONLManifest(bronze_dir / "manifest.jsonl")
+
+    typer.echo(f"Landing files from {raw_dir} …")
+    entries = land(raw_dir, blobs, manifest, run_id=rid)
+    run = build_run_manifest(rid, entries)
+
+    typer.echo(f"\n── Land ── run_id={rid}")
+    typer.echo(f"  landed : {run.landed}")
+    typer.echo(f"  skipped: {run.skipped}")
+    typer.echo(f"  invalid: {run.invalid}")
+
+    total_records = 0
+    parse_errors = 0
+    for entry in entries:
+        not_parseable = (
+            entry.status is not LandingStatus.LANDED
+            or entry.raw_bytes_hash is None
+            or entry.source_type is None
+        )
+        if not_parseable:
+            continue
+        assert entry.raw_bytes_hash is not None
+        assert entry.source_type is not None
+        data = blobs.get(entry.raw_bytes_hash)
+        try:
+            records = parse_blob(
+                data,
+                entry.source_type,
+                entry.raw_bytes_hash,
+                run_id=rid,
+            )
+            write_records(records, entry.raw_bytes_hash, bronze_dir)
+            total_records += len(records)
+            name = Path(entry.source_uri).name
+            stype = entry.source_type.value
+            typer.echo(
+                f"  parsed {stype:<20s} → {len(records):>3d} records  ({name})",
+            )
+        except Exception as exc:  # noqa: BLE001
+            parse_errors += 1
+            name = Path(entry.source_uri).name
+            typer.echo(f"  PARSE ERROR {name}: {exc}", err=True)
+
+    typer.echo("\n── Parse ──")
+    typer.echo(f"  total records: {total_records}")
+    if parse_errors:
+        typer.echo(f"  parse errors : {parse_errors}")
+        raise typer.Exit(1)
+    typer.echo("")

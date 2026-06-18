@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 
 import dsm.ingest.parse.pdf as pdf_mod
-from dsm.ingest.blobstore import LocalFSBlobStore
+from dsm.ingest.blobstore import LocalFSBlobStore, read_records, write_records
 from dsm.ingest.land import land
 from dsm.ingest.lineage import build_run_manifest
 from dsm.ingest.manifest import JSONLManifest
@@ -49,18 +49,28 @@ def test_land_then_parse_all_sources(tmp_path: Path, monkeypatch) -> None:
     csv_entry = next(e for e in entries if e.source_type is SourceType.SUPPLY_BEACH)
     assert csv_entry.snapshot_date == date(2026, 6, 1)
 
-    # Parse every landed blob from bronze (replay from bronze, not the source).
+    # Parse every landed blob from bronze (replay from bronze, not the source)
+    # and persist records to records/<hash>.jsonl (L-LAYOUT-2).
+    bronze_root = tmp_path / "bronze"
     records_by_type: dict[SourceType, list] = {}
     for entry in entries:
         assert entry.raw_bytes_hash is not None and entry.source_type is not None
         data = blobs.get(entry.raw_bytes_hash)
-        records_by_type[entry.source_type] = parse_blob(
-            data, entry.source_type, entry.raw_bytes_hash, run_id="run-1"
-        )
+        records = parse_blob(data, entry.source_type, entry.raw_bytes_hash, run_id="run-1")
+        write_records(records, entry.raw_bytes_hash, bronze_root)
+        records_by_type[entry.source_type] = records
 
     assert [r.raw["Name"] for r in records_by_type[SourceType.SUPPLY_BEACH]] == ["Aarav", "Vikram"]
     assert records_by_type[SourceType.RESUME][0].raw["email_found"] == "aarav@example.com"
     assert records_by_type[SourceType.FEEDBACK][0].raw["email_key"] == "aarav@example.com"
+
+    # Verify records survive a round-trip from disk (L-LAYOUT-2).
+    for entry in entries:
+        assert entry.raw_bytes_hash is not None
+        assert entry.source_type is not None
+        loaded = read_records(entry.raw_bytes_hash, bronze_root)
+        assert len(loaded) > 0
+        assert loaded == records_by_type[entry.source_type]
 
 
 def test_reland_is_idempotent(tmp_path: Path, monkeypatch) -> None:
