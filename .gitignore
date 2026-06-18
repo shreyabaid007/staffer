@@ -1,9 +1,22 @@
 __pycache__/
 *.pyc
+.DS_Store
 .venv/
 .env
 data/.cache/*
 !data/.cache/.gitkeep
+# Raw inputs and bronze layer are PII-dense — never commit (a-001 L-LAYOUT-3)
+data/raw/supply/*
+!data/raw/supply/.gitkeep
+data/raw/resumes/*
+!data/raw/resumes/.gitkeep
+data/raw/feedback/*
+!data/raw/feedback/.gitkeep
+data/bronze/blobs/sha256/*
+!data/bronze/blobs/sha256/.gitkeep
+data/bronze/records/*
+!data/bronze/records/.gitkeep
+data/bronze/manifest.jsonl
 *.egg-info/
 dist/
 .mypy_cache/
