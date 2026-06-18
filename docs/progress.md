@@ -4,10 +4,10 @@
 > Per-lane progress goes in `docs/progress.A.md` / `.B.md` / `.C.md` — see _Lane files_ below. Section headers are stable so `/handoff-index` can target them. Keep them.
 
 ## Current status
-- **Build phase:** Slice 1 underway — real deterministic gates + rank merged; LLM/PII/retrieval steps still stubbed. Contracts frozen.
-- **Active slice:** Lane C `c-001-gates-rank` merged to `main` (PR #5). Lane A `feat/a/001-ingest-sheets` in flight (real xlsx ingest); Lane B reasoning not yet started.
+- **Build phase:** Slice 1 underway — real deterministic gates + rank merged; LLM/PII/retrieval/ingest still stubbed in code. Contracts frozen. Ingestion subsystem now **architecturally signed off** ([`ee-ingestion-architecture.md`](../ee-ingestion-architecture.md), AD-065…AD-074) — design only, no ingestion code on `main` yet.
+- **Active slice:** Most recent merge to `main` is the signed-off ingestion architecture (PR #9, docs). Real gates/rank/no-match already on `main` (PR #5). Ingestion implementation (CSV snapshots → canonical entity + embedding, per AD-065…AD-074) not yet started in code.
 - **Harness (`make check`):** GREEN — format, lint, typecheck, 66 tests, 2 import contracts all pass.
-- **`main`:** Slice 0 foundation (PR #3) + per-lane progress files (PR #4); index refresh (PR #6); real gates/rank/no-match (PR #5, `feat/c/001-gates-rank`).
+- **`main`:** Slice 0 foundation (PR #3) + per-lane progress files (PR #4); index refresh (PR #6); real gates/rank/no-match (PR #5, `feat/c/001-gates-rank`); ingestion architecture docs + AD-065…AD-074 (PR #9).
 
 ## Works end-to-end right now
 - `uv run dsm match --role-id ROLE-STUB-01` — runs the full pipeline (real gates → stub retrieve/score → real rank, or real no-match) over stub ingest and prints a valid `ShortlistResult` / `NoMatchResult` JSON.
@@ -26,10 +26,11 @@ Per-lane In flight / Next up / Blockers / Session log live in these append-only 
 ## Active specs
 - `specs/000-foundation/` — complete, approved, merged to `main`.
 - `specs/c-001-gates-rank/` — complete, approved, merged to `main` (PR #5).
-- _Next (planned):_ Lane C `c-002-*` for the real `pii/PseudonymisedLM` boundary (not yet written).
+- _Signed-off design (not a spec):_ [`ee-ingestion-architecture.md`](../ee-ingestion-architecture.md) — full ingestion subsystem, accepted as AD-065…AD-074. The implementing `specs/<feature>/` is not yet written.
+- _Next (planned):_ Lane A ingestion spec implementing the signed-off architecture; Lane C `c-002-*` for the real `pii/PseudonymisedLM` boundary. Neither written yet.
 
 ## Decisions
-- Authoritative log: `docs/decision.md` (current range AD-001 … AD-064; next starts at AD-065). Recently landed: AD-062 (revised lane assignments), AD-063 (gate semantics + near-miss assembly), AD-064 (YAML config loader + PyYAML dep; rank stays config-free).
+- Authoritative log: `docs/decision.md` (current range AD-001 … AD-074; next starts at AD-075). Recently landed: **AD-065…AD-074 — ingestion architecture** (CSV full-snapshot supply; bronze/silver/gold content-addressed store; `candidate_id = HMAC(email)`; encrypted identity vault; redact-first + NER + outbound leak-scan; snapshot reconciliation + tombstones + freshness guard; query-time reranking; capability-only PII-free embedding; verified quoted evidence; BGE embedder on Modal).
 - **Freeze the contracts after Slice 0.** Churn breaks parallel lane work — change only via team agreement + a new ADR.
 
 ---
