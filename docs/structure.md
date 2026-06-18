@@ -39,7 +39,7 @@ repo/
 
 ## Module contracts — the seven phases
 Each phase is a module with **one typed input and one typed output**. Build and test them independently.
-- `ingest` (CSV snapshots + resumes + feedback) → `dict[candidate_id, Candidate]`, `list[OpenRole]`  *(`candidate_id` = HMAC(email), AD-067; snapshot reconcile + tombstones, AD-070)*
+- `ingest` (CSV snapshots + resumes + feedback) → `dict[candidate_id, Candidate]`  *(candidates only — roles enter at query time via `match/clarify`; `candidate_id` = HMAC(email), AD-067; snapshot reconcile + tombstones, AD-070)*
 - `index` (Candidates) → Milvus collection  *(capability-only embed text excludes PII; dense + `skill_set`/BM25, AD-072)*
 - `match/clarify` (RawRole | text) → `TargetProfileScorecard`
 - `match/gates` (Candidates, Scorecard) → `EligiblePool`, `ExclusionLog`  *(pure, LLM-free)*
