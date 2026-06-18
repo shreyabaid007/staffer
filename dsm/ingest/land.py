@@ -7,16 +7,14 @@ between the two simply re-lands cleanly on the next run (ee-ingestion-architectu
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 from dsm.ingest.blobstore import BlobStore, hash_bytes
+from dsm.ingest.lineage import log_invalid
 from dsm.ingest.manifest import Manifest
 from dsm.ingest.models import LandingStatus, ManifestEntry, SourceType
 from dsm.ingest.parse.csv import read_banner_date
-
-_log = logging.getLogger(__name__)  # T-009 swaps invalid logging to lineage.log_invalid
 
 _SUPPLY_FILES = {
     "beach.csv": SourceType.SUPPLY_BEACH,
@@ -68,9 +66,11 @@ def land(
         source_type = classify(path)
 
         if source_type is None:
-            _log.warning(
-                "invalid: unclassifiable file",
-                extra={"reason": "unclassifiable", "payload": source_uri, "run_id": run_id},
+            log_invalid(
+                run_id=run_id,
+                reason="unclassifiable",
+                payload=source_uri,
+                source_uri=source_uri,
             )
             entries.append(
                 ManifestEntry(

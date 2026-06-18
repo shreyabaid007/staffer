@@ -8,13 +8,11 @@ from __future__ import annotations
 
 import csv
 import io
-import logging
 import re
 from datetime import date, datetime
 
+from dsm.ingest.lineage import log_invalid
 from dsm.ingest.models import BronzeRecord, SourceType
-
-_log = logging.getLogger(__name__)  # T-009 swaps invalid logging to lineage.log_invalid
 
 _BANNER_RE = re.compile(r"^\s*as of\s+(.+?)\s*$", re.IGNORECASE)
 _DATE_FORMATS = ("%d %B %Y", "%d %b %Y", "%B %d, %Y", "%d/%m/%Y", "%d-%m-%Y")
@@ -79,13 +77,11 @@ def parse_csv(
     records: list[BronzeRecord] = []
     for row_index, row in enumerate(rows[1:]):
         if len(row) != len(header):
-            _log.warning(
-                "invalid: csv column-count mismatch",
-                extra={
-                    "reason": "column_count_mismatch",
-                    "payload": repr(row),
-                    "run_id": run_id,
-                },
+            log_invalid(
+                run_id=run_id,
+                reason="column_count_mismatch",
+                payload=repr(row),
+                source_uri=source_hash,
             )
             continue
         records.append(

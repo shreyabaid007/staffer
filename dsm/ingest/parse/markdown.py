@@ -7,12 +7,10 @@ A file with no extractable email key is logged, skipped whole, and counted (MD-I
 
 from __future__ import annotations
 
-import logging
 import re
 
+from dsm.ingest.lineage import log_invalid
 from dsm.ingest.models import BronzeRecord, SourceType
-
-_log = logging.getLogger(__name__)  # T-009 swaps invalid logging to lineage.log_invalid
 
 # An explicit `email:` marker line wins; otherwise the first address anywhere in the doc.
 _KEY_RE = re.compile(r"^\s*email:\s*(\S+@\S+)\s*$", re.IGNORECASE | re.MULTILINE)
@@ -53,9 +51,11 @@ def parse_markdown(data: bytes, source_hash: str, *, run_id: str) -> list[Bronze
     text = data.decode("utf-8-sig", errors="replace")
     email_key = _email_key(text)
     if not email_key:
-        _log.warning(
-            "invalid: feedback has no email key",
-            extra={"reason": "no_email_key", "payload": source_hash, "run_id": run_id},
+        log_invalid(
+            run_id=run_id,
+            reason="no_email_key",
+            payload=source_hash,
+            source_uri=source_hash,
         )
         return []
 

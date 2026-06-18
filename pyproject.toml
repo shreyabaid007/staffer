@@ -16,6 +16,7 @@ dependencies = [
     "modal",
     "httpx",
     "pyyaml>=6.0",
+    "structlog",
 ]
 
 [project.scripts]
@@ -53,6 +54,12 @@ name = "No direct LLM provider access — use PseudonymisedLM"
 type = "forbidden"
 source_modules = ["dsm.match", "dsm.ingest"]
 forbidden_modules = ["modal", "httpx"]
+
+[[tool.importlinter.contracts]]
+name = "Ingest must not depend on match, index, pii, or LLM code"
+type = "forbidden"
+source_modules = ["dsm.ingest"]
+forbidden_modules = ["dsm.match", "dsm.index", "dsm.pii", "dspy", "modal", "httpx"]
 
 [tool.pyright]
 pythonVersion = "3.12"

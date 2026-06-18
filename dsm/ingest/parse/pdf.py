@@ -9,12 +9,10 @@ offline. A PDF that yields no text even after the OCR fallback is logged, skippe
 from __future__ import annotations
 
 import io
-import logging
 import re
 
+from dsm.ingest.lineage import log_invalid
 from dsm.ingest.models import BronzeRecord, SourceType
-
-_log = logging.getLogger(__name__)  # T-009 swaps invalid logging to lineage.log_invalid
 
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
@@ -57,20 +55,20 @@ def parse_pdf(data: bytes, source_hash: str, *, run_id: str) -> list[BronzeRecor
         if not text.strip():
             text, sections = _extract(data, ocr=True)  # OCR fallback (P-OCR-1)
     except Exception as exc:  # Docling raises a range of errors on unreadable input
-        _log.warning(
-            "invalid: pdf extraction failed",
-            extra={
-                "reason": f"extraction_error: {exc!r}",
-                "payload": source_hash,
-                "run_id": run_id,
-            },
+        log_invalid(
+            run_id=run_id,
+            reason=f"extraction_error: {exc!r}",
+            payload=source_hash,
+            source_uri=source_hash,
         )
         return []
 
     if not text.strip():
-        _log.warning(
-            "invalid: pdf yielded no text after ocr",
-            extra={"reason": "no_text", "payload": source_hash, "run_id": run_id},
+        log_invalid(
+            run_id=run_id,
+            reason="no_text_after_ocr",
+            payload=source_hash,
+            source_uri=source_hash,
         )
         return []
 
