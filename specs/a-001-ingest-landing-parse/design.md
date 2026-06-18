@@ -125,7 +125,9 @@ def land(raw_root: Path, blobs: BlobStore, manifest: Manifest, run_id: str) -> l
 Flow per discovered file (deterministic sorted order, LAND-DISCOVER-1):
 
 1. **classify** `path → SourceType | None` by (parent dir, filename/extension) — pure function,
-   table-driven (LAND-CLASSIFY-1). Unknown → INVALID entry, log+count, no blob (LAND-CLASSIFY-2).
+   table-driven (LAND-CLASSIFY-1). Supply filenames match on a normalized stem (lowercased,
+   spaces/`_`/`-` removed) so `Beach.csv` / `Rolling Off.csv` / `New Joiners.csv` classify
+   correctly. Unknown → INVALID entry, log+count, no blob (LAND-CLASSIFY-2).
 2. read bytes; **hash** = `blobs`-style sha256 (LAND-HASH-1). (Hash helper shared with blobstore
    to guarantee one definition.)
 3. **dedup:** `manifest.has_hash(hash)` → SKIPPED entry, no blob write (LAND-DEDUP-1).
@@ -151,8 +153,10 @@ pure over `(bytes, source_hash)` and emits records or logs+skips+counts invalids
 
 ### parse/csv.py
 
-- `read_banner_date(data) -> date | None`: match the first line against `r"as of (.+)"`
-  (case-insensitive), parse the date; return `None` if absent/unparseable (C-BANNER-1, also used
+- `read_banner_date(data) -> date | None`: search the first line for an `as of` marker
+  *anywhere* in the line (real banners are a title row, date mid-line), then extract the date —
+  tolerating a trailing parenthetical (`(synthetic)`) and CSV padding commas; return `None` if
+  absent/unparseable (C-BANNER-1, also used
   by land.py for LAND-ASOF).
 - Use the stdlib `csv` module on the de-bannered remainder for quoting correctness (C-QUOTE-1).
 - First non-banner row = header (C-HEADER-1). Map each subsequent row to `{col: value}` verbatim
