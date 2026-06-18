@@ -14,26 +14,39 @@ from datetime import date, datetime
 from dsm.ingest.lineage import log_invalid
 from dsm.ingest.models import BronzeRecord, SourceType
 
-_BANNER_RE = re.compile(r"^\s*as of\s+(.+?)\s*$", re.IGNORECASE)
+# 'as of' may sit mid-line: real banners are a full title row, e.g.
+# "Beach - Parity Partners - as of 2026-06-01 (synthetic),,,,,,,,".
+_BANNER_RE = re.compile(r"\bas of\b\s*(.+)", re.IGNORECASE)
+_ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _DATE_FORMATS = ("%d %B %Y", "%d %b %Y", "%B %d, %Y", "%d/%m/%Y", "%d-%m-%Y")
 
 
 def _banner_value(first_line: str) -> str | None:
-    """Return the date string from an ``as of <date>`` banner line, else ``None``."""
-    m = _BANNER_RE.match(first_line)
+    """Return the text following an ``as of`` marker anywhere in the line, else ``None``."""
+    m = _BANNER_RE.search(first_line)
     return m.group(1) if m else None
 
 
 def _parse_date(value: str) -> date | None:
+    # Strip trailing CSV padding commas and a trailing parenthetical (e.g. "(synthetic)").
+    cleaned = re.sub(r"(\s*,)+\s*$", "", value)
+    cleaned = re.sub(r"\s*\([^)]*\)\s*$", "", cleaned).strip()
     try:
-        return date.fromisoformat(value)
+        return date.fromisoformat(cleaned)
     except ValueError:
         pass
     for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(value, fmt).date()
+            return datetime.strptime(cleaned, fmt).date()
         except ValueError:
             continue
+    # Last resort: an ISO date token anywhere in the banner text.
+    iso = _ISO_DATE_RE.search(value)
+    if iso is not None:
+        try:
+            return date.fromisoformat(iso.group(0))
+        except ValueError:
+            pass
     return None
 
 

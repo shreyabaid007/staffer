@@ -96,7 +96,7 @@ enforcement, the `dsm ingest` CLI command wiring.
 
 ### CSV parsing (C)
 
-**C-BANNER-1** WHEN parsing a supply CSV whose first line matches `as of <date>`, the system SHALL extract that date as the snapshot date and SHALL NOT treat the banner line as a data row or header.
+**C-BANNER-1** WHEN parsing a supply CSV whose first line contains an `as of <date>` marker (the title row — which may include surrounding text, a trailing parenthetical such as `(synthetic)`, and CSV padding commas), the system SHALL extract that date as the snapshot date and SHALL strip the entire first line — never treating it as a header or data row.
 
 **C-HEADER-1** The system SHALL treat the first non-banner row as the column header and map each subsequent data row to `{column_name: cell_value}` with values kept **verbatim as strings** (zero normalization, original column names preserved).
 

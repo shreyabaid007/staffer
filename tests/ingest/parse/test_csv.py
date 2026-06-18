@@ -52,6 +52,21 @@ def test_parse_csv_logs_and_skips_malformed_row() -> None:
     assert [r.row_index for r in records] == [0, 2]
 
 
+def test_read_banner_date_handles_title_row_banner() -> None:
+    """Real banner is a full title row with the date mid-line + a '(synthetic)' suffix."""
+    assert read_banner_date(_read("supply_beach_real.csv")) == date(2026, 6, 1)
+
+
+def test_parse_csv_strips_title_row_banner_and_uses_real_header() -> None:
+    records = parse_csv(
+        _read("supply_beach_real.csv"), SourceType.SUPPLY_BEACH, "sha256:real", run_id="t"
+    )
+    assert len(records) == 2  # title row stripped, real header used (not a data row)
+    assert list(records[0].raw.keys()) == ["#", "Name", "Email", "Key Skills", "Notes"]
+    assert records[0].raw["Key Skills"] == "Java, Kotlin"  # quoted comma preserved
+    assert records[1].raw["Name"] == "Test Two"
+
+
 def test_parse_csv_no_banner_still_parses() -> None:
     records = parse_csv(_read("no_banner.csv"), SourceType.SUPPLY_BEACH, "sha256:nb", run_id="t")
     assert len(records) == 1
