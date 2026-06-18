@@ -23,7 +23,8 @@ Slice 2." **Resolved (2026-06-18): CSV, PDF, and Markdown bronze parsing all lan
 slice.** This spec follows the **task brief**, which puts all three in scope while deferring all
 *enrichment* (LLM extraction, normalization) to later slices — bronze PDF parsing (Docling →
 section-tagged verbatim text) is distinct from enrichment. The "sheets-only" lane note is
-superseded; this is to be recorded as an ADR in `docs/decision.md` at implementation time.
+superseded — this is scope sequencing, not an architectural decision, so it is recorded in the
+Lane A progress file rather than as an ADR.
 
 ## Out of scope (later slices — do not implement)
 
