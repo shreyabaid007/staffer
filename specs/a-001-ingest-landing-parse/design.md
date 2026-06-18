@@ -243,6 +243,13 @@ All fixtures live under `tests/fixtures/ingest/` and are committed (they are syn
 PII). Tests mock no network; the OCR path is exercised with a local image-PDF fixture or a
 Docling stub if OCR is heavy in CI.
 
+**Opt-in real-data smoke (`tests/ingest/test_real_data_smoke.py`, `make smoke`).** A separate
+shape-level smoke over real files in `data/raw/` (PII-dense, gitignored). It runs real Docling,
+so it is **excluded from the default suite** — it skips unless `DSM_REAL_SMOKE=1` is set and
+files are present. Asserts invariants (0 invalid, every landed file yields ≥1 record, supply
+CSVs get a `snapshot_date`, resumes carry `email_found`, feedback carries `email_key`,
+re-land is idempotent), not exact records.
+
 ## Edge cases
 
 - Duplicate file **content** under different filenames → second is SKIPPED (dedup is by content
