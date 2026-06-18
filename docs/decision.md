@@ -11,9 +11,9 @@
 
 ## PII & data
 
-- **AD-010 · PII pseudonymisation is mandatory** — Accepted — All OpenRouter calls go through `PseudonymisedLM`; mapping in-memory only. Why: resumes are PII-dense; external LLM exposure is high-risk.
+- **AD-010 · PII pseudonymisation is mandatory** — Accepted — All OpenRouter calls go through `PseudonymisedLM`; mapping in-memory only. Why: resumes are PII-dense; external LLM exposure is high-risk. — *Refined by AD-068 (ingestion-time identity is persisted in an encrypted vault, not in-memory) and AD-069 (deterministic redact-first + outbound leak-scan); the live-call in-memory mapping for OpenRouter is unchanged.*
 - **AD-011 · Embedder receives PII-free text** — Accepted — `name`/`email` excluded from embedding input by construction; Modal sees no identity. Why: keeps the boundary intact while hosting the embedder externally.
-- **AD-012 · Email is the join key** — Accepted — Join xlsx ↔ profiles ↔ feedback on email; first names collide in the data.
+- **AD-012 · Email is the join key** — Accepted — Join supply ↔ profiles ↔ feedback on email; first names collide in the data. — *Refined by AD-065 (supply sources are CSV snapshots, not xlsx) and AD-067 (email is tokenized to `candidate_id` = HMAC(email), which is the stable internal key downstream; name is never a join key).*
 - **AD-013 · Candidate universe = supply sheets** — Accepted — Candidates are the people in Beach / Rolling Off / New Joiners; profiles enrich. A profile with no supply row = staffed → not a candidate.
 
 ## Gating rules
@@ -34,7 +34,7 @@
 
 ## Output & evaluation
 
-- **AD-040 · Explanation = structured fields + narrative** — Accepted — Per candidate; every claim cites real evidence.
+- **AD-040 · Explanation = structured fields + narrative** — Accepted — Per candidate; every claim cites real evidence. — *AD-073 makes "real evidence" concrete: every citation is a verbatim quote verified present in the source.*
 - **AD-041 · No-match path** — Accepted — Empty shortlist + reason + closest near-misses; never a forced match.
 - **AD-042 · Eval = synthetic + invariants** — Accepted — No historical labels exist; seed cases ROLE-01 / ROLE-02 + negatives. 100% pass = insufficient coverage.
 - **AD-043 · Top-5 shortlist default** — Accepted — Configurable.
@@ -42,7 +42,7 @@
 ## Scope & infra
 
 - **AD-050 · MVP scope** — Accepted — Single role; batch over snapshot; CLI. Out: cultural fit, multi-role/team formation, streaming, web UI, cross-role priority allocation, days-on-beach utilisation.
-- **AD-051 · Hosting & goal framing** — Accepted — BGE embedder on Modal (serverless GPU); NER local; reasoning LLM on OpenRouter. Goal = consistency + auditable rationale, **not** bias removal.
+- **AD-051 · Hosting & goal framing** — Accepted — BGE embedder on Modal (serverless GPU); NER local; reasoning LLM on OpenRouter. Goal = consistency + auditable rationale, **not** bias removal. — *Confirmed by AD-074: Modal hosting is retained from MVP onward; the ingestion architecture's local-hosting implication is not adopted.*
 - **AD-052 · Open-weights LLM on Modal** — Deferred — Possible (data sovereignty, $1000 credits) but out of MVP; revisit if cost/sovereignty become binding.
 
 ## Foundation & contracts
@@ -66,6 +66,21 @@
 
 - **AD-064 · YAML config loader + PyYAML dependency** — Accepted — Runtime config is read from `config/default.yaml` through a single cached loader, `dsm/config.py::load_config()`, which the orchestrator (`dsm/cli/commands.py`) uses to source `ranking.top_k` and build the `ShortlistResult.config_snapshot`. This adds **PyYAML** (`pyyaml>=6.0`) as a declared dependency — previously present only transitively. Why: `docs/tech.md` rule 6 ("config over constants") mandates weights/K/model IDs live in `config/`, but Slice 0 hardcoded them and nothing read the YAML; the gates/rank spec needs a real read. Per `docs/tech.md` ("no new deps without an ADR") and `CLAUDE.md` ("Stop and ask … add a dependency"), the dependency was confirmed with the human before adding. Consequence: `match/rank.py` stays **config-free** (the refinement to T-004 — `top_k` and `config_snapshot` are passed in by the orchestrator, never read inside rank), so there is one source of truth for ranking config and no two-defaults divergence. The loader resolves `config/default.yaml` relative to the repo checkout (config/ is not packaged into the wheel; acceptable for the CLI/POC). Reusable by Lanes A/B.
 
+## Ingestion architecture (`ee-ingestion-architecture.md`)
+
+> Signed-off ingestion subsystem: raw sources → one query-ready canonical entity per consultant, plus the embedding written at ingest. Full detail in `ee-ingestion-architecture.md`.
+
+- **AD-065 · Supply sources are CSV full snapshots** — Accepted — Supply is three CSV files (`beach.csv`, `rolling_off.csv`, `new_joiners.csv`), each a *full snapshot* carrying an `as of <date>` banner — **not xlsx**. The sheet a row appears in is the `AvailabilityState` discriminator; the banner date is parsed (never discarded) into `valid_as_of`. **Refines AD-012/AD-013.** Why: ee-ingestion-architecture §3.
+- **AD-066 · Bronze/silver/gold layered, immutable, content-addressed store** — Accepted — Three physical layers: **bronze** (raw verbatim bytes + records), **silver** (typed, normalized, identity-resolved, per source), **gold** (one merged canonical entity per consultant). Each is immutable once written and addressed by content hash; **replay always runs from bronze**, never by re-reading the original source. Derivations are versioned and cached — the cache, not the model, is the source of truth for reproducibility. Why: determinism, cheap scoped re-merge/re-index, lineage. ee-ingestion-architecture §2/§4/§11.
+- **AD-067 · `candidate_id = HMAC(email)` is the stable internal key** — Accepted — Email is the identity/dedup/join key but is tokenized to a stable `candidate_id` (HMAC) used as the internal key everywhere downstream (gold keyed by `candidate_id`; resumes/feedback join by the email they contain). **Name is never a join key** (colliding first names in the data). **Refines AD-012**: the raw email is the join input, but `candidate_id` is the in-pipeline identifier — `ingest` yields a map keyed by `candidate_id`. ee-ingestion-architecture §3.
+- **AD-068 · Encrypted identity vault, retention-limited** — Accepted — Name + email are stripped from all derived/embedded text and held in an encrypted identity vault keyed by `candidate_id` (`name_vault_ref`/`email_vault_ref` point into it); retention-limited, gitignored, and supports purge-by-`candidate_id` erasure. **Supersedes AD-010's "mapping in-memory only" for ingestion-time identity**: the mapping is persisted but encrypted, and never reaches OpenRouter/Modal. The PseudonymisedLM in-memory mapping for live LLM calls is unchanged. ee-ingestion-architecture §4/§9.
+- **AD-069 · Redact-first + NER-residual + outbound leak-scan** — Accepted — PII redaction is ordered: (1) deterministically strip known identifiers (name + email from the supply row), (2) Presidio NER for residual names + client orgs, (3) an outbound **leak-scan** that blocks any text still containing a known PII string and **fails the build/eval**. Clean-by-construction, defense in depth — does not rely on NER being perfect (important for Indian surnames and org names that read as ordinary words). **Refines AD-010/AD-011.** ee-ingestion-architecture §9/§10.
+- **AD-070 · Snapshot reconciliation + tombstones + as-of freshness guard** — Accepted — Each run diffs the current `candidate_id` set against the prior set and **tombstones** consultants who have disappeared; the latest snapshot is authoritative for supply state. The banner date stamps `valid_as_of`; a **freshness guard** warns/refuses when a snapshot is stale relative to a role start. Why: current-state correctness, no stale ghost candidates. ee-ingestion-architecture §1/§5/§10.
+- **AD-071 · Query-time reranking stage** — Accepted — A reranking stage sits between hybrid recall and the structured combine: a cross-encoder (recommended default **`BAAI/bge-reranker-base`**, hosted on Modal alongside the embedder per AD-074) or a single bounded LLM re-scores each role–candidate pair *jointly* for a precise top-k, which then feeds the structured combine. This is the precision lever the PRD's raw `0.6 × similarity` lacks; first-stage recall stays cheap and at current scale the eligible pool is reranked in full. **Does not change AD-030's structured score weights.** The default cross-encoder runs on Modal (no new OpenRouter step); an optional LLM rerank would be a *fourth* bounded OpenRouter call. ee-ingestion-architecture §8.
+- **AD-072 · Capability-only embedding; hard skills matched via `skill_set`/BM25** — Accepted — The embedded passage is **capability-only and PII-free by construction**: include skills+proficiency, domains, projects, seniority evidence; exclude name/email/client-org/`candidate_id`, status/availability, grade-as-a-label, and **negations/absences** (embeddings cannot represent negation — absence is handled structurally by `skill_set` + `MergedSkill.demonstrated`). Dense vector → fuzzy adjacency only; a stated **hard skill is matched via `skill_set` (structured + BM25 sparse), never by cosine** (reinforces AD-033). Asymmetric passage/query formatting + a one-line contextual prefix per passage. ee-ingestion-architecture §8.
+- **AD-073 · Evidence is verified quoted text** — Accepted — Every extracted fact carries an `EvidenceCitation` whose `quote` is a verbatim span **verified to exist in the source** before the extraction is accepted; a claim whose quote is not found is rejected. **Refines AD-040** with a concrete mechanism — no offsets to rot, no fabricated citations. ee-ingestion-architecture §6/§10.
+- **AD-074 · BGE embedder hosted on Modal (serverless GPU)** — Accepted — The `bge-base-en-v1.5` embedder runs on **Modal** (serverless GPU) from MVP onward — **confirms AD-051**. The ingestion architecture's local-hosting implication (ee-ingestion-architecture §6 "locally hostable", §14) is **not adopted**: `modal/embedder.py` is the embed host and the `index/` embed-client calls it. Why: a single hosting path avoids a later local→Modal migration; Modal credits are ample at POC scale, and embedding text stays PII-free by construction (AD-011). ee-ingestion-architecture §6/§14.
+
 ---
 
-*Next ADRs start at AD-065.*
+*Next ADRs start at AD-075.*

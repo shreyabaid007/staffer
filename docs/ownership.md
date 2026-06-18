@@ -9,8 +9,8 @@
 
 | Slice | Scope |
 | --- | --- |
-| A1 — Ingest | xlsx + Docling profile + feedback parsers; per-module schemas; cache |
-| A2 — Index | Modal embed client; Milvus client; hybrid retrieval |
+| A1 — Ingest | CSV supply + Docling resume + feedback parsers → bronze/silver/gold; vault refs; content-hashed cache |
+| A2 — Index | Modal embed client; Milvus client; hybrid retrieval + rerank |
 
 ### Lane B — Reasoning (Eng B)
 **Owns:** `dsm/match/clarify.py`, `dsm/match/score.py`

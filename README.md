@@ -149,12 +149,12 @@ flowchart TB
     %% ===== CANDIDATE INDEXING PATH =====
     subgraph CAND["CANDIDATE PATH — build the searchable index (offline, batch)"]
         direction TB
-        XLSX["Supply sheets + profiles + feedback<br/>(xlsx · PDF · records)"]:::io
-        INGEST["INGEST · dsm/ingest/<br/>parse + join on email<br/>→ Candidate models"]:::pure
-        STRIP["PII STRIP · dsm/pii/<br/>drop name/email from embed text<br/>(by construction)"]:::pii
-        EMBED["EMBED · Modal GPU<br/>bge-base-en-v1.5<br/>PII-free text only"]:::infra
-        INDEX["INDEX · dsm/index/<br/>Milvus Lite · dense+BM25+RRF"]:::infra
-        XLSX --> INGEST --> STRIP --> EMBED --> INDEX
+        SRC["Supply CSVs + resumes + feedback<br/>(CSV · PDF · MD)"]:::io
+        INGEST["INGEST · dsm/ingest/<br/>CSV/PDF/MD → bronze/silver/gold<br/>join on email → Candidate (candidate_id)"]:::pure
+        STRIP["PII STRIP · dsm/pii/<br/>redact-first + leak-scan; name/email → vault<br/>capability-only embed text (by construction)"]:::pii
+        EMBED["EMBED · Modal GPU<br/>bge-base-en-v1.5<br/>capability-only · PII-free"]:::infra
+        INDEX["INDEX · dsm/index/<br/>Milvus Lite · dense + skill_set/BM25 + RRF"]:::infra
+        SRC --> INGEST --> STRIP --> EMBED --> INDEX
     end
 
     %% ===== ROLE QUERY PATH =====
@@ -163,7 +163,7 @@ flowchart TB
         ROLE["Open role description"]:::io
         CLARIFY["CLARIFY · clarify.py<br/>role text → TargetProfileScorecard<br/>(skills · location · dates · hard vs desired)"]:::llm
         GATES["GATES · gates.py — PURE, NO LLM<br/>location + availability (start +14d)<br/>→ EligiblePool + ExclusionLog"]:::pure
-        RETRIEVE["RETRIEVE · dsm/index/<br/>hybrid search over eligible only<br/>→ top-K"]:::infra
+        RETRIEVE["RETRIEVE · dsm/index/<br/>hybrid recall + rerank (cross-encoder)<br/>over eligible only → top-K"]:::infra
         SCORE["SCORE · score.py<br/>LLM sub-scores → Python: 0.7·skill + 0.3·feedback<br/>adjacency never clears a hard skill · new joiner = unverified"]:::llm
         RANK["RANK · rank.py<br/>deterministic sort + tie-break + top-k"]:::pure
         ROLE --> CLARIFY --> GATES --> RETRIEVE --> SCORE --> RANK

@@ -3,7 +3,7 @@
 > Always-loaded context. The HOW. Opinionated and pinned. Changes here need an ADR in `docs/decision.md`.
 
 ## Architecture in one line
-A local Python orchestrator running **structured RAG**: clarify (LLM) → **deterministic gates (Python)** → hybrid retrieve (Milvus) → score (LLM) → rank, with a **PII trust boundary** around external calls.
+A local Python orchestrator running **structured RAG**: clarify (LLM) → **deterministic gates (Python)** → hybrid retrieve (Milvus) → **rerank (cross-encoder)** → score (LLM) → rank, with a **PII trust boundary** around external calls.
 
 ## Pattern: structured RAG, NOT agentic
 The LLM is bounded to typed pre/post steps (clarify, score). Retrieval is deterministic. **No agent loops.** Reason: explainability, reproducibility, tractable evals, predictable cost. Do not introduce agentic retrieval without an ADR.
@@ -11,21 +11,23 @@ The LLM is bounded to typed pre/post steps (clarify, score). Retrieval is determ
 ## Stack (pinned — no new deps without an ADR)
 - **Runtime:** Python 3.12, `uv` (deps + lockfile), `mise` (tool versions). Reproducible by construction.
 - **Data / validation:** Pydantic v2 — every boundary is a typed model.
-- **Parsing:** Docling (profiles: PDF + free-form).
+- **Parsing:** Docling (resumes: PDF + free-form); CSV supply snapshots parsed deterministically — **never an LLM** (AD-065).
 - **LLM orchestration:** DSPy — every LLM call is a typed `Signature`. **No raw prompt strings to the provider.**
-- **Embeddings:** `BAAI/bge-base-en-v1.5` (sentence-transformers), deployed on **Modal** (serverless GPU).
+- **Embeddings:** `BAAI/bge-base-en-v1.5` (sentence-transformers), deployed on **Modal** (serverless GPU, AD-074); capability-only passage, instruction-prefixed asymmetric passage/query formatting (AD-072).
+- **Reranker:** `BAAI/bge-reranker-base` (cross-encoder, on Modal alongside the embedder) or a bounded LLM — query-time precision stage (AD-071).
 - **Reasoning LLM:** via **OpenRouter** (Claude Sonnet default; swappable through DSPy).
-- **PII:** Presidio + spaCy `en_core_web_lg`, **local on the orchestrator**.
+- **PII:** Presidio + spaCy `en_core_web_lg` + deterministic redact-first + outbound leak-scan, **local on the orchestrator**; encrypted identity vault (name/email ↔ `candidate_id`, AD-068/AD-069).
 - **Vector store:** Milvus Lite (embedded), hybrid dense + BM25 + RRF.
+- **Ingestion storage:** content-addressed **bronze/silver/gold** layers (local FS → object storage), JSONL→SQLite manifest, content+version derivation cache (AD-066).
 - **Eval:** Promptfoo (signature-level) + DeepEval (end-to-end + invariants).
 - **CLI:** Typer.
 
 ## Hard technical rules
-1. **PII boundary:** all LLM access via `pii/PseudonymisedLM`; mapping in-memory only. Embedding text excludes `name`/`email` **by construction**. Verified by an eval invariant.
-2. **Determinism:** LLM `temperature=0`; fixed seeds; content-hash cache for extractions + embeddings. Same inputs → same outputs.
+1. **PII boundary:** all LLM access via `pii/PseudonymisedLM` (live-call mapping in-memory). At ingestion, identity is redacted **deterministically first**, residual handled by NER, and an outbound **leak-scan** fails the build on any leak (AD-069); name/email live in an **encrypted vault** keyed by `candidate_id`, not in-memory-only (AD-068). Embedding text excludes `name`/`email` **by construction**. Verified by an eval invariant.
+2. **Determinism:** LLM `temperature=0`; fixed seeds; content-hash cache for extractions + embeddings — the cache is the source of truth. Same inputs → same outputs. Ingestion layers (bronze/silver/gold) are immutable + content-addressed; **replay runs from bronze**, and a pinned model version *is* a derivation version — a model bump is a re-extract, never silent drift (AD-066).
 3. **Gates are LLM-free:** `match/gates.py` is pure Python over Pydantic models; it must not import `pii/`, `index/`, or any LLM code.
 4. **Score combination is deterministic:** the LLM emits sub-scores; **Python** computes `0.7·skill + 0.3·feedback`. Weights from `config/`.
-5. **Adjacency enforced in code:** a `hard_depth_skill` is never credited via adjacency, regardless of LLM output.
+5. **Adjacency enforced in code:** a `hard_depth_skill` is never credited via adjacency, regardless of LLM output. Hard skills are matched structurally via `skill_set`/BM25, **never by cosine similarity** (AD-072).
 6. **Config over constants:** weights, adjacency map, availability window, K, model IDs live in `config/`, never inline.
 
 ## Coding standards
@@ -36,7 +38,7 @@ The LLM is bounded to typed pre/post steps (clarify, score). Retrieval is determ
 - Structured logging; never log raw prompts/responses or the pseudonym map.
 
 ## Cost & performance
-- High-volume work (embed, retrieve, NER) is local/Modal → ~0 marginal cost. Only **three** bounded LLM steps hit OpenRouter (enrich, clarify, score).
+- High-volume work (embed, retrieve, rerank, NER) is local/Modal → ~0 marginal cost. Only **three** bounded LLM steps hit OpenRouter (enrich, clarify, score); the default reranker is a Modal-hosted cross-encoder, so an optional LLM rerank would be a *fourth* (AD-071).
 - Batch embeds in one Modal call. Modal credits are ample at this scale.
 
 ## Deferred (revisit only via ADR)
