@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dsm.ingest.models import BronzeRecord, SourceType
 from dsm.ingest.parse.csv import parse_csv
+from dsm.ingest.parse.markdown import parse_markdown
 from dsm.ingest.parse.pdf import parse_pdf
 
 _SUPPLY_TYPES = {
@@ -28,4 +29,6 @@ def parse_blob(
         return parse_csv(data, source_type, source_hash, run_id=run_id)
     if source_type is SourceType.RESUME:
         return parse_pdf(data, source_hash, run_id=run_id)
-    raise NotImplementedError(f"no parser wired for {source_type}")  # FEEDBACK: T-008
+    if source_type is SourceType.FEEDBACK:
+        return parse_markdown(data, source_hash, run_id=run_id)
+    raise NotImplementedError(f"no parser wired for {source_type}")
