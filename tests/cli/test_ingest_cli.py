@@ -41,6 +41,8 @@ def _run(tmp_path: Path):
             str(tmp_path / "bronze"),
             "--silver-dir",
             str(tmp_path / "silver"),
+            "--gold-dir",
+            str(tmp_path / "gold"),
             "--run-id",
             "run-cli",
         ],
@@ -77,3 +79,30 @@ def test_ingest_fails_fast_without_candidate_id_key(tmp_path: Path, monkeypatch)
     result = _run(tmp_path)
     assert result.exit_code == 1
     assert "DSM_CANDIDATE_ID_KEY" in result.output
+
+
+def test_ingest_prints_gold_summary_and_exits_zero(tmp_path: Path) -> None:
+    """T-012/CLI: supply-only run merges to thin gold (no enrich) and prints the Gold summary."""
+    result = _run(tmp_path)
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "── Gold ──" in out
+    # 3 candidates (Priya, Arjun, Meera) — all thin (CSV-only, no resume/feedback).
+    assert "entities    : 3" in out
+    assert "thin=3 medium=0 rich=0" in out
+    assert "leak-scan hits: 0" in out
+
+
+def test_gold_summary_is_pii_safe(tmp_path: Path) -> None:
+    """case 23: no raw name/email reaches stdout — only candidate_id tokens + structured fields."""
+    out = _run(tmp_path).output
+    for leaked in ("Priya", "Arjun", "Meera", "priya@acme.example", "@acme.example"):
+        assert leaked not in out
+    assert "cid:" in out
+
+
+def test_gold_layer_persisted(tmp_path: Path) -> None:
+    """GS-1: one gold/<cid>.json per candidate is written to the gold dir."""
+    _run(tmp_path)
+    written = list((tmp_path / "gold").glob("*.json"))
+    assert len(written) == 3
