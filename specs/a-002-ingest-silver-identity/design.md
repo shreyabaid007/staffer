@@ -26,9 +26,10 @@ def normalize(
     ...
 ```
 
-A thin `normalize_run(records, manifest, ...) -> list[NormalizedRecord]` builds the
-`source_hash → snapshot_date` map from the manifest once, then maps `normalize` over records in
-sorted order (NF-2). `extractor_version` is a module constant (`SILVER_EXTRACTOR_VERSION = "silver-v1"`).
+A thin `normalize_run(records, *, snapshot_dates, taxonomy, run_id, extractor_version=...) ->
+list[NormalizedRecord]` takes a prebuilt `source_hash → snapshot_date` map (the CLI builds it from
+the a-001 manifest entries) and maps `normalize` over records in sorted order, dropping skips (NF-2).
+`extractor_version` is a module constant (`SILVER_EXTRACTOR_VERSION = "silver-v1"`).
 
 ## Modules touched (new)
 
