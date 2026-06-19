@@ -8,8 +8,10 @@ record assembly (``normalize``/``normalize_run``) and persistence build on them.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import date, datetime
+from pathlib import Path
 
 from dsm.ingest import lineage
 from dsm.ingest.models import (
@@ -26,6 +28,7 @@ from dsm.models import FreeNow, Location, NewJoiner, RollingOff
 from dsm.pii.vault import candidate_id as derive_candidate_id
 
 SILVER_EXTRACTOR_VERSION = "silver-v1"  # a pinned derivation version (AD-066/§11)
+_HASH_PREFIX = "sha256:"
 
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 _SUPPLY_TYPES = {
@@ -295,3 +298,41 @@ def normalize_run(
         if result is not None:
             normalized.append(result)
     return normalized
+
+
+# ---------------------------------------------------------------------------
+# Silver-layer persistence (SW-1) — mirrors bronze write_records
+# ---------------------------------------------------------------------------
+
+
+def _silver_records_path(silver_root: Path, source_hash: str) -> Path:
+    return silver_root / "records" / f"{source_hash.removeprefix(_HASH_PREFIX)}.jsonl"
+
+
+def write_normalized(
+    records: list[NormalizedRecord],
+    source_hash: str,
+    silver_root: Path,
+) -> Path:
+    """Persist ``NormalizedRecord``s to ``silver/records/<hex>.jsonl`` (SW-1).
+
+    Content-addressed by the **source** blob hash, atomic temp+rename, idempotent — the same
+    bronze source rewrites identical bytes. Immutable silver layer (AD-066/§4); PII-dense
+    (``raw_text``) so the path is gitignored (SW-2).
+    """
+    dest = _silver_records_path(silver_root, source_hash)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    payload = "".join(r.model_dump_json() + "\n" for r in records)
+    tmp = dest.with_suffix(".tmp")
+    tmp.write_text(payload, encoding="utf-8")
+    os.replace(tmp, dest)
+    return dest
+
+
+def read_normalized(source_hash: str, silver_root: Path) -> list[NormalizedRecord]:
+    """Read back ``NormalizedRecord``s for a source hash, or ``[]`` if none written."""
+    path = _silver_records_path(silver_root, source_hash)
+    if not path.is_file():
+        return []
+    with path.open(encoding="utf-8") as fh:
+        return [NormalizedRecord.model_validate_json(line) for line in fh if line.strip()]
