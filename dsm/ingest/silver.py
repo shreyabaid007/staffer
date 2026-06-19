@@ -266,3 +266,32 @@ def normalize(
         parse_warnings=parse_warnings,
         extractor_version=extractor_version,
     )
+
+
+def normalize_run(
+    records: list[BronzeRecord],
+    *,
+    snapshot_dates: dict[str, date | None],
+    taxonomy: Taxonomy,
+    run_id: str,
+    extractor_version: str = SILVER_EXTRACTOR_VERSION,
+) -> list[NormalizedRecord]:
+    """Normalize many bronze records, stamping ``valid_as_of`` from the snapshot map (VAOF-1).
+
+    ``snapshot_dates`` maps ``source_hash → snapshot_date`` (built once from the a-001 manifest).
+    Records are processed in a deterministic order (by source hash, then row) and skipped records
+    drop out (NF-2/NF-3). Two records sharing one ``candidate_id`` (same email on two sheets) are
+    **both** emitted — merge is the gold stage, not silver (NF-4).
+    """
+    normalized: list[NormalizedRecord] = []
+    for record in sorted(records, key=lambda r: (r.source_hash, r.row_index)):
+        result = normalize(
+            record,
+            snapshot_date=snapshot_dates.get(record.source_hash),
+            taxonomy=taxonomy,
+            run_id=run_id,
+            extractor_version=extractor_version,
+        )
+        if result is not None:
+            normalized.append(result)
+    return normalized
