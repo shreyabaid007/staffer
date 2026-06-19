@@ -62,7 +62,15 @@ def _location_passes(candidate: Candidate, scorecard: TargetProfileScorecard) ->
     """
     if not scorecard.co_location_required:
         return True
-    same_city = candidate.location.city.strip().lower() == scorecard.location.city.strip().lower()
+    # city is optional since AD-075 (None for "Remote (India)"); a None city never
+    # matches by name — the candidate passes only via remote_eligible.
+    cand_city = candidate.location.city
+    role_city = scorecard.location.city
+    same_city = (
+        cand_city is not None
+        and role_city is not None
+        and cand_city.strip().lower() == role_city.strip().lower()
+    )
     return same_city or candidate.location.remote_eligible
 
 
