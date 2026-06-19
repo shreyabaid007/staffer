@@ -14,5 +14,16 @@ models:
   reasoning_llm: "anthropic/claude-sonnet-4-6"
   embedder: "BAAI/bge-base-en-v1.5"
 
+# Ingest enrich stage (a-003). prompt_version bumps when config/prompts/* change; model_version is
+# sourced from models.reasoning_llm (single source of truth). A bump forces re-extraction (§11).
+enrich:
+  prompt_version: "enrich-v1"
+  temperature: 0
+
+# Snapshot reconciliation (a-003, AD-070). Warn when the latest snapshot is older than this many
+# days; the refuse-vs-role-start half of the guard is enforced at match time.
+reconcile:
+  max_staleness_days: 30
+
 logging:
   level: "INFO"
