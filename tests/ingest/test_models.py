@@ -100,3 +100,80 @@ def test_run_manifest_holds_entries_and_counts() -> None:
     manifest = RunManifest(run_id="run-1", entries=[entry], landed=1, skipped=0, invalid=0)
     assert manifest.landed == 1
     assert manifest.entries[0] is entry
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — silver models (a-002 T-002)
+# ---------------------------------------------------------------------------
+
+
+def test_normalized_skill_defaults() -> None:
+    from dsm.ingest.models import NormalizedSkill
+
+    skill = NormalizedSkill(name="kotlin")
+    assert skill.proficiency is None
+    assert skill.unmapped is False
+    assert skill.unverified is False
+
+
+def test_normalized_record_holds_frozen_availability() -> None:
+    from datetime import date as _date
+
+    from dsm.ingest.models import (
+        Confidence,
+        Grade,
+        NormalizedRecord,
+        NormalizedSkill,
+    )
+    from dsm.models import Location, RollingOff
+
+    rec = NormalizedRecord(
+        candidate_id="cid:abc",
+        source_type=SourceType.SUPPLY_ROLLING_OFF,
+        source_hash="sha256:def",
+        valid_as_of=_date(2026, 6, 1),
+        grade=Grade.LEAD_CONSULTANT,
+        location=Location(city="Pune", remote_eligible=True),
+        availability=RollingOff(
+            expected_date=_date(2026, 6, 20), confidence=Confidence.MEDIUM.value
+        ),
+        skills=[NormalizedSkill(name="java", unverified=True)],
+        extractor_version="silver-v1",
+    )
+    assert rec.candidate_id == "cid:abc"
+    assert isinstance(rec.availability, RollingOff)
+    assert rec.availability.confidence == "medium"
+    assert rec.skills[0].unverified is True
+
+
+def test_normalized_record_is_frozen() -> None:
+    from dsm.ingest.models import NormalizedRecord
+
+    rec = NormalizedRecord(
+        candidate_id="cid:abc",
+        source_type=SourceType.RESUME,
+        source_hash="sha256:def",
+        extractor_version="silver-v1",
+    )
+    with pytest.raises(ValidationError):
+        rec.candidate_id = "cid:other"  # type: ignore[misc]
+
+
+def test_normalized_record_round_trips_via_json() -> None:
+    from datetime import date as _date
+
+    from dsm.ingest.models import NormalizedRecord
+    from dsm.models import FreeNow, Location
+
+    rec = NormalizedRecord(
+        candidate_id="cid:abc",
+        source_type=SourceType.SUPPLY_BEACH,
+        source_hash="sha256:def",
+        valid_as_of=_date(2026, 6, 1),
+        location=Location(city="Chennai"),
+        availability=FreeNow(),
+        extractor_version="silver-v1",
+    )
+    restored = NormalizedRecord.model_validate_json(rec.model_dump_json())
+    assert restored == rec
+    assert isinstance(restored.availability, FreeNow)
