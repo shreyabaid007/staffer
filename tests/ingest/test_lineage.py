@@ -49,3 +49,41 @@ def test_log_invalid_emits_reason_payload_run_id() -> None:
     assert event["payload"] == "sha256:fb"
     assert event["run_id"] == "run-1"
     assert event["source_uri"] == "x.md"
+
+
+# ---------------------------------------------------------------------------
+# Unmapped-skill queue (a-002 T-004)
+# ---------------------------------------------------------------------------
+
+
+def test_log_unmapped_skill_does_not_raise() -> None:
+    from dsm.ingest.lineage import log_unmapped_skill
+
+    log_unmapped_skill(run_id="run-1", surface_form="cobol", candidate_id="cid:abc")
+
+
+def test_count_unmapped_skills_derives_from_records() -> None:
+    from dsm.ingest.lineage import count_unmapped_skills
+    from dsm.ingest.models import NormalizedRecord, NormalizedSkill, SourceType
+
+    records = [
+        NormalizedRecord(
+            candidate_id="cid:a",
+            source_type=SourceType.SUPPLY_NEW_JOINERS,
+            source_hash="sha256:1",
+            skills=[
+                NormalizedSkill(name="java"),
+                NormalizedSkill(name="cobol", unmapped=True),
+            ],
+            extractor_version="silver-v1",
+        ),
+        NormalizedRecord(
+            candidate_id="cid:b",
+            source_type=SourceType.SUPPLY_BEACH,
+            source_hash="sha256:2",
+            skills=[NormalizedSkill(name="fortran", unmapped=True)],
+            extractor_version="silver-v1",
+        ),
+    ]
+    assert count_unmapped_skills(records) == 2
+    assert count_unmapped_skills([]) == 0

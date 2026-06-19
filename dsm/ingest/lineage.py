@@ -10,7 +10,12 @@ from __future__ import annotations
 
 import structlog
 
-from dsm.ingest.models import LandingStatus, ManifestEntry, RunManifest
+from dsm.ingest.models import (
+    LandingStatus,
+    ManifestEntry,
+    NormalizedRecord,
+    RunManifest,
+)
 
 _log = structlog.get_logger("dsm.ingest")
 
@@ -30,6 +35,31 @@ def log_invalid(
         payload=payload,
         source_uri=source_uri,
     )
+
+
+def log_unmapped_skill(
+    *,
+    run_id: str,
+    surface_form: str,
+    candidate_id: str,
+) -> None:
+    """Queue an unmapped skill for review (TX-2, ee-ingestion §15#6).
+
+    The "queue" is the structured log stream + the derived count; no global mutable counter
+    is kept, so the metric stays deterministic and replay-stable. ``surface_form`` is a skill
+    name (non-PII); ``candidate_id`` is the tokenized id, never the raw email.
+    """
+    _log.info(
+        "ingest.unmapped_skill",
+        run_id=run_id,
+        surface_form=surface_form,
+        candidate_id=candidate_id,
+    )
+
+
+def count_unmapped_skills(records: list[NormalizedRecord]) -> int:
+    """Per-run unmapped-skill count, derived from the record stream (metrics seed, §12)."""
+    return sum(1 for record in records for skill in record.skills if skill.unmapped)
 
 
 def build_run_manifest(
