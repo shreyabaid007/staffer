@@ -1,0 +1,33 @@
+# Skill taxonomy — canonical skill id → known aliases (a-002, tech.md rule 6).
+# Lookup is normalized (lowercase, trimmed). A raw skill not matched here is flagged
+# `unmapped` and queued for review (TX-2; taxonomy ownership = ee-ingestion §15#6).
+# Title/domain canonical maps are deferred — they arrive via resume enrich (out of scope).
+skills:
+  java: [java, core java]
+  kotlin: [kotlin]
+  python: [python, py]
+  go: [go, golang]
+  react: [react, react.js, reactjs]
+  next.js: [next.js, nextjs]
+  typescript: [typescript, ts]
+  javascript: [javascript, js]
+  node.js: [node.js, nodejs, node]
+  aws: [aws, amazon web services]
+  gcp: [gcp, google cloud, google cloud platform]
+  azure: [azure, microsoft azure]
+  docker: [docker]
+  kubernetes: [kubernetes, k8s]
+  terraform: [terraform]
+  postgresql: [postgresql, postgres, postgresql db]
+  mysql: [mysql]
+  sql: [sql]
+  spark: [spark, apache spark]
+  dbt: [dbt]
+  airflow: [airflow, apache airflow]
+  kafka: [kafka, apache kafka]
+  selenium: [selenium]
+  cypress: [cypress]
+  playwright: [playwright]
+  rag: [rag, retrieval augmented generation]
+  llm: [llm, large language model]
+  scikit-learn: [scikit-learn, sklearn]
