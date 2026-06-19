@@ -20,6 +20,9 @@ data/bronze/manifest.jsonl
 # Silver layer is PII-dense (raw_text holds resume/feedback bodies) — never commit (SW-2)
 data/silver/records/*
 !data/silver/records/.gitkeep
+# Gold carries vault refs + verbatim evidence quotes (may include client orgs) — never commit (GS-3)
+data/gold/*
+!data/gold/.gitkeep
 *.egg-info/
 dist/
 .mypy_cache/
