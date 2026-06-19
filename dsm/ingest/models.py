@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 # Frozen shared contracts (AD-060) — imported, never redefined. Silver *produces* these.
-from dsm.models import AvailabilityState, Location, ProficiencyLevel
+from dsm.models import AvailabilityState, EvidenceCitation, Location, ProficiencyLevel
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -153,3 +154,109 @@ class NormalizedRecord(BaseModel, frozen=True):
     raw_text: str | None = None  # resume body / feedback item → later enrichment
     parse_warnings: list[str] = Field(default_factory=list)  # lossy mappings (e.g. LOC-2)
     extractor_version: str
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Enrich (LLM extraction outputs; ee-ingestion-architecture §6)
+# ---------------------------------------------------------------------------
+#
+# Typed return types for the DSPy signatures in ``dsm/ingest/enrich.py``. Every extracted fact
+# carries an ``EvidenceCitation`` (the frozen, AD-077-relaxed one) whose ``text`` is verified
+# present in the source before the fact is accepted (AD-073). These are ingest-local: the LLM
+# emits surface forms, pre-normalization and pre-merge.
+
+
+class SkillExtraction(BaseModel, frozen=True):
+    """One skill the LLM pulled from a resume, with its evidence (resume LLM output)."""
+
+    name: str  # surface form, pre-taxonomy-normalization
+    proficiency: ProficiencyLevel | None = None
+    evidence: EvidenceCitation
+
+
+class ProfileSummaryExtraction(BaseModel, frozen=True):
+    """Structured facts extracted from one anonymized resume (resume LLM output, §6 Phase 4)."""
+
+    skills: list[SkillExtraction] = Field(default_factory=list)
+    employers: list[str] = Field(default_factory=list)
+    projects: list[str] = Field(default_factory=list)
+    domains: list[str] = Field(default_factory=list)
+    seniority_signals: list[str] = Field(default_factory=list)
+    education: list[str] = Field(default_factory=list)
+
+
+class FeedbackExtraction(BaseModel, frozen=True):
+    """Signals from **one** feedback item (renamed from §6 ``FeedbackSignals`` to avoid colliding
+    with the frozen aggregate ``dsm.models.FeedbackSignals``). Aggregated at gold; the
+    feedback *score* is computed downstream at match time, never here (FB-2/AD-079)."""
+
+    confirmed_skills: list[str] = Field(default_factory=list)
+    skill_gaps: list[str] = Field(
+        default_factory=list
+    )  # skills the feedback denies / flags as weak
+    domain_confirmation: str | None = None
+    sentiment: Literal["very_positive", "positive", "neutral", "negative"]
+    retention_requested: bool = False  # client "keep them" — a match-time +modifier (AD-023)
+    rejection_requested: bool = False  # client "do not staff" — a match-time −modifier
+    summary: str
+    evidence: EvidenceCitation
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — Gold (canonical, sourced entity; ee-ingestion-architecture §6/§7)
+# ---------------------------------------------------------------------------
+
+
+class Sourced[T](BaseModel, frozen=True):
+    """A merged value with its supporting citations and a confidence band (§6/§7)."""
+
+    value: T
+    citations: list[EvidenceCitation] = Field(default_factory=list)
+    confidence: Confidence = Confidence.MEDIUM
+
+
+class MergedSkill(BaseModel, frozen=True):
+    """A skill on the canonical entity after provenance-weighted merge (§7).
+
+    ``demonstrated`` is feedback-verified truth (feedback > resume): ``True`` confirmed, ``False``
+    denied, ``None`` unverified. ``conflict`` is set when resume and feedback disagree — both
+    citations are kept and the disagreement is recorded, never averaged (MG-5).
+    """
+
+    name: str  # canonical taxonomy id
+    proficiency: ProficiencyLevel | None = None  # resume > CSV (CSV carries none)
+    demonstrated: bool | None = None  # feedback > resume; None = unverified
+    unverified: bool = False  # AD-032 new-joiner provenance, carried from silver
+    confidence: Confidence = Confidence.MEDIUM
+    citations: list[EvidenceCitation] = Field(default_factory=list)
+    conflict: str | None = None  # resume↔feedback disagreement (MG-5)
+
+
+class GoldCandidate(BaseModel, frozen=True):
+    """One canonical, cited, conflict-aware entity per consultant (§6 Phase 5, renamed from
+    ``Candidate`` to avoid colliding with the frozen serving ``dsm.models.Candidate``).
+
+    Identity is carried as vault references only — never the raw name/email (GS-4/AD-068). Supply
+    fields are optional so thin/medium/rich profiles all yield a valid entity (PP-1..3). Carries
+    the cited feedback *facts*; the feedback *score* is a match-time concern (FB-2/AD-079).
+    """
+
+    candidate_id: str
+    name_vault_ref: str
+    email_vault_ref: str
+    grade: Sourced[Grade] | None = None
+    location: Sourced[Location] | None = None
+    availability: Sourced[AvailabilityState] | None = None
+    skills: list[MergedSkill] = Field(default_factory=list)
+    domains: list[Sourced[str]] = Field(default_factory=list)
+    projects: list[str] = Field(default_factory=list)
+    feedback: list[FeedbackExtraction] = Field(default_factory=list)
+    valid_as_of: date | None = None
+    is_tombstoned: bool = False  # set by snapshot reconciliation (RC-1)
+    conflicts: list[str] = Field(
+        default_factory=list
+    )  # candidate-level roll-up of MergedSkill.conflict
+    gold_hash: str  # change-detection for re-index (GS-2)
+    merge_version: str
+    prompt_version: str
+    model_version: str
