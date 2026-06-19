@@ -26,6 +26,7 @@ import dspy
 import structlog
 
 from dsm.config import load_prompt
+from dsm.ingest.lineage import RunMetrics, log_citation_verify_failure
 from dsm.ingest.models import (
     FeedbackExtraction,
     NormalizedRecord,
@@ -123,6 +124,7 @@ def enrich_resume(
     predict: ResumePredictor,
     run_id: str = "",
     ner: NerFn | None = None,
+    metrics: RunMetrics | None = None,
 ) -> ProfileSummaryExtraction | None:
     """Resume → ``ProfileSummaryExtraction`` (cited, verified). ``None`` if extraction is unusable.
 
@@ -153,12 +155,12 @@ def enrich_resume(
         if _quote_present(cite.text, source):
             kept.append(skill.model_copy(update={"evidence": cite}))
         else:
-            _log.warning(
-                "enrich.citation_verify_failed",
+            log_citation_verify_failure(
                 run_id=run_id,
                 candidate_id=record.candidate_id,
                 source_hash=record.source_hash,
                 fact=skill.name,
+                metrics=metrics,
             )
     return raw.model_copy(
         update={
@@ -177,6 +179,7 @@ def enrich_feedback(
     predict: FeedbackPredictor,
     run_id: str = "",
     ner: NerFn | None = None,
+    metrics: RunMetrics | None = None,
 ) -> FeedbackExtraction | None:
     """Feedback item → ``FeedbackExtraction`` (cited, verified). ``None`` if the item is rejected.
 
@@ -202,12 +205,12 @@ def enrich_feedback(
 
     cite = _deanon_citation(raw.evidence, redacted.mapping)
     if not _quote_present(cite.text, source):
-        _log.warning(
-            "enrich.citation_verify_failed",
+        log_citation_verify_failure(
             run_id=run_id,
             candidate_id=record.candidate_id,
             source_hash=record.source_hash,
             fact="feedback",
+            metrics=metrics,
         )
         return None
     return raw.model_copy(
