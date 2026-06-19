@@ -152,22 +152,35 @@ def match(role_id: str = typer.Option("ROLE-STUB-01", "--role-id")) -> None:
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _RAW_DEFAULT = _DATA_DIR / "raw"
 _BRONZE_DEFAULT = _DATA_DIR / "bronze"
+_SILVER_DEFAULT = _DATA_DIR / "silver"
 
 
 def ingest(
     raw_dir: Annotated[Path, typer.Option("--raw-dir")] = _RAW_DEFAULT,
     bronze_dir: Annotated[Path, typer.Option("--bronze-dir")] = _BRONZE_DEFAULT,
+    silver_dir: Annotated[Path, typer.Option("--silver-dir")] = _SILVER_DEFAULT,
     run_id: Annotated[str, typer.Option("--run-id")] = "",
 ) -> None:
-    """Land + parse raw files into the bronze layer and print a summary."""
+    """Land + parse raw files into bronze, normalize to silver, and print a summary."""
+    import os
     import uuid
 
     from dsm.ingest.blobstore import LocalFSBlobStore, write_records
     from dsm.ingest.land import land
-    from dsm.ingest.lineage import build_run_manifest
+    from dsm.ingest.lineage import build_run_manifest, count_unmapped_skills
     from dsm.ingest.manifest import JSONLManifest
-    from dsm.ingest.models import LandingStatus
+    from dsm.ingest.models import LandingStatus, NormalizedRecord
     from dsm.ingest.parse import parse_blob
+    from dsm.ingest.silver import normalize_run, write_normalized
+    from dsm.ingest.taxonomy import load_taxonomy
+
+    if not os.environ.get("DSM_CANDIDATE_ID_KEY"):
+        typer.echo(
+            "DSM_CANDIDATE_ID_KEY is not set — required to derive candidate_id for silver "
+            "(AD-067). Set it and re-run.",
+            err=True,
+        )
+        raise typer.Exit(1)
 
     if not raw_dir.is_dir():
         typer.echo(f"Raw directory not found: {raw_dir}", err=True)
@@ -186,8 +199,12 @@ def ingest(
     typer.echo(f"  skipped: {run.skipped}")
     typer.echo(f"  invalid: {run.invalid}")
 
+    taxonomy = load_taxonomy()
     total_records = 0
     parse_errors = 0
+    silver_errors = 0
+    silver_skipped = 0
+    all_normalized: list[NormalizedRecord] = []
     for entry in entries:
         not_parseable = (
             entry.status is not LandingStatus.LANDED
@@ -217,10 +234,50 @@ def ingest(
             parse_errors += 1
             name = Path(entry.source_uri).name
             typer.echo(f"  PARSE ERROR {name}: {exc}", err=True)
+            continue
+        try:
+            normalized = normalize_run(
+                records,
+                snapshot_dates={entry.raw_bytes_hash: entry.snapshot_date},
+                taxonomy=taxonomy,
+                run_id=rid,
+            )
+            write_normalized(normalized, entry.raw_bytes_hash, silver_dir)
+            silver_skipped += len(records) - len(normalized)
+            all_normalized.extend(normalized)
+        except Exception as exc:  # noqa: BLE001
+            silver_errors += 1
+            typer.echo(f"  SILVER ERROR {Path(entry.source_uri).name}: {exc}", err=True)
 
     typer.echo("\n── Parse ──")
     typer.echo(f"  total records: {total_records}")
     if parse_errors:
         typer.echo(f"  parse errors : {parse_errors}")
+
+    # ── Silver ── PII-safe summary only: counts + a per-record line that never echoes raw_text.
+    avail_counts = {"free_now": 0, "rolling_off": 0, "new_joiner": 0}
+    for record in all_normalized:
+        if record.availability is not None:
+            avail_counts[record.availability.type] += 1
+    with_warnings = sum(1 for r in all_normalized if r.parse_warnings)
+    typer.echo("\n── Silver ──")
+    typer.echo(f"  normalized      : {len(all_normalized)}")
+    typer.echo(f"  coercion-skipped: {silver_skipped}")
+    typer.echo(
+        f"  availability    : free_now={avail_counts['free_now']} "
+        f"rolling_off={avail_counts['rolling_off']} new_joiner={avail_counts['new_joiner']}"
+    )
+    typer.echo(f"  unmapped skills : {count_unmapped_skills(all_normalized)}")
+    typer.echo(f"  w/ warnings     : {with_warnings}")
+    for record in all_normalized:
+        typer.echo(
+            f"    {record.candidate_id} {record.source_type.value} "
+            f"avail={record.availability.type if record.availability else 'none'} "
+            f"skills={len(record.skills)} warn={len(record.parse_warnings)}"
+        )
+    if silver_errors:
+        typer.echo(f"  silver errors   : {silver_errors}", err=True)
+
+    if parse_errors or silver_errors:
         raise typer.Exit(1)
     typer.echo("")
