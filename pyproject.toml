@@ -55,20 +55,16 @@ type = "forbidden"
 source_modules = ["dsm.match", "dsm.ingest"]
 forbidden_modules = ["modal", "httpx"]
 
+# AD-078: ingest may import dspy (typed DSPy signatures) and the dsm.pii boundary
+# (redact/leakscan/pseudonymised_lm/vault) — enrich is the first LLM call site and must
+# route THROUGH PseudonymisedLM. It stays forbidden from match/index and from any direct
+# provider access (modal/httpx — see the "No direct LLM provider access" contract above).
+# Supersedes the AD-076 "ingest may use only dsm.pii.vault" narrowing.
 [[tool.importlinter.contracts]]
-name = "Ingest must not depend on match, index, or LLM code"
+name = "Ingest must not depend on match or index"
 type = "forbidden"
 source_modules = ["dsm.ingest"]
-forbidden_modules = ["dsm.match", "dsm.index", "dspy", "modal", "httpx"]
-
-# NF-IMPORT-1 narrowed (AD-076): ingest may import dsm.pii.vault (candidate_id) ONLY.
-# Every other dsm.pii submodule (the redact/leakscan/PseudonymisedLM PII path) stays
-# forbidden to ingest. Lane C extends this list as those modules land.
-[[tool.importlinter.contracts]]
-name = "Ingest may use only dsm.pii.vault, not the rest of pii (AD-076)"
-type = "forbidden"
-source_modules = ["dsm.ingest"]
-forbidden_modules = ["dsm.pii.pseudonymised_lm", "dsm.pii.stub"]
+forbidden_modules = ["dsm.match", "dsm.index"]
 
 [tool.pyright]
 pythonVersion = "3.12"
