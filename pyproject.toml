@@ -56,10 +56,19 @@ source_modules = ["dsm.match", "dsm.ingest"]
 forbidden_modules = ["modal", "httpx"]
 
 [[tool.importlinter.contracts]]
-name = "Ingest must not depend on match, index, pii, or LLM code"
+name = "Ingest must not depend on match, index, or LLM code"
 type = "forbidden"
 source_modules = ["dsm.ingest"]
-forbidden_modules = ["dsm.match", "dsm.index", "dsm.pii", "dspy", "modal", "httpx"]
+forbidden_modules = ["dsm.match", "dsm.index", "dspy", "modal", "httpx"]
+
+# NF-IMPORT-1 narrowed (AD-076): ingest may import dsm.pii.vault (candidate_id) ONLY.
+# Every other dsm.pii submodule (the redact/leakscan/PseudonymisedLM PII path) stays
+# forbidden to ingest. Lane C extends this list as those modules land.
+[[tool.importlinter.contracts]]
+name = "Ingest may use only dsm.pii.vault, not the rest of pii (AD-076)"
+type = "forbidden"
+source_modules = ["dsm.ingest"]
+forbidden_modules = ["dsm.pii.pseudonymised_lm", "dsm.pii.stub"]
 
 [tool.pyright]
 pythonVersion = "3.12"
