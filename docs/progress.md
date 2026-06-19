@@ -4,18 +4,19 @@
 > Per-lane progress goes in `docs/progress.A.md` / `.B.md` / `.C.md` — see _Lane files_ below. Section headers are stable so `/handoff-index` can target them. Keep them.
 
 ## Current status
-- **Build phase:** Slice 1 underway — real deterministic gates + rank merged; LLM/PII/retrieval/ingest still stubbed in code. Contracts frozen. Ingestion subsystem now **architecturally signed off** ([`ee-ingestion-architecture.md`](../ee-ingestion-architecture.md), AD-065…AD-074) — design only, no ingestion code on `main` yet.
-- **Active slice:** Most recent merge to `main` is the signed-off ingestion architecture (PR #9, docs). Real gates/rank/no-match already on `main` (PR #5). Ingestion implementation (CSV snapshots → canonical entity + embedding, per AD-065…AD-074) not yet started in code.
-- **Harness (`make check`):** GREEN — format, lint, typecheck, 66 tests, 2 import contracts all pass.
-- **`main`:** Slice 0 foundation (PR #3) + per-lane progress files (PR #4); index refresh (PR #6); real gates/rank/no-match (PR #5, `feat/c/001-gates-rank`); ingestion architecture docs + AD-065…AD-074 (PR #9).
+- **Build phase:** Slice 1 underway — real deterministic gates + rank merged; the first slice of **real ingestion** (landing + parse → bronze) now merged. LLM/PII/retrieval still stubbed in code; downstream ingestion stages (silver/gold, embeddings) not yet built. Contracts frozen.
+- **Active slice:** Most recent merge to `main` is Lane A ingestion landing+parse (PR #10) — `dsm ingest` lands raw files and parses them into the bronze layer, implementing the first part of the signed-off ingestion architecture (AD-065…AD-074). Real gates/rank/no-match already on `main` (PR #5).
+- **Harness (`make check`):** GREEN — format, lint, typecheck, 119 tests (6 skipped — opt-in real-data smoke), 3 import contracts all pass.
+- **`main`:** Slice 0 foundation (PR #3) + per-lane progress files (PR #4); index refresh (PR #6); real gates/rank/no-match (PR #5, `feat/c/001-gates-rank`); ingestion architecture docs + AD-065…AD-074 (PR #9); ingestion landing+parse → bronze (PR #10, `feat/a/001-ingest-landing-parse`).
 
 ## Works end-to-end right now
 - `uv run dsm match --role-id ROLE-STUB-01` — runs the full pipeline (real gates → stub retrieve/score → real rank, or real no-match) over stub ingest and prints a valid `ShortlistResult` / `NoMatchResult` JSON.
+- `uv run dsm ingest` — lands raw files (`data/raw` → bronze) and parses them (CSV/PDF/markdown) into bronze records, then prints a summary; exits 1 on errors (AD-065…AD-074, L-LAYOUT-2). `make smoke` runs an opt-in real-data smoke over it.
 - **Real deterministic gates** ([`dsm/match/gates.py`](../dsm/match/gates.py)) — location (AD-020/063a) + availability (AD-021/022); LLM-free, import-clean.
 - **Real ranking** ([`dsm/match/rank.py`](../dsm/match/rank.py)) — deterministic sort/tie-break/top-k; config-free (orchestrator owns config via [`dsm/config.py`](../dsm/config.py), AD-064).
 - **No-match path + near-misses** ([`dsm/cli/commands.py`](../dsm/cli/commands.py)) — orchestrator builds `NoMatchResult` with ordered, capped near-misses (AD-063b/c/d).
 - `dsm/models.py` — all 19 Pydantic v2 domain contracts typed and frozen (AD-060).
-- `make check` — 66 tests green (gates, rank, no-match, e2e + fixtures, models), 0 type errors, 2 import contracts. Importable ROLE-01/02/03 seed fixtures in `tests/fixtures/` (reusable by `dsm/eval/`).
+- `make check` — 119 tests green (6 skipped — opt-in real-data smoke), 0 type errors, 3 import contracts (gates ⊥ PII/index/LLM; no direct LLM access; ingest ⊥ match/index/pii/LLM). Importable ROLE-01/02/03 seed fixtures in `tests/fixtures/` (reusable by `dsm/eval/`).
 
 ## Lane files
 Per-lane In flight / Next up / Blockers / Session log live in these append-only files. Read the index, then your lane file.
@@ -26,8 +27,9 @@ Per-lane In flight / Next up / Blockers / Session log live in these append-only 
 ## Active specs
 - `specs/000-foundation/` — complete, approved, merged to `main`.
 - `specs/c-001-gates-rank/` — complete, approved, merged to `main` (PR #5).
-- _Signed-off design (not a spec):_ [`ee-ingestion-architecture.md`](../ee-ingestion-architecture.md) — full ingestion subsystem, accepted as AD-065…AD-074. The implementing `specs/<feature>/` is not yet written.
-- _Next (planned):_ Lane A ingestion spec implementing the signed-off architecture; Lane C `c-002-*` for the real `pii/PseudonymisedLM` boundary. Neither written yet.
+- `specs/a-001-ingest-landing-parse/` — complete, approved, merged to `main` (PR #10). First ingestion slice: landing + parse → bronze.
+- _Signed-off design (not a spec):_ [`ee-ingestion-architecture.md`](../ee-ingestion-architecture.md) — full ingestion subsystem, accepted as AD-065…AD-074. a-001 implements its landing+parse front end; downstream stages (silver/gold, embeddings) still to be spec'd.
+- _Next (planned):_ Lane A follow-on ingestion spec(s) for silver/gold + embedding stages; Lane C `c-002-*` for the real `pii/PseudonymisedLM` boundary. Neither written yet.
 
 ## Decisions
 - Authoritative log: `docs/decision.md` (current range AD-001 … AD-074; next starts at AD-075). Recently landed: **AD-065…AD-074 — ingestion architecture** (CSV full-snapshot supply; bronze/silver/gold content-addressed store; `candidate_id = HMAC(email)`; encrypted identity vault; redact-first + NER + outbound leak-scan; snapshot reconciliation + tombstones + freshness guard; query-time reranking; capability-only PII-free embedding; verified quoted evidence; BGE embedder on Modal).
