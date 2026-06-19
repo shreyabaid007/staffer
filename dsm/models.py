@@ -214,10 +214,18 @@ class Flag(BaseModel, frozen=True):
 
 
 class EvidenceCitation(BaseModel, frozen=True):
-    """Links a claim to its verbatim source."""
+    """Links a claim to its verbatim source (AD-040; AD-073).
+
+    ``text`` is the AD-073 **verified verbatim quote** — a span confirmed to exist in the source
+    before the claim is accepted. ``source_hash``/``locator`` add optional lineage-to-source
+    (which bronze blob + where inside it) for the enrich/gold stage; both default to ``None`` so
+    existing citations (gates/score/rank) are unaffected (AD-077, backwards-compatible).
+    """
 
     source: EvidenceSource
-    text: str  # the verbatim snippet
+    text: str  # the verbatim snippet — verified present in the source (AD-073)
+    source_hash: str | None = None  # "sha256:..." — which bronze blob the quote came from (AD-077)
+    locator: str | None = None  # where in it, e.g. "resume p1 SKILLS" | "feedback fb_0" (AD-077)
     metadata: dict[str, str] = Field(default_factory=dict)  # e.g., {"page": "2"}
 
 
