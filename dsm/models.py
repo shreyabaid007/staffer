@@ -76,10 +76,10 @@ class EvidenceSource(StrEnum):
 class Location(BaseModel, frozen=True):
     """Geographic location and remote eligibility."""
 
-    city: str
+    city: str | None = None  # None for "Remote (India)" — no base city (AD-075)
     state: str | None = None
     country: str = "India"
-    remote_eligible: bool = False  # "remote-India" in the data
+    remote_eligible: bool = False  # "remote-India" / Chennai-open in the data
 
 
 class Skill(BaseModel, frozen=True):

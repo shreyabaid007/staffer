@@ -17,6 +17,9 @@ data/bronze/blobs/sha256/*
 data/bronze/records/*
 !data/bronze/records/.gitkeep
 data/bronze/manifest.jsonl
+# Silver layer is PII-dense (raw_text holds resume/feedback bodies) — never commit (SW-2)
+data/silver/records/*
+!data/silver/records/.gitkeep
 *.egg-info/
 dist/
 .mypy_cache/

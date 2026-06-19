@@ -1,8 +1,13 @@
 """Shared pytest fixtures."""
 
+import os
 from datetime import date
 
 import pytest
+
+# Fixed HMAC key so candidate_id (AD-067) is stable + assertable across the test suite.
+# Real runs source this from the environment; tests must not depend on a machine secret.
+os.environ.setdefault("DSM_CANDIDATE_ID_KEY", "test-candidate-id-key")
 
 from dsm.models import (
     Candidate,

@@ -1,3 +1,8 @@
 [tools]
 python = "3.12"
 uv = "latest"
+
+# Load local secrets/config from .env (gitignored) into the environment, so `uv run`
+# picks up e.g. DSM_CANDIDATE_ID_KEY without manual exports. See .env.example.
+[env]
+_.file = ".env"

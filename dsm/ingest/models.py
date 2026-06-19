@@ -9,7 +9,10 @@ from __future__ import annotations
 from datetime import date, datetime
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+# Frozen shared contracts (AD-060) — imported, never redefined. Silver *produces* these.
+from dsm.models import AvailabilityState, Location, ProficiencyLevel
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -89,3 +92,64 @@ class RunManifest(BaseModel, frozen=True):
     landed: int
     skipped: int
     invalid: int
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — Silver → NormalizedRecord (ee-ingestion-architecture §6)
+# ---------------------------------------------------------------------------
+#
+# These are ingest-local, pre-canonical types: silver skills may be unmapped, unverified,
+# or proficiency-less, and a record's location/grade may be absent. The frozen serving
+# contract (dsm/models.py) is reused where it fits (Location, AvailabilityState,
+# ProficiencyLevel) and never redefined here (structure.md: no duplicate model definitions).
+
+
+class Grade(StrEnum):
+    """Consultant grade parsed from the supply ``Grade`` column."""
+
+    SENIOR_CONSULTANT = "senior_consultant"
+    LEAD_CONSULTANT = "lead_consultant"
+    PRINCIPAL_CONSULTANT = "principal_consultant"
+
+
+class Confidence(StrEnum):
+    """Roll-off confidence. Values match the frozen ``RollingOff.confidence`` Literal, so
+    ``Confidence(...).value`` feeds the frozen model without touching the contract (AD-060)."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class NormalizedSkill(BaseModel, frozen=True):
+    """A silver-stage skill: canonical-or-verbatim name with provenance flags.
+
+    Distinct from the frozen serving ``Skill`` (which requires proficiency and has no
+    provenance) — silver skills are pre-canonical. This is the "unmapped/unverified-skill
+    handling" the spec keeps ingest-local.
+    """
+
+    name: str  # canonical taxonomy id, or the verbatim surface form when unmapped
+    proficiency: ProficiencyLevel | None = None  # absent for supply / CV-derived skills
+    unmapped: bool = False  # raw skill not found in the taxonomy → queued (TX-2)
+    unverified: bool = False  # AD-032: new-joiner CV-derived skill, counted not penalised
+
+
+class NormalizedRecord(BaseModel, frozen=True):
+    """Typed, normalized, identity-resolved silver record — one per source row/item (§6).
+
+    Per-source (carries ``source_type``/``source_hash``); merge across records sharing a
+    ``candidate_id`` is the gold stage, not silver.
+    """
+
+    candidate_id: str  # HMAC(email); the raw email is never stored here (ID-5)
+    source_type: SourceType
+    source_hash: str
+    valid_as_of: date | None = None  # from the snapshot banner (VAOF-1)
+    grade: Grade | None = None
+    location: Location | None = None  # frozen Location; city is optional (AD-075)
+    availability: AvailabilityState | None = None  # frozen union; None for resume/feedback
+    skills: list[NormalizedSkill] = Field(default_factory=list)
+    raw_text: str | None = None  # resume body / feedback item → later enrichment
+    parse_warnings: list[str] = Field(default_factory=list)  # lossy mappings (e.g. LOC-2)
+    extractor_version: str
