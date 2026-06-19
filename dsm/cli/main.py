@@ -2,10 +2,11 @@
 
 import typer
 
-from dsm.cli.commands import match
+from dsm.cli.commands import ingest, match
 
 app = typer.Typer(no_args_is_help=True)
 app.command("match")(match)
+app.command("ingest")(ingest)
 
 
 @app.command("version", hidden=True)
