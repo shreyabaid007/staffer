@@ -153,15 +153,45 @@ _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _RAW_DEFAULT = _DATA_DIR / "raw"
 _BRONZE_DEFAULT = _DATA_DIR / "bronze"
 _SILVER_DEFAULT = _DATA_DIR / "silver"
+_GOLD_DEFAULT = _DATA_DIR / "gold"
+
+
+def _bronze_cell(raw: dict[str, str | list[str]], *names: str) -> str:
+    """Case/whitespace-insensitive lookup of a bronze CSV cell (mirrors silver._cell)."""
+    norm = {k.strip().lower(): v for k, v in raw.items()}
+    for name in names:
+        value = norm.get(name.strip().lower())
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _build_resume_predictor(config: dict[str, Any]):  # pragma: no cover - exercised only live
+    """Build the live resume predictor over PseudonymisedLM (monkeypatched in CLI tests)."""
+    from dsm.ingest.enrich import make_resume_predictor
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    lm = PseudonymisedLM(model=config["models"]["reasoning_llm"])
+    return make_resume_predictor(lm)
+
+
+def _build_feedback_predictor(config: dict[str, Any]):  # pragma: no cover - exercised only live
+    """Build the live feedback predictor over PseudonymisedLM (monkeypatched in CLI tests)."""
+    from dsm.ingest.enrich import make_feedback_predictor
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    lm = PseudonymisedLM(model=config["models"]["reasoning_llm"])
+    return make_feedback_predictor(lm)
 
 
 def ingest(
     raw_dir: Annotated[Path, typer.Option("--raw-dir")] = _RAW_DEFAULT,
     bronze_dir: Annotated[Path, typer.Option("--bronze-dir")] = _BRONZE_DEFAULT,
     silver_dir: Annotated[Path, typer.Option("--silver-dir")] = _SILVER_DEFAULT,
+    gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
     run_id: Annotated[str, typer.Option("--run-id")] = "",
 ) -> None:
-    """Land + parse raw files into bronze, normalize to silver, and print a summary."""
+    """Land + parse → bronze, normalize → silver, enrich + merge → gold, and print a summary."""
     import os
     import uuid
 
@@ -169,10 +199,16 @@ def ingest(
     from dsm.ingest.land import land
     from dsm.ingest.lineage import build_run_manifest, count_unmapped_skills
     from dsm.ingest.manifest import JSONLManifest
-    from dsm.ingest.models import LandingStatus, NormalizedRecord
+    from dsm.ingest.models import BronzeRecord, LandingStatus, NormalizedRecord, SourceType
     from dsm.ingest.parse import parse_blob
     from dsm.ingest.silver import normalize_run, write_normalized
     from dsm.ingest.taxonomy import load_taxonomy
+
+    _SUPPLY_TYPES = {
+        SourceType.SUPPLY_BEACH,
+        SourceType.SUPPLY_ROLLING_OFF,
+        SourceType.SUPPLY_NEW_JOINERS,
+    }
 
     if not os.environ.get("DSM_CANDIDATE_ID_KEY"):
         typer.echo(
@@ -205,6 +241,7 @@ def ingest(
     silver_errors = 0
     silver_skipped = 0
     all_normalized: list[NormalizedRecord] = []
+    bronze_supply: list[BronzeRecord] = []
     for entry in entries:
         not_parseable = (
             entry.status is not LandingStatus.LANDED
@@ -225,6 +262,8 @@ def ingest(
             )
             write_records(records, entry.raw_bytes_hash, bronze_dir)
             total_records += len(records)
+            if entry.source_type in _SUPPLY_TYPES:
+                bronze_supply.extend(records)  # source of name+email for redaction/vault refs
             name = Path(entry.source_uri).name
             stype = entry.source_type.value
             typer.echo(
@@ -277,6 +316,123 @@ def ingest(
         )
     if silver_errors:
         typer.echo(f"  silver errors   : {silver_errors}", err=True)
+
+    # ── Gold ── enrich (PII-bracketed) + merge → one canonical entity per candidate_id.
+    from collections import defaultdict
+    from datetime import date
+
+    from dsm.config import load_config
+    from dsm.ingest.enrich import enrich_feedback, enrich_resume
+    from dsm.ingest.goldstore import list_gold_ids, read_gold, write_gold
+    from dsm.ingest.lineage import (
+        RunMetrics,
+        build_quality_metrics,
+        log_leak_block,
+        log_tombstone,
+    )
+    from dsm.ingest.merge import merge_run
+    from dsm.ingest.models import FeedbackExtraction, ProfileSummaryExtraction
+    from dsm.ingest.reconcile import freshness_guard, reconcile, tombstone
+    from dsm.pii.leakscan import PIILeakError
+    from dsm.pii.vault import InMemoryVault
+    from dsm.pii.vault import candidate_id as derive_cid
+
+    config = load_config()
+    vault = InMemoryVault()
+    identities: dict[str, tuple[str, str]] = {}
+    known_pii: dict[str, list[str]] = {}
+    for br in bronze_supply:
+        email = _bronze_cell(br.raw, "Email")
+        if not email:
+            continue
+        cid = derive_cid(email)
+        name = _bronze_cell(br.raw, "Name")
+        identities[cid] = vault.put_identity(cid, name, email)
+        known_pii[cid] = [p for p in (name, email) if p]
+
+    metrics = RunMetrics()
+    profiles: dict[str, ProfileSummaryExtraction] = {}
+    feedbacks: dict[str, list[FeedbackExtraction]] = defaultdict(list)
+    resume_recs = [r for r in all_normalized if r.source_type is SourceType.RESUME]
+    feedback_recs = [r for r in all_normalized if r.source_type is SourceType.FEEDBACK]
+    try:
+        if resume_recs:
+            resume_predict = _build_resume_predictor(config)
+            for r in resume_recs:
+                ext = enrich_resume(
+                    r,
+                    known_pii=known_pii.get(r.candidate_id, []),
+                    predict=resume_predict,
+                    run_id=rid,
+                    metrics=metrics,
+                )
+                if ext is not None:
+                    profiles[r.candidate_id] = ext
+        if feedback_recs:
+            feedback_predict = _build_feedback_predictor(config)
+            for r in feedback_recs:
+                ext = enrich_feedback(
+                    r,
+                    known_pii=known_pii.get(r.candidate_id, []),
+                    predict=feedback_predict,
+                    run_id=rid,
+                    metrics=metrics,
+                )
+                if ext is not None:
+                    feedbacks[r.candidate_id].append(ext)
+    except PIILeakError:
+        log_leak_block(run_id=rid, candidate_id="?", source_hash="?", hit_count=1, metrics=metrics)
+        typer.echo("  GOLD ABORTED: outbound leak-scan blocked a call (AD-069)", err=True)
+        raise typer.Exit(1) from None
+
+    gold = merge_run(
+        all_normalized,
+        profiles=profiles,
+        feedbacks=dict(feedbacks),
+        identities=identities,
+        taxonomy=taxonomy,
+        prompt_version=config["enrich"]["prompt_version"],
+        model_version=config["models"]["reasoning_llm"],
+    )
+    prior_ids = list_gold_ids(gold_dir)
+    rec = reconcile({g.candidate_id for g in gold}, prior_ids)
+    for g in gold:
+        write_gold(g, gold_dir)
+    for cid in rec.tombstoned_ids:
+        prior = read_gold(cid, gold_dir)
+        if prior is not None:
+            write_gold(tombstone(prior), gold_dir)
+            log_tombstone(run_id=rid, candidate_id=cid)
+    latest_as_of = max((g.valid_as_of for g in gold if g.valid_as_of), default=None)
+    fresh_warnings = freshness_guard(
+        latest_as_of,
+        max_staleness_days=config["reconcile"]["max_staleness_days"],
+        today=date.today(),
+    )
+    quality = build_quality_metrics(gold, run_metrics=metrics, tombstones=len(rec.tombstoned_ids))
+
+    typer.echo("\n── Gold ──")
+    typer.echo(f"  entities    : {quality.gold_count}")
+    cov = quality.coverage
+    typer.echo(f"  coverage    : thin={cov['thin']} medium={cov['medium']} rich={cov['rich']}")
+    typer.echo(f"  conflicts   : {quality.conflicts}")
+    typer.echo(f"  citation-verify failures: {quality.citation_verify_failures}")
+    typer.echo(f"  leak-scan hits: {quality.leak_blocks}")
+    typer.echo(f"  tombstones  : {quality.tombstones}")
+    for warning in fresh_warnings:
+        typer.echo(f"  freshness   : {warning}")
+    for g in gold:  # PII-safe per-entity line: candidate_id token + structured fields only
+        typer.echo(
+            f"    {g.candidate_id} grade={g.grade.value.value if g.grade else 'none'} "
+            f"avail={g.availability.value.type if g.availability else 'none'} "
+            f"skills={len(g.skills)} conflicts={len(g.conflicts)}"
+        )
+
+    try:
+        quality.assert_clean()  # LN-4: any leak block fails the run
+    except RuntimeError as exc:
+        typer.echo(f"  {exc}", err=True)
+        raise typer.Exit(1) from None
 
     if parse_errors or silver_errors:
         raise typer.Exit(1)

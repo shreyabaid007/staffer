@@ -15,7 +15,9 @@ from typing import Any
 import yaml
 
 # dsm/config.py → repo root is two levels up; config/ sits beside dsm/ in the checkout.
-_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "default.yaml"
+_CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+_CONFIG_PATH = _CONFIG_DIR / "default.yaml"
+_PROMPTS_DIR = _CONFIG_DIR / "prompts"
 
 
 @lru_cache(maxsize=1)
@@ -35,3 +37,16 @@ def load_config() -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Expected a mapping at the top of {_CONFIG_PATH}, got {type(data)}")
     return data
+
+
+@lru_cache(maxsize=8)
+def load_prompt(name: str) -> str:
+    """Load a versioned DSPy-signature instruction from ``config/prompts/<name>.md`` (AD-078).
+
+    Prompts live in ``config/`` (tech.md rule 6) so a wording change is a visible diff and pairs
+    with the ``enrich.prompt_version`` bump that forces re-extraction (§11). Read-only.
+
+    Raises:
+        FileNotFoundError: if the named prompt file is missing.
+    """
+    return (_PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8").strip()
