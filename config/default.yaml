@@ -13,6 +13,7 @@ adjacency_map: {}
 models:
   reasoning_llm: "openrouter/anthropic/claude-sonnet-4-6"
   embedder: "BAAI/bge-base-en-v1.5"
+  reranker: "BAAI/bge-reranker-base"
 
 # Ingest enrich stage (a-003). prompt_version bumps when config/prompts/* change; model_version is
 # sourced from models.reasoning_llm (single source of truth). A bump forces re-extraction (§11).
