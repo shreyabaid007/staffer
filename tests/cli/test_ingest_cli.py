@@ -24,7 +24,7 @@ _ROLLING_OFF = (
 
 def _raw_dir(tmp_path: Path) -> Path:
     raw = tmp_path / "raw"
-    (raw / "supply").mkdir(parents=True)
+    (raw / "supply").mkdir(parents=True, exist_ok=True)
     (raw / "supply" / "beach.csv").write_bytes(_BEACH)
     (raw / "supply" / "rolling_off.csv").write_bytes(_ROLLING_OFF)
     return raw
@@ -106,3 +106,20 @@ def test_gold_layer_persisted(tmp_path: Path) -> None:
     _run(tmp_path)
     written = list((tmp_path / "gold").glob("*.json"))
     assert len(written) == 3
+
+
+def test_idempotent_rerun_does_not_tombstone(tmp_path: Path) -> None:
+    """Regression: a re-run lands everything SKIPPED → 0 candidates processed; it must leave gold
+    UNCHANGED, never tombstone the prior set (RC-1 guard)."""
+    import json
+
+    first = _run(tmp_path)
+    assert first.exit_code == 0, first.output
+
+    second = _run(tmp_path)  # same tmp_path → manifest already has every hash → all SKIPPED
+    assert second.exit_code == 0, second.output
+    assert "gold left unchanged" in second.output
+    assert "tombstones  : 3" not in second.output
+
+    for path in (tmp_path / "gold").glob("*.json"):
+        assert json.loads(path.read_text())["is_tombstoned"] is False
