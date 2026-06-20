@@ -70,7 +70,7 @@ run.
   `InMemoryVault` is non-persistent). Decision: rely on PII-1's construction guarantee; the indexer
   takes **no `known_pii`**, and `dsm index` needs neither bronze nor `DSM_CANDIDATE_ID_KEY`. A
   **generic** outbound NER/org-dictionary scan (which catches client-org names too, without needing
-  per-candidate identity) is **deferred to Lane C**, and `build_embed_text` is the seam for it.
+  per-candidate identity) is **deferred to a later hardening phase**, and `build_embed_text` is the seam for it.
 
 ## Non-functional requirements
 
@@ -120,7 +120,7 @@ run.
    query logic and never needs a re-index. ✅
 7. **No outbound known-PII scan at index time** → AD-084. ✅ Rely on `embed_text` PII-free **by
    construction** (PII-1); the indexer takes no `known_pii`; a generic NER/org-dictionary outbound scan
-   is Lane C's later hardening. **This supersedes the brief's "STILL run `assert_no_leak`."**
+   is deferred to a later hardening phase. **This supersedes the brief's "STILL run `assert_no_leak`."**
 
 ## Out of scope (a-006 / later)
 
@@ -129,6 +129,6 @@ run.
 - Chaining the index phase onto `dsm ingest` (standalone `dsm index` is delivered; the chain is a
   small follow-on).
 - **Generic outbound NER/org-dictionary scan over `embed_text`** (catches client-org names without
-  per-candidate identity) — Lane C hardening; `build_embed_text` is left as the seam (AD-084).
-- Encrypted at-rest / persistent vault read path (Lane C).
+  per-candidate identity) — deferred hardening; `build_embed_text` is left as the seam (AD-084).
+- Encrypted at-rest / persistent vault read path (deferred).
 - Model swaps / benchmarking (AD-074); Milvus *server* (Lite only).

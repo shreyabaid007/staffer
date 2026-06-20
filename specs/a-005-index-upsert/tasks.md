@@ -12,7 +12,7 @@
   differs, AD-066), **AD-083** (add the `milvus-lite` embedded engine — peer of the already-declared
   `pymilvus`, completing the sanctioned Milvus Lite store, `tech.md` §11), and **AD-084** (no outbound
   known-PII scan at index time — `embed_text` PII-free **by construction**; supersedes the brief's
-  `assert_no_leak`; generic NER/org-dictionary outbound scan deferred to Lane C). In the same commit:
+  `assert_no_leak`; generic NER/org-dictionary outbound scan deferred to a later hardening phase). In the same commit:
   add the `index` block to `config/default.yaml`; add `milvus-lite` to `pyproject.toml` dependencies +
   run `uv lock`; gitignore `data/index/*` (+ `data/index/.gitkeep`). Commit:
   `docs(decision): AD-081..084 + index config + milvus-lite dep`. _(NF-4; NF-5; AC-9; CFG)_
@@ -69,7 +69,7 @@
   no network); confirm `docs/decision.md` carries AD-081/082/083/084 and `config`/`gitignore`/
   `pyproject` are consistent; update `docs/progress.A.md` via `/handoff`. Note remaining scope for
   a-006 (query-time hybrid retrieve + rerank, `dsm match` wiring, chaining index onto `dsm ingest`,
-  Lane C's generic outbound NER scan). No code commit beyond doc/handoff. Commit:
+  generic outbound NER scan — deferred). No code commit beyond doc/handoff. Commit:
   `docs(progress): a-005 index upsert handoff`. _(AC-8; DoD)_
 
 ## Definition of Done
