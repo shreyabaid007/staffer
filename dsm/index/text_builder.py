@@ -59,3 +59,14 @@ def build_embed_text(gold: GoldCandidate) -> str:
         parts.append(" ".join(projects))
 
     return " ".join(parts)
+
+
+def build_skill_set(gold: GoldCandidate) -> list[str]:
+    """Build the exact hard-skill / BM25 skill list — deduped, sorted (IDX-3; AD-081).
+
+    ``sorted({s.name for s in included_skills(gold)})``: a feedback-refuted skill
+    (``demonstrated is False``) is excluded by the shared predicate, so an exact / ARRAY_CONTAINS /
+    BM25 hard-skill match can never credit a refuted skill; confirmed and unverified skills stay.
+    Sorted + deduped for determinism (drives both the ``skill_set`` ARRAY and ``skill_text``).
+    """
+    return sorted({s.name for s in included_skills(gold)})

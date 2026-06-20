@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from dsm.index.text_builder import build_embed_text, included_skills
+from dsm.index.text_builder import build_embed_text, build_skill_set, included_skills
 from dsm.ingest.models import Confidence, GoldCandidate, Grade, MergedSkill, Sourced
 from dsm.models import FreeNow, Location, ProficiencyLevel
 
@@ -121,3 +121,36 @@ class TestBuildEmbedText:
         assert _SECRET_EMAIL not in text
         assert _SECRET_CID not in text
         assert "DEADBEEF" not in text
+
+
+class TestBuildSkillSet:
+    def test_excludes_denied_includes_true_and_none(self) -> None:
+        """AC-1: demonstrated False excluded; True/None kept (AD-081)."""
+        gold = _gold(
+            skills=[
+                _skill("kotlin", demonstrated=True),
+                _skill("react", demonstrated=None),
+                _skill("terraform", demonstrated=False),
+            ],
+            domains=[],
+            projects=[],
+        )
+        assert build_skill_set(gold) == ["kotlin", "react"]
+
+    def test_sorted_and_deduped(self) -> None:
+        gold = _gold(
+            skills=[_skill("react"), _skill("kotlin"), _skill("aws"), _skill("kotlin")],
+            domains=[],
+            projects=[],
+        )
+        assert build_skill_set(gold) == ["aws", "kotlin", "react"]
+
+    def test_agrees_with_embed_text_on_denied(self) -> None:
+        """The shared predicate keeps skill_set and embed_text consistent on a refuted skill."""
+        gold = _gold(
+            skills=[_skill("kotlin"), _skill("terraform", demonstrated=False)],
+            domains=[],
+            projects=[],
+        )
+        assert "terraform" not in build_skill_set(gold)
+        assert "terraform" not in build_embed_text(gold)
