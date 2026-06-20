@@ -394,6 +394,20 @@ def ingest(
         prompt_version=config["enrich"]["prompt_version"],
         model_version=config["models"]["reasoning_llm"],
     )
+
+    typer.echo("\n── Gold ──")
+    if not gold:
+        # No candidates processed this run — an idempotent re-run (all files SKIPPED at landing) or
+        # a run that landed nothing. This is NOT a current snapshot, so we must NOT tombstone prior
+        # gold (that would flag every consultant as departed). Replay-from-bronze + an enrichment
+        # cache (§11) are deferred, so a no-data run is a no-op for gold: leave it untouched.
+        typer.echo("  no candidates processed this run — gold left unchanged (no reconcile)")
+        typer.echo("  (re-run is idempotent; to rebuild gold, re-land changed inputs)")
+        if parse_errors or silver_errors:
+            raise typer.Exit(1)
+        typer.echo("")
+        return
+
     prior_ids = list_gold_ids(gold_dir)
     rec = reconcile({g.candidate_id for g in gold}, prior_ids)
     for g in gold:
@@ -411,7 +425,6 @@ def ingest(
     )
     quality = build_quality_metrics(gold, run_metrics=metrics, tombstones=len(rec.tombstoned_ids))
 
-    typer.echo("\n── Gold ──")
     typer.echo(f"  entities    : {quality.gold_count}")
     cov = quality.coverage
     typer.echo(f"  coverage    : thin={cov['thin']} medium={cov['medium']} rich={cov['rich']}")
