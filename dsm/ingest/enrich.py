@@ -149,11 +149,18 @@ def enrich_resume(
         )
         return None
 
+    mapping = redacted.mapping
+
+    def _restore(value: str) -> str:
+        return deanonymize(value, mapping)
+
     kept: list[SkillExtraction] = []
     for skill in raw.skills:
-        cite = _deanon_citation(skill.evidence, redacted.mapping)
+        cite = _deanon_citation(skill.evidence, mapping)
         if _quote_present(cite.text, source):
-            kept.append(skill.model_copy(update={"evidence": cite}))
+            # De-anonymize the skill NAME too: NER can over-redact a tech term (e.g. "Kubernetes"
+            # tagged as an entity), and the LLM may echo that placeholder back as the name.
+            kept.append(skill.model_copy(update={"name": _restore(skill.name), "evidence": cite}))
         else:
             log_citation_verify_failure(
                 run_id=run_id,
@@ -165,9 +172,11 @@ def enrich_resume(
     return raw.model_copy(
         update={
             "skills": kept,
-            "employers": [deanonymize(e, redacted.mapping) for e in raw.employers],
-            "projects": [deanonymize(p, redacted.mapping) for p in raw.projects],
-            "domains": [deanonymize(d, redacted.mapping) for d in raw.domains],
+            "employers": [_restore(e) for e in raw.employers],
+            "projects": [_restore(p) for p in raw.projects],
+            "domains": [_restore(d) for d in raw.domains],
+            "seniority_signals": [_restore(s) for s in raw.seniority_signals],
+            "education": [_restore(e) for e in raw.education],
         }
     )
 
@@ -213,12 +222,15 @@ def enrich_feedback(
             metrics=metrics,
         )
         return None
+    mapping = redacted.mapping
+    domain = raw.domain_confirmation
     return raw.model_copy(
         update={
             "evidence": cite,
-            "confirmed_skills": [deanonymize(s, redacted.mapping) for s in raw.confirmed_skills],
-            "skill_gaps": [deanonymize(s, redacted.mapping) for s in raw.skill_gaps],
-            "summary": deanonymize(raw.summary, redacted.mapping),
+            "confirmed_skills": [deanonymize(s, mapping) for s in raw.confirmed_skills],
+            "skill_gaps": [deanonymize(s, mapping) for s in raw.skill_gaps],
+            "domain_confirmation": deanonymize(domain, mapping) if domain else None,
+            "summary": deanonymize(raw.summary, mapping),
         }
     )
 

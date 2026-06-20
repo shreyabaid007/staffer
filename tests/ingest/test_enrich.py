@@ -105,6 +105,35 @@ def test_fabricated_quote_is_rejected_siblings_kept() -> None:
     assert [s.name for s in out.skills] == ["Kotlin"]  # fabricated Terraform dropped
 
 
+def test_ner_overredacted_skill_name_is_deanonymized() -> None:
+    """Regression: NER over-redacts a tech term ('Kubernetes' → [[NER_0]]) and the LLM echoes it
+    back as the skill name; enrich must de-anonymize the NAME, not just the citation."""
+    rec = NormalizedRecord(
+        candidate_id="cid:1",
+        source_type=SourceType.RESUME,
+        source_hash="sha256:resume",
+        raw_text="Hands-on with Kubernetes (working) on the platform team.",
+        extractor_version="silver-v1",
+    )
+
+    def ner(_t: str) -> list:
+        return [("Kubernetes", "ORG")]  # false-positive: a tech term tagged as an entity
+
+    cassette = ProfileSummaryExtraction(
+        skills=[
+            SkillExtraction(
+                name="[[NER_0]]",
+                proficiency=ProficiencyLevel.INTERMEDIATE,
+                evidence=_cite("[[NER_0]] (working)"),
+            )
+        ],
+    )
+    out = enrich_resume(rec, known_pii=[], predict=lambda _t, _s: cassette, ner=ner)
+    assert out is not None and len(out.skills) == 1
+    assert out.skills[0].name == "Kubernetes"  # name restored, not a leaked placeholder
+    assert out.skills[0].evidence.text == "Kubernetes (working)"
+
+
 def test_schema_invalid_output_returns_none() -> None:
     """EN-7: a schema-invalid / erroring LLM response yields None, not a crash."""
 

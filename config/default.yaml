@@ -11,7 +11,7 @@ availability:
 adjacency_map: {}
 
 models:
-  reasoning_llm: "anthropic/claude-sonnet-4-6"
+  reasoning_llm: "openrouter/anthropic/claude-sonnet-4-6"
   embedder: "BAAI/bge-base-en-v1.5"
 
 # Ingest enrich stage (a-003). prompt_version bumps when config/prompts/* change; model_version is
