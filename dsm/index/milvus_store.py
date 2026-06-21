@@ -24,6 +24,8 @@ from dsm.index.models import CandidateIndexRecord
 _CID_MAX = 128
 _SKILL_NAME_MAX = 128
 _SKILL_SET_CAP = 64
+_CITY_MAX = 128
+_ONSITE_CITIES_CAP = 16  # AD-086: onsite_cities ARRAY<VARCHAR> capacity
 _TEXT_MAX = 8192
 
 
@@ -68,8 +70,15 @@ class MilvusIndexStore:
         schema.add_field("sparse", DataType.SPARSE_FLOAT_VECTOR)
         schema.add_field("embed_text", DataType.VARCHAR, max_length=_TEXT_MAX)
         schema.add_field("grade", DataType.VARCHAR, max_length=64)
-        schema.add_field("city", DataType.VARCHAR, max_length=_SKILL_NAME_MAX, nullable=True)
-        schema.add_field("remote_eligible", DataType.BOOL)
+        schema.add_field("city", DataType.VARCHAR, max_length=_CITY_MAX, nullable=True)
+        schema.add_field("remote_within_country", DataType.BOOL)  # AD-086
+        schema.add_field(
+            "onsite_cities",
+            DataType.ARRAY,
+            element_type=DataType.VARCHAR,
+            max_capacity=_ONSITE_CITIES_CAP,
+            max_length=_CITY_MAX,
+        )  # AD-086
         schema.add_field("availability_type", DataType.VARCHAR, max_length=32)
         schema.add_field("availability_date", DataType.INT64, nullable=True)
         schema.add_field("valid_as_of", DataType.INT64, nullable=True)
@@ -129,7 +138,8 @@ class MilvusIndexStore:
             "embed_text": record.embed_text,
             "grade": record.grade.value,
             "city": record.city,
-            "remote_eligible": record.remote_eligible,
+            "remote_within_country": record.remote_within_country,
+            "onsite_cities": record.onsite_cities,
             "availability_type": record.availability_type,
             "availability_date": (
                 record.availability_date.toordinal() if record.availability_date else None

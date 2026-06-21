@@ -70,11 +70,13 @@ def parse_grade(raw: str) -> tuple[Grade | None, list[str]]:
 
 
 def parse_location(location: str, chennai_open: str) -> tuple[Location, list[str]]:
-    """Build a frozen ``Location`` from the two supply columns (LOC-1/2/3/NET).
+    """Build a frozen ``Location`` from the two supply columns (LOC-1/2/3/NET; AD-086).
 
     ``city = Location`` (``None`` for ``Remote (India)``, AD-075);
-    ``remote_eligible = (Location == "Remote (India)") OR (Chennai-open == "Yes")``.
-    Lossy collapses are recorded as warnings (§15#3 overloading noted, not modelled).
+    ``remote_within_country = (Location == "Remote (India)")``;
+    ``onsite_cities = {"Chennai"}`` when ``Chennai-open == "Yes"`` else empty.
+    The two facets are orthogonal — a Remote (India) consultant who is also Chennai-open
+    carries both (AD-086). Lossy/structural notes are recorded as warnings.
     """
     warnings: list[str] = []
     loc = location.strip()
@@ -82,18 +84,20 @@ def parse_location(location: str, chennai_open: str) -> tuple[Location, list[str
     is_remote_india = loc.lower() == _REMOTE_INDIA
 
     city = None if (is_remote_india or not loc) else loc
-    remote_eligible = is_remote_india or open_flag
+    onsite_cities = frozenset({"Chennai"}) if open_flag else frozenset()
 
     if not loc:
         warnings.append("location missing")
     if is_remote_india:
-        warnings.append("location 'Remote (India)' → no base city; remote_eligible=True (LOC-3)")
-    if open_flag:
         warnings.append(
-            "Chennai-open=Yes collapsed into remote_eligible; "
-            "city-specific openness not modelled (§15#3)"
+            "location 'Remote (India)' → no base city; remote_within_country=True (LOC-3)"
         )
-    return Location(city=city, remote_eligible=remote_eligible), warnings
+    if open_flag:
+        warnings.append("Chennai-open=Yes → onsite_cities={'Chennai'} (AD-086)")
+    return (
+        Location(city=city, remote_within_country=is_remote_india, onsite_cities=onsite_cities),
+        warnings,
+    )
 
 
 def parse_date(raw: str) -> date | None:

@@ -178,7 +178,8 @@ def assessment(
 
 def test_location_instantiates(location: Location) -> None:
     assert location.city == "Chennai"
-    assert location.remote_eligible is False
+    assert location.remote_within_country is False
+    assert location.onsite_cities == frozenset()
 
 
 def test_skill_instantiates(skill: Skill) -> None:

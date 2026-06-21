@@ -133,7 +133,7 @@ def test_normalized_record_holds_frozen_availability() -> None:
         source_hash="sha256:def",
         valid_as_of=_date(2026, 6, 1),
         grade=Grade.LEAD_CONSULTANT,
-        location=Location(city="Pune", remote_eligible=True),
+        location=Location(city="Pune", remote_within_country=True),
         availability=RollingOff(
             expected_date=_date(2026, 6, 20), confidence=Confidence.MEDIUM.value
         ),

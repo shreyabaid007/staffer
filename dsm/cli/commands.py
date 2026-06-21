@@ -56,9 +56,10 @@ def build_near_misses(
     Gaps are recomputed from the ``Candidate`` + ``TargetProfileScorecard`` objects — the
     human-readable ``Exclusion.detail`` is never parsed (O-NM-4). Ordering (AD-063b):
     availability misses first (smallest overshoot in days), then location misses
-    (alphabetical by ``candidate_email`` — location misses have no gap metric, since any
-    ``remote_eligible`` candidate already passes the gate, G-LOC-2). The full ordered list
-    is returned; the orchestrator applies the top-3 cap (AD-063d).
+    (alphabetical by ``candidate_email`` — location misses have no gap metric, since the
+    onsite gate is structural: the candidate's city is neither the role city nor in their
+    ``onsite_cities``, AD-086). The full ordered list is returned; the orchestrator applies
+    the top-3 cap (AD-063d).
 
     Args:
         candidates: the original candidate set (to look up name/location/availability).
@@ -84,7 +85,9 @@ def build_near_misses(
             gap_summary = f"available {overshoot} {day_word} after deadline"
             sort_key = (0, overshoot, candidate.email)
         else:  # LOCATION_MISMATCH
-            gap_summary = f"in {candidate.location.city}, not open to relocation"
+            cand_city = candidate.location.city or "no base city"
+            role_city = scorecard.location.city or "required city"
+            gap_summary = f"in {cand_city}, not in onsite set for {role_city}"
             sort_key = (1, 0, candidate.email)
 
         ranked.append(

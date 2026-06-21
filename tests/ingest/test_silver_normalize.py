@@ -155,8 +155,9 @@ def test_unmapped_skill_is_flagged() -> None:
     assert by_name["Cobol"].unmapped is True
 
 
-def test_chennai_open_sets_remote_eligible_with_warning() -> None:
+def test_chennai_open_sets_onsite_cities_with_warning() -> None:
     rec = _norm(_beach_row())  # Chennai-open=Yes
     assert rec is not None
-    assert rec.location is not None and rec.location.remote_eligible is True  # type: ignore[attr-defined]
+    assert rec.location is not None  # type: ignore[attr-defined]
+    assert rec.location.onsite_cities == frozenset({"Chennai"})  # type: ignore[attr-defined]
     assert any("Chennai-open" in w for w in rec.parse_warnings)  # type: ignore[attr-defined]

@@ -37,7 +37,8 @@ _START = date(2026, 7, 1)
 
 def _scorecard(
     *,
-    city: str = "Chennai",
+    city: str | None = "Chennai",
+    country: str = "India",
     co_location_required: bool,
     window_days: int = 14,
 ) -> TargetProfileScorecard:
@@ -46,7 +47,7 @@ def _scorecard(
         role_id="ROLE-TEST",
         hard_depth_skills=[SkillRequirement(name="python", depth=SkillDepth.HARD)],
         desired_skills=[],
-        location=Location(city=city),
+        location=Location(city=city, country=country),
         co_location_required=co_location_required,
         start_date=_START,
         availability_window_days=window_days,
@@ -56,15 +57,22 @@ def _scorecard(
 def _candidate(
     *,
     email: str = "c@example.com",
-    city: str = "Chennai",
-    remote_eligible: bool = False,
+    city: str | None = "Chennai",
+    country: str = "India",
+    remote_within_country: bool = False,
+    onsite_cities: frozenset[str] = frozenset(),
     availability: AvailabilityState | None = None,
 ) -> Candidate:
     """Build a candidate; defaults to FreeNow so location tests isolate location."""
     return Candidate(
         email=email,
         name="Test Candidate",
-        location=Location(city=city, remote_eligible=remote_eligible),
+        location=Location(
+            city=city,
+            country=country,
+            remote_within_country=remote_within_country,
+            onsite_cities=onsite_cities,
+        ),
         availability=availability or FreeNow(),
         skills=[Skill(name="python", proficiency=ProficiencyLevel.ADVANCED)],
         feedback=FeedbackSignals(),
@@ -73,31 +81,31 @@ def _candidate(
 
 
 # ---------------------------------------------------------------------------
-# Location gate — G-LOC-1..4, G-OUT-1
+# Location gate — AD-086 (onsite vs distributed), FR-3-AC-1..7, G-OUT-1
 # ---------------------------------------------------------------------------
 
 
-def test_g_loc_1_co_location_city_match_included() -> None:
-    """G-LOC-1: co-location required + city match → included."""
+def test_g_loc_1_onsite_city_match_included() -> None:
+    """FR-3: onsite required + home-city match → included."""
     scorecard = _scorecard(city="Chennai", co_location_required=True)
     pool, log = filter_candidates([_candidate(city="Chennai")], scorecard)
     assert len(pool.candidates) == 1
     assert log.exclusions == []
 
 
-def test_g_loc_2_co_location_remote_eligible_included() -> None:
-    """G-LOC-2: co-location required + different city + remote_eligible → included (AD-063a)."""
+def test_g_loc_2_onsite_cities_membership_included() -> None:
+    """FR-3-AC-2: onsite required + role city in candidate.onsite_cities → included (AD-086)."""
     scorecard = _scorecard(city="Chennai", co_location_required=True)
-    candidate = _candidate(city="Pune", remote_eligible=True)
+    candidate = _candidate(city="Pune", onsite_cities=frozenset({"Chennai"}))
     pool, log = filter_candidates([candidate], scorecard)
     assert len(pool.candidates) == 1
     assert log.exclusions == []
 
 
-def test_g_loc_3_co_location_mismatch_excluded_with_both_cities() -> None:
-    """G-LOC-3: co-location + different city + not remote → excluded, both cities in detail."""
+def test_g_loc_3_remote_within_country_does_not_clear_onsite() -> None:
+    """FR-3-AC-3: onsite required + remote_within_country (not onsite-for-city) → excluded."""
     scorecard = _scorecard(city="Chennai", co_location_required=True)
-    candidate = _candidate(city="Pune", remote_eligible=False)
+    candidate = _candidate(city="Pune", remote_within_country=True)
     pool, log = filter_candidates([candidate], scorecard)
     assert pool.candidates == []
     assert len(log.exclusions) == 1
@@ -108,23 +116,52 @@ def test_g_loc_3_co_location_mismatch_excluded_with_both_cities() -> None:
     assert "Chennai" in exclusion.detail
 
 
-def test_g_loc_4_no_co_location_all_pass() -> None:
-    """G-LOC-4: co-location not required → any India city passes."""
-    scorecard = _scorecard(city="Chennai", co_location_required=False)
+def test_g_loc_role_city_none_excludes_all_onsite() -> None:
+    """FR-3-AC-1: onsite required but role has no city → no candidate can match → excluded."""
+    scorecard = _scorecard(city=None, co_location_required=True)
+    candidate = _candidate(city="Chennai", onsite_cities=frozenset({"Chennai"}))
+    pool, log = filter_candidates([candidate], scorecard)
+    assert pool.candidates == []
+    assert len(log.exclusions) == 1
+    assert log.exclusions[0].reason is ExclusionReason.LOCATION_MISMATCH
+
+
+def test_g_loc_distributed_same_country_passes() -> None:
+    """FR-3-AC-5: distributed role → same-country candidates pass regardless of city."""
+    scorecard = _scorecard(city="Chennai", country="India", co_location_required=False)
     candidates = [
         _candidate(email="a@example.com", city="Pune"),
         _candidate(email="b@example.com", city="Bangalore"),
-        _candidate(email="d@example.com", city="Kolkata"),
+        _candidate(email="d@example.com", city=None, remote_within_country=True),
     ]
     pool, log = filter_candidates(candidates, scorecard)
     assert len(pool.candidates) == 3
     assert log.exclusions == []
 
 
-def test_location_city_match_is_case_insensitive() -> None:
-    """Edge case: 'chennai' matches 'Chennai' (normalise to lowercase, stripped)."""
+def test_g_loc_distributed_different_country_excluded() -> None:
+    """FR-3-AC-5: distributed role → a different-country candidate is excluded."""
+    scorecard = _scorecard(city="Chennai", country="India", co_location_required=False)
+    candidate = _candidate(city="London", country="UK")
+    pool, log = filter_candidates([candidate], scorecard)
+    assert pool.candidates == []
+    assert len(log.exclusions) == 1
+    assert log.exclusions[0].reason is ExclusionReason.LOCATION_MISMATCH
+
+
+def test_location_home_city_match_is_case_insensitive() -> None:
+    """FR-3-AC-4: 'chennai' matches 'Chennai' (casefold, stripped)."""
     scorecard = _scorecard(city="Chennai", co_location_required=True)
     pool, log = filter_candidates([_candidate(city="  chennai ")], scorecard)
+    assert len(pool.candidates) == 1
+    assert log.exclusions == []
+
+
+def test_location_onsite_membership_is_case_insensitive() -> None:
+    """FR-3-AC-4: onsite-city membership matches case-insensitively too (AD-086)."""
+    scorecard = _scorecard(city="Chennai", co_location_required=True)
+    candidate = _candidate(city="Pune", onsite_cities=frozenset({"chennai"}))
+    pool, log = filter_candidates([candidate], scorecard)
     assert len(pool.candidates) == 1
     assert log.exclusions == []
 
@@ -251,7 +288,6 @@ def test_g_out_2_both_gates_fail_records_only_location() -> None:
     scorecard = _scorecard(city="Chennai", co_location_required=True)
     candidate = _candidate(
         city="Pune",
-        remote_eligible=False,
         availability=RollingOff(expected_date=date(2026, 8, 1), confidence="high"),
     )
     pool, log = filter_candidates([candidate], scorecard)
