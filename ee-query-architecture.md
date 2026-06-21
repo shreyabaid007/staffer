@@ -12,10 +12,15 @@
 > canonical `Candidate`), this doc **consumes** it — it does not redefine it.
 >
 > **Status:** design doc, analogous to the ingestion architecture (which was ratified as
-> AD-065…AD-074). It **proposes** four query-time ADRs — **AD-081 … AD-084** (collected in §13) —
-> two of which (AD-081 location split, AD-084 freshness thresholds) touch frozen / shared
-> contracts and therefore **require team sign-off before any implementation** (AD-060). Nothing
-> here is built yet; the Pydantic models are illustrative interface definitions.
+> AD-065…AD-074). It **proposes** six query-time ADRs — **AD-086 … AD-091** (collected in §13) —
+> three of which (AD-086 location split, AD-088 `HARD_SKILL_MISMATCH`, AD-091 index-record home)
+> touch frozen / shared contracts and therefore **require team sign-off before any implementation**
+> (AD-060). The numbering starts at **AD-086** because AD-081…085 are already accepted (a-005 index
+> + the c-001 deprecation); `docs/decision.md` is authoritative. Nothing here is built yet; the
+> Pydantic models are illustrative interface definitions. The implementation prompts in
+> `query-slice-prompts.md` (slices B-1/B-2) operationalise this doc and, where they post-date it,
+> **supersede** it — notably: the demand side carries no candidate PII and needs **no redaction**
+> (§7), and `Notes/Constraints` rides the existing `OpenRole.description` field.
 
 ---
 
@@ -38,10 +43,13 @@ Carried over from ingestion §1, specialised for serving:
 4. **Determinism by default.** Same Open Roles CSV + same supply snapshot + same config/model
    versions → byte-identical shortlist. `temperature=0` on every LLM call; deterministic sort and
    tie-break (`dsm/match/rank.py`); RRF and the exact filter are pure functions.
-5. **PII clean-by-construction.** Structured demand columns carry no candidate PII and never reach
-   an LLM, so they need no redaction (golden rule 3). Free-text `Notes/Constraints` and the
-   `Client` org name are the only demand-side PII surfaces, and they are redacted through the
-   **shared ingestion PII control plane** (`dsm/pii/`) *only* before an LLM stage (§7).
+5. **PII clean-by-construction.** The demand side carries **no candidate PII** — golden rule 3 is
+   about consultant name/email, which never appear in an Open Roles CSV. Structured demand columns
+   *and* the free-text `Notes/Constraints` (which rides `OpenRole.description`) describe the *role*,
+   not a person, so they reach the clarify LLM **without redaction** (§7). The only boundary that
+   matters is inherited intact from ingestion: candidate text reaching Modal/OpenRouter is PII-free
+   **by construction**, and name/email live only in the encrypted vault. `Client` is an org name,
+   not candidate PII; tokenizing it for client confidentiality is a deferred choice (§7/§12).
 6. **Every claim cites real evidence.** Each line of the shortlist reuses `EvidenceCitation`
    (AD-040/073) — a verbatim quote verified present in the source. No unsourced assertions; the
    two-tier "shown, not hidden" framing of trade-offs is carried by `Flag`s, never silent
@@ -81,14 +89,13 @@ flowchart LR
     CSV --> PARSE --> CLAR --> GATE --> EXACT --> RECALL --> RR --> SCORE --> RANK
     EXACT -. reads .- STORE
     RECALL -. reads .- STORE
-    CLAR <-. notes/client only .-> REDACT
     RR <-. LLM-rerank variant only .-> REDACT
     SERVE -. emits .-> OBS
 ```
 
 The ingestion plane writes the `Candidate` gold entities and the `CandidateIndexRecord`s into
 Milvus. The serving plane is **read-only** over that store and **must not import `dsm/ingest/`**
-(§10). The dense-recall stage is fully specified but **OFF by default** (AD-082, §6.5).
+(§10). The dense-recall stage is fully specified but **OFF by default** (AD-089, §6.5).
 
 ---
 
@@ -111,9 +118,11 @@ Python, never by an LLM):
 
 **`Co-location = Yes`** → hard **onsite** gate at `Location`'s city (ROLE-02 Chennai). **`Location`**
 carries the overloading flagged in ingestion §15#3 ("Bengaluru / remote-India") — resolved by the
-location model in §6.3 / AD-081. `Priority` orders the *batch* (and breaks ties on which roles to
-process first); it is **not** a matching signal. `Sector`/`Client` feed the dense query context
-(domain), and `Client` is PII-redacted before any LLM stage (§7).
+location model in §6.3 / AD-086. `Notes / Constraints` is the free-text clarify intent and maps to
+the existing **`OpenRole.description`** field (no new field; no redaction — it describes the role,
+not a candidate, §7). `Priority` orders the *batch* (and breaks ties on which roles to process
+first); it is **not** a matching signal. `Sector`/`Client` feed the dense query context (domain)
+when recall is enabled; neither is candidate PII, so neither is redacted (§7).
 
 > **Note:** no Open Roles CSV fixture exists in the repo yet (only supply-side fixtures and the
 > importable ROLE-01/02/03 scorecards in `tests/fixtures/`). The parser contract below is built
@@ -131,13 +140,13 @@ through `PseudonymisedLM`).
 | Step | Name | Input | Output | LLM? |
 |---|---|---|---|---|
 | 1 | **Parse demand** | Open Roles CSV | `list[OpenRole]` + `demand_as_of` | No |
-| 2 | **Clarify** | `OpenRole` | `TargetProfileScorecard` | **Optional** (redact Notes/Client first) |
-| 3 | **Freshness guard** | `demand_as_of`, supply `valid_as_of`, `start_date` | warn-flag \| refuse | No |
+| 2 | **Clarify** | `OpenRole` (incl. `description`) | `TargetProfileScorecard` | **Optional** (reads `description`; no redaction, §7) |
+| 3 | **Freshness guard** | `demand_as_of`, supply `valid_as_of`, `start_date` | `FreshnessVerdict` (ok/warn/refuse) | No |
 | 4 | **Gate pre-filter** | `list[Candidate]`, `TargetProfileScorecard` | `EligiblePool`, `ExclusionLog` | No |
-| 5 | **Exact hard-skill filter** | `EligiblePool`, hard skills | filtered pool (+ exclusions) | No |
-| 6 | **Hybrid recall** *(deferred, §6.5)* | filtered pool, role query passage | ranked `RetrievedCandidate[]` | No (embed model only) |
-| 7 | **Rerank** | role query, candidate passages | rerank scores | No (cross-encoder) / *Optional LLM variant* |
-| 8 | **Score + combine** | `TargetProfileScorecard`, `Candidate` | `CandidateAssessment` | **Yes** (sub-scores; redacted) |
+| 5 | **Exact hard-skill filter** | `EligiblePool`, hard skills, store | filtered `EligiblePool` (+ exclusions) | No |
+| 6 | **Hybrid recall** *(deferred, §6.6)* | filtered pool, role query passage | ranked `RetrievedCandidate[]` | No (embed model only) |
+| 7 | **Rerank** | role query, candidate passages | `RetrievedCandidate[]` (truncated to rerank top-k) | No (cross-encoder) / *Optional LLM variant* |
+| 8 | **Score + combine** | `TargetProfileScorecard`, `Candidate` | `CandidateAssessment` | **Yes** (sub-scores; candidate text PII-free by construction) |
 | 9 | **Rank** | `list[CandidateAssessment]` | `ShortlistResult` \| `NoMatchResult` | No |
 
 ```mermaid
@@ -170,10 +179,11 @@ genuinely new query-time intermediates (demand parse + retrieval internals), and
 
 | Model | Source | Role at query time |
 |---|---|---|
-| `OpenRole` | `dsm/models.py` | Output of demand parse (step 1) |
+| `OpenRole` | `dsm/models.py` | Output of demand parse (step 1); `Notes/Constraints` → its `description` field |
+| `SkillDepth`, `SkillRequirement` | `dsm/models.py` | **Already frozen — reuse, never redefine.** The HARD/DESIRED split + `min_proficiency` floor used by demand parse + exact filter |
 | `TargetProfileScorecard` | `dsm/models.py` | Clarified role (step 2); `availability_window_days` default 14 (AD-021) |
-| `Candidate`, `Skill`, `Location`, `AvailabilityState` (`FreeNow`/`RollingOff`/`NewJoiner`) | `dsm/models.py` | The gated/scored entity (ingestion gold, read from store) |
-| `EligiblePool`, `Exclusion`, `ExclusionLog`, `ExclusionReason` | `dsm/models.py` | Gate output (steps 4–5) |
+| `Candidate`, `Skill`, `Location`, `AvailabilityState` (`FreeNow`/`RollingOff`/`NewJoiner`) | `dsm/models.py` | The gated/scored entity. **Materialisation gap:** the store holds `CandidateIndexRecord` (PII-free, no proficiency/feedback/name); a serving `Candidate` must be *hydrated* — see §6.0 + §12 #1 |
+| `EligiblePool`, `Exclusion`, `ExclusionLog`, `ExclusionReason` | `dsm/models.py` | Gate output (steps 4–5). **`ExclusionReason` gains `HARD_SKILL_MISMATCH`** for the exact filter (AD-088, frozen amendment) |
 | `CandidateAssessment`, `Flag`, `FlagType`, `EvidenceCitation`, `EvidenceSource` | `dsm/models.py` | Scored, cited, flagged candidate (step 8) |
 | `ShortlistResult`, `NearMiss`, `NoMatchResult` | `dsm/models.py` | **Final output** (step 9) — no new output model needed |
 | `CandidateIndexRecord` (`embed_text`, `dense_vector`, `skill_set`, filter metadata) | ingestion §6 | The retrieval row / Milvus collection schema (steps 5–6) — **consumed, not redefined** |
@@ -202,10 +212,10 @@ class DemandParseOutcome(BaseModel, frozen=True):
 class RetrievedCandidate(BaseModel, frozen=True):
     """A candidate surviving the exact filter, carrying recall/rerank provenance."""
     candidate_id: str                        # HMAC(email), AD-067 — internal key
-    dense_score: float | None = None         # cosine; None when recall deferred (AD-082)
+    dense_score: float | None = None         # cosine; None when recall deferred (AD-089)
     bm25_score: float | None = None
     rrf_score: float | None = None           # fused; None when recall deferred
-    rerank_score: float                      # cross-encoder (or bounded-LLM) joint score
+    rerank_score: float | None = None        # cross-encoder joint score; None on rerank error (§6.7 fallback)
 
 class FreshnessVerdict(BaseModel, frozen=True):
     """Outcome of the as-of guard (§6.3)."""
@@ -228,14 +238,53 @@ class FreshnessVerdict(BaseModel, frozen=True):
 The heart of the doc. Every stage states **input · transformation · output · tool/library ·
 failure behaviour**.
 
+### 6.0 Candidate materialisation (the supply-side input to step 4) — *RESOLVED: `CandidateStore` port (AD-091, pending sign-off)*
+
+Steps 4–8 all consume a serving `Candidate` (location + availability for the gate; typed
+`Skill.proficiency` for the exact filter's floor; `feedback`/`profile_summary` for the score; and,
+for rerank, the candidate's stored `embed_text`). **Nothing in the query plane produces that
+`Candidate` today.** The Milvus store holds `CandidateIndexRecord` (PII-free: `skill_set` is
+`list[str]` with no proficiency; no `feedback`/`profile_summary`/`name`/`email`), and the full
+`GoldCandidate` lives behind the `dsm/ingest/` import boundary (§10). `run_match` currently uses
+`dsm.ingest.stub.get_stub_candidates`.
+
+**Decision (AD-091): depend on a `CandidateStore` *port*, inject a gold-backed adapter at the CLI.**
+This is the standard retrieve→hydrate→rank pattern (dependency inversion): the match/index core
+depends only on an interface; the concrete data source is wired in at the composition root, so it is
+swappable (gold today → DB/feature-store later) without touching the pipeline, and the import
+boundary holds by construction.
+
+```python
+# dsm/models.py (shared) — the port the pure pipeline depends on
+class CandidateStore(Protocol):
+    def get(self, candidate_ids: list[str]) -> list[Candidate]: ...
+
+# dsm/cli/ (composition root — the ONLY layer allowed to import dsm/ingest, §10)
+class GoldCandidateStore:  # adapter
+    """Reads gold via goldstore, hydrates serving Candidate: Skill.proficiency, feedback,
+    profile_summary, location, availability. Carries candidate_id (the store key, for the
+    Milvus skill_set / embed_text lookups). Excludes name/email — see PII note."""
+```
+
+Flow: CLI builds the `GoldCandidateStore`, hydrates `list[Candidate]`, and injects them into
+`run_match`; `dsm/match` + `dsm/index` import only the `CandidateStore` protocol + `dsm.models`,
+never `dsm/ingest`. At POC scale the universe is small, so the CLI hydrates the full beach/roll-off
+pool up front; once recall is enabled (AD-089) hydration narrows to retrieved `candidate_id`s.
+
+**PII note (load-bearing):** the serving `Candidate` (`dsm/models.py`) carries raw `name`/`email`,
+so the adapter must keep them out of anything sent to a provider — carry a **pseudonymised id**
+through the pipeline and fetch identity from the vault **only at final human-facing rendering**
+(golden rule 3 / no-PII-leak eval invariant).
+
 ### 6.1 Parse demand (step 1) — `dsm/match/demand.py`
 
 - **Input:** Open Roles CSV (path + bytes).
 - **Transformation:** parse the banner → `demand_as_of`; for each row, split `Required Skills` on
   `;`, classify each token by the two encodings (§3) into `SkillRequirement(depth=HARD,
   min_proficiency=…)` or `SkillRequirement(depth=DESIRED)`; map `Co-location` → `co_location_required:
-  bool`; parse `Location` into the AD-081 location model (§6.3); build one `OpenRole` per row.
-  Deterministic string/date work — **no LLM**.
+  bool`; map `Notes / Constraints` → `OpenRole.description` (verbatim; no redaction); parse
+  `Location` into the AD-086 location model (§6.3); order the batch by `Priority`; build one
+  `OpenRole` per row. Deterministic string/date work — **no LLM**.
 - **Output:** `DemandParseOutcome` (`OpenRolesBanner` + `list[OpenRole]` + `skipped[]`).
 - **Tool/library:** stdlib `csv`, Pydantic v2 validation. Mirrors `ingest/parse/csv.py` (banner +
   as-of + log+skip) but lives in `dsm/match/` and **does not import `dsm/ingest/`**.
@@ -254,17 +303,19 @@ flowchart TD
 ### 6.2 Clarify (step 2) — `dsm/match/clarify.py` *(optional LLM)*
 
 - **Input:** `OpenRole`.
-- **Transformation:** when `Notes/Constraints` is empty, clarify is a **deterministic echo** (the
-  current stub: partition `required_skills` by depth into the scorecard). When `Notes/Constraints`
-  carries free-text intent ("must have led a payments platform"; "no relocation budget"), a bounded
-  **DSPy typed signature** refines the scorecard — adding/strengthening hard vs desired skills and
-  capturing constraints in `clarification_notes`. The LLM **cannot** invent a gate or relax one.
+- **Transformation:** when `role.description` (the parsed `Notes/Constraints`) is empty, clarify is a
+  **deterministic echo** (the current stub: partition `required_skills` by depth into the scorecard).
+  When it carries free-text intent ("must have led a payments platform"; "no relocation budget"), a
+  bounded **DSPy typed signature** refines the scorecard — adding/strengthening hard vs desired skills
+  and capturing constraints in `clarification_notes`. The LLM **cannot** invent a gate or relax one.
 - **Output:** `TargetProfileScorecard`.
 - **Tool/library:** DSPy typed `Signature` over `PseudonymisedLM` (the only provider path),
-  `temperature=0`. **Notes/Constraints + Client are redacted first** (§7).
-- **Failure behaviour:** LLM error / timeout / leak-scan block → **fall back to the deterministic
-  echo** scorecard and attach a logged warning. The role is never dropped for a clarify failure;
-  worst case it is matched on its structured fields alone.
+  `temperature=0`. **No redaction** — `description`/`Client` describe the role, not a candidate, and
+  carry no candidate PII (§7). (`PseudonymisedLM` is still a pass-through stub, `docs/progress.C.md`;
+  routing through it satisfies the provider-path rule, but the live anonymiser is a separate task.)
+- **Failure behaviour:** LLM error / timeout → **fall back to the deterministic echo** scorecard and
+  attach a logged warning. The role is never dropped for a clarify failure; worst case it is matched
+  on its structured fields alone.
 
 ### 6.3 Freshness guard (step 3) — `dsm/match/freshness.py`
 
@@ -302,8 +353,8 @@ flowchart LR
 
 - **Input:** `list[Candidate]`, `TargetProfileScorecard`.
 - **Transformation:** location gate first, availability second (existing `filter_candidates`).
-  - **Location (AD-020/063a, amended by AD-081, §6.3 below for the model):** see the precise onsite
-    vs remote semantics in **AD-081**. The current `_location_passes` (city-match OR
+  - **Location (AD-020/063a, amended by AD-086, §6.3 below for the model):** see the precise onsite
+    vs remote semantics in **AD-086**. The current `_location_passes` (city-match OR
     `remote_eligible`) is **superseded** by the onsite-cities semantics — the load-bearing fix that
     distinguishes "works remote from Pune" from "will go onsite in Chennai" (ROLE-02).
   - **Availability (AD-021/022):** `effective_free_date(availability)` — `None` for `FreeNow`
@@ -318,7 +369,7 @@ flowchart LR
   orchestrator, which builds a `NoMatchResult` with ordered, capped near-misses (AD-063b/c/d;
   `build_near_misses` already recomputes gaps from structured data, never from `Exclusion.detail`).
 
-#### AD-081 location model (the resolved split) — applies to this gate
+#### AD-086 location model (the resolved split) — applies to this gate
 
 The overloaded `remote_eligible: bool` cannot express an onsite requirement. **Split it into the
 two concepts it hides** (the smallest model that makes the gate writable):
@@ -347,7 +398,7 @@ class Location(BaseModel, frozen=True):
 `remote_within_country=True, city=None`; a plain `"Pune"` beach row → both defaults (home city
 only). **This touches the frozen `dsm/models.py::Location` (AD-060/075) and ingestion's
 `CandidateIndexRecord.remote_eligible` filter facet → it is a cross-lane contract amendment
-requiring sign-off before code (§13, AD-081).** It is a load-bearing invariant for the eval suite,
+requiring sign-off before code (§13, AD-086).** It is a load-bearing invariant for the eval suite,
 not a deferrable refinement.
 
 ### 6.5 Exact hard-skill filter (step 5) — `dsm/index/retrieve.py`
@@ -364,8 +415,11 @@ skill.
   skill carrying `min_proficiency`, additionally require the candidate's typed `Skill.proficiency
   ≥ floor` (structured comparison on the `ProficiencyLevel` ordinal). Adjacency (AD-035) is **not**
   consulted here — it only ever contributes *desired*-skill partial credit downstream.
-- **Output:** the filtered pool; candidates missing a hard skill are appended to the
-  `ExclusionLog` (reason recorded as a hard-skill gap so the no-match path can explain it).
+- **Output:** the filtered `EligiblePool`; candidates missing a hard skill are appended to the
+  `ExclusionLog` with **`ExclusionReason.HARD_SKILL_MISMATCH`** (new member, AD-088) so the no-match
+  path can explain them. **Near-miss ordering (extends AD-063b):** hard-skill-gap misses are
+  *structural* (like location), so they rank **below** availability misses (which are actionable);
+  among themselves, order by number of missing hard skills ascending, then `candidate_id`.
 - **Tool/library:** Milvus Lite scalar/array filter (`skill_set` array-contains) + BM25; pure
   Python proficiency-floor check. **Deterministic, LLM-free** — unit-testable like a gate.
 - **Failure behaviour:** empty pool → `NoMatchResult` (with hard-skill-gap near-misses). A store
@@ -381,7 +435,7 @@ flowchart LR
     F -->|"yes"| K["keep → recall/rerank"]
 ```
 
-### 6.6 Hybrid recall (step 6) — `dsm/index/retrieve.py` *(DEFERRED behind the index interface — AD-082)*
+### 6.6 Hybrid recall (step 6) — `dsm/index/retrieve.py` *(DEFERRED behind the index interface — AD-089)*
 
 **Fully specified, but OFF by default.** At single-digit gated pools, recall has nothing to narrow
 — the gates and the exact filter already do that. The default path ships **deterministic
@@ -425,12 +479,19 @@ The precision lever the PRD's raw `0.6 × similarity` lacks (AD-071). At current
   `rerank_score`. Default model **`BAAI/bge-reranker-base`** on Modal (config `models.reranker`,
   AD-080). A **bounded DSPy LLM-rerank variant** is the documented alternative (a *fourth*
   OpenRouter call, AD-071) — used only when configured.
-- **Output:** `RetrievedCandidate[]` ordered by `rerank_score` desc, truncated to the rerank top-k.
+- **Output:** `RetrievedCandidate[]` ordered by `rerank_score` desc, **truncated to the rerank top-k**
+  (config `index.rerank.top_k`). Rerank's job is to *narrow* which candidates proceed to the expensive
+  LLM score (step 8) — it is **not** the final sort key. The final shortlist order is set by step 9
+  (`combined_score → coverages → email`, §6.10); `rerank_score` is carried for `explain` lineage, not
+  re-applied at rank. At recall-OFF POC scale the gated pool is small, so the truncation is usually a
+  no-op and rerank is effectively a lineage/precision signal until pools grow.
 - **Tool/library:** `EmbedClient.rerank(query, passages)` → `list[float]` (the existing
   `ModalEmbedClient`). The LLM variant routes through `PseudonymisedLM` with redacted passages.
-- **Failure behaviour:** `EmbedError` → **fall back** to ordering by the structured combine alone
-  (log a warning, attach a "rerank unavailable" note); the run still produces a shortlist. Reranking
-  is a precision *lever*, not an eligibility gate — its absence degrades ordering, never correctness.
+- **Failure behaviour:** `EmbedError` → **fall back** to passing the exact-filtered pool through
+  unranked (each `RetrievedCandidate.rerank_score = None`, no truncation), log a warning, attach a
+  "rerank unavailable" note. The final order is still produced deterministically by step 9 on
+  `combined_score`. Reranking is a precision *lever*, not an eligibility gate — its absence degrades
+  ordering quality, never correctness.
 
 ### 6.8 Score + combine (step 8) — `dsm/match/score.py` *(LLM sub-scores; deterministic combine)*
 
@@ -468,7 +529,7 @@ grade is sourced at query time from the index record. *(Gap noted in §6.9 / §1
 | Role-side **seniority → grade** | Serving `Candidate` has no `grade`; `Grade` enum is ingestion-side | Soft signal from `CandidateIndexRecord.grade` + `years_experience` (§6.8) |
 
 These gaps are surfaced deliberately rather than papered over with invented fields; closing them is
-a follow-on contract decision (§12), kept separate from the two load-bearing ADRs (AD-081/082).
+a follow-on contract decision (§12), kept separate from the two load-bearing ADRs (AD-086/082).
 
 ### 6.10 Rank (step 9) — `dsm/match/rank.py` *(deterministic, exists)* + orchestrator no-match path
 
@@ -489,25 +550,27 @@ a follow-on contract decision (§12), kept separate from the two load-bearing AD
 
 ## 7. PII boundary on the demand side
 
-Mirrors ingestion §9. **The asymmetry vs ingestion:** the demand CSV's *structured* columns carry
-no candidate PII and **never reach an LLM** (golden rule 3), so they need **no redaction**. The
-**only** demand-side PII surfaces are the free-text `Notes / Constraints` and the `Client` org
-name — and they are redacted through the **shared `dsm/pii/` control plane** *only* before an LLM
-stage (clarify, or the LLM-rerank variant). No serving module imports Presidio directly except
-through that plane.
+Mirrors ingestion §9, but with a key simplification: **the demand side carries no candidate PII.**
+An Open Roles CSV describes *roles* — no consultant name or email ever appears in it. So both the
+structured columns *and* the free-text `Notes / Constraints` (which rides `OpenRole.description`)
+reach the clarify LLM **without redaction** — there is no demand-side `dsm/pii/redact.py` wiring.
+`Client` is an org name, not candidate PII (golden rule 3 is about consultant identity); tokenizing
+it is a *client-confidentiality* choice, deferred (§12).
 
 | Demand field | Class | Reaches an LLM? | At query time |
 |---|---|---|---|
-| Role ID, Title, Sector, Start, Priority | Non-PII (structured) | clarify input (Title/Sector only), no redaction needed | Used verbatim as match signals |
-| Required Skills, Co-location, Location | Non-PII (structured) | No (deterministic gates/filter) | Parsed; never sent to a provider |
-| **Client** (org name) | Sensitive | Only if it enters a clarify/rerank prompt | **Tokenize before LLM** (Presidio + org dictionary, AD-069); never embedded |
-| **Notes / Constraints** | Free text, possibly PII | Only when clarify runs | **Redact → leak-scan (hard gate) → LLM** (`dsm/pii/redact.py` + `leakscan.py`, AD-069/078); leak-scan failure **blocks** the LLM call, falls back to deterministic clarify |
-| Candidate name / email | Direct ID | **Never** | Not present in demand input; on the supply side they live only in the encrypted vault (AD-068) and never reach OpenRouter (unpseudonymised) or Modal |
+| Role ID, Title, Sector, Start, Priority, Required Skills, Co-location, Location | Non-PII (structured) | Title/Sector may enter clarify | Used verbatim as match signals; never redacted |
+| **Notes / Constraints** (`OpenRole.description`) | Free text about the *role* | Only when clarify runs | Sent **as-is** — describes the role, not a candidate; no redaction |
+| **Client** (org name) | Org info (not candidate PII) | Only if it enters a clarify prompt | Used as-is; optional client-confidentiality tokenization is deferred (§12) |
+| Candidate name / email | Direct ID | **Never** in demand; **see §6.0** on the supply side | Not in demand input; on the supply side they live only in the encrypted vault (AD-068) |
 
-The supply-side guarantee is inherited intact: candidate text reaching the embedder/reranker (Modal)
-and the scorer (OpenRouter) is **PII-free by construction** (ingestion redacted at ingest;
-embed_text excludes name/email/client-org, AD-011/072). Query-time adds **no new path** by which
-candidate PII could leak — it only adds the demand-side Notes/Client redaction.
+**The real query-time PII risk is on the supply side, not the demand side (§6.0).** The frozen
+serving `Candidate` carries raw `name`/`email`, so the candidate-materialisation path must guarantee
+they never enter an LLM prompt (the score stage). The inherited guarantee — candidate text reaching
+the embedder/reranker (Modal) and scorer (OpenRouter) is **PII-free by construction** (ingestion
+redacted at ingest; `embed_text` excludes name/email/client-org, AD-011/072) — holds **only** if the
+serving `Candidate` is hydrated to exclude identity from anything sent to a provider (§6.0 PII note).
+The no-PII-leak eval invariant tests exactly this.
 
 ---
 
@@ -552,8 +615,8 @@ the reason + the ordered near-misses with their recomputed gaps.
 
 **Query-time quality metrics** (catch decay, not just volume): roles parsed / skipped, refuse rate
 (freshness), empty-pool (no-match) rate, mean gated-pool size, hard-skill-filter exclusion rate,
-adjacency-flag rate, citation-verification-failure rate, leak-scan hits (demand Notes/Client),
-rerank-unavailable fallbacks. Logged via **structlog** (shared schema); never log raw
+adjacency-flag rate, citation-verification-failure rate, no-PII-leak scan results (serving
+`Candidate` identity never reaching a provider, §6.0), rerank-unavailable fallbacks. Logged via **structlog** (shared schema); never log raw
 prompts/responses or the pseudonym map (tech.md).
 
 ---
@@ -569,24 +632,32 @@ contract in the other direction). `gates.py` stays pure; all provider access is 
 dsm/match/
   demand.py      NEW — parse Open Roles CSV → list[OpenRole] + banner as-of (pure; no ingest import)
   freshness.py   NEW — as-of guard: warn / refuse (pure Python)
-  clarify.py     exists — OpenRole → TargetProfileScorecard (DSPy; redact Notes/Client first)
-  gates.py       exists — location + availability gates (pure; AD-081 amends location semantics)
+  clarify.py     exists — OpenRole.description → TargetProfileScorecard (DSPy; no redaction, §7)
+  freshness.py   NEW — as-of guard → FreshnessVerdict (FreshnessVerdict lives here, pure Python)
+  gates.py       exists — location + availability gates (pure; AD-086 amends location semantics)
   score.py       exists — sub-scores (DSPy) + deterministic 0.7/0.3 combine + flags + citations
-  rank.py        exists — deterministic sort/tie-break/top-k (config-free)
-  models.py      NEW — OpenRolesBanner, DemandParseOutcome (module-local intermediates)
+  rank.py        exists — deterministic sort/tie-break/top-k (config-free; KEEP, already matches §6.10)
+  models.py      NEW — OpenRolesBanner, DemandParseOutcome (reuse frozen SkillDepth/SkillRequirement)
 dsm/index/
   retrieve.py    NEW — exact hard-skill filter · (deferred) hybrid recall + RRF · rerank
   embed_client.py exists — EmbedClient protocol + ModalEmbedClient (embed/rerank)
-  models.py      NEW — RetrievedCandidate, FreshnessVerdict (or co-located in match/models.py)
+  text_builder.py exists — candidate passage; ADD build_role_query_passage (symmetric, §6.6/§6.7)
+  models.py      ADD — RetrievedCandidate (CandidateIndexRecord/Grade home → AD-091, §12 #1)
   stub.py        exists — stub retriever (replaced by retrieve.py)
 dsm/cli/
-  commands.py    exists — orchestrator run_match (gates → filter → recall → rerank → score → rank);
-                 owns config read + the NoMatchResult no-match path (AD-063c)
+  commands.py    exists — orchestrator run_match (parse/clarify/freshness at edge; gate → filter →
+                 recall → rerank → score → rank); owns candidate materialisation (§6.0), config read,
+                 batch-over-roles, and the NoMatchResult no-match path (AD-063c)
 ```
 
-**Import contracts (CI):** `dsm/match/*` and `dsm/index/*` ⊥ `dsm/ingest/*`; `gates.py` imports only
-`dsm.models` + stdlib; no module reaches a provider except via `dsm/pii/PseudonymisedLM`;
-`config/` is read, never written.
+**Import contracts (CI):** `dsm/match/*` and `dsm/index/*` ⊥ `dsm/ingest/*` — **this contract does
+not exist yet and must be added to `pyproject.toml`** (B-2). **Two caveats:** (1) the **CLI
+orchestrator** `dsm/cli/commands.py` is the composition root and **is exempt** — it may import
+`dsm/ingest/` to materialise candidates (§6.0); (2) `dsm/index/models.py` currently imports
+`dsm.ingest.models` for `CandidateIndexRecord`/`Grade`, so that contract **cannot be enforced until
+AD-091 relocates them** to a shared home (§12 #1). Also: `gates.py` imports only `dsm.models` +
+stdlib; no module reaches a provider except via `dsm/pii/PseudonymisedLM`; `config/` is read, never
+written.
 
 ---
 
@@ -600,7 +671,7 @@ Modal-hosted BGE embedder + `bge-reranker-base`, Presidio, structlog). **Query-t
 | **Demand parse** | New deterministic CSV parser in `dsm/match/demand.py` (stdlib `csv`) — the demand-side analog of `ingest/parse/csv.py`, but in the match package and ingest-free |
 | **Embedder usage** | `EmbedClient.embed(mode="query")` — the **query** instruction prefix (asymmetric formatting, AD-072); ingestion uses `mode="passage"` |
 | **Reranker** | `bge-reranker-base` consumed at **query time** as the precision stage (ingestion only *deploys* it) |
-| **Retrieval** | New `dsm/index/retrieve.py`: exact filter (always on) + hybrid recall (flag OFF, AD-082) + rerank |
+| **Retrieval** | New `dsm/index/retrieve.py`: exact filter (always on) + hybrid recall (flag OFF, AD-089) + rerank |
 | **CLI** | `dsm match` orchestration is live; add `dsm explain <role_id>` lineage dump (Typer) |
 | **Typer** | Already in stack; demand batch + `explain` are new subcommands |
 
@@ -610,33 +681,49 @@ Modal-hosted BGE embedder + `bge-reranker-base`, Presidio, structlog). **Query-t
 
 ## 12. Open questions
 
-1. **`CandidateIndexRecord` home (boundary).** It is defined ingestion-side (§6) but query-time
-   must read it without importing `dsm/ingest/`. It (and the `Grade` enum) likely belongs in
-   `dsm/models.py` or a shared `dsm/index/models.py` both planes import. Needs a placement decision
-   (mirrors AD-076's vault placement).
+1. **`CandidateIndexRecord` home + candidate materialisation (boundary).** **RESOLVED → AD-091 + §6.0**
+   (pending sign-off): a `CandidateStore` port with a CLI-injected gold adapter; `Grade` moves to
+   `dsm/models.py`; `CandidateIndexRecord` is made ingest-free; the import contract is added. This was
+   the load-bearing query-time blocker.
 2. **`FlagType.SKILL_CONFLICT`.** Surfacing resume↔feedback skill conflicts (gold `MergedSkill.conflict`)
    needs a flag type the frozen enum lacks. Minor additive contract change — propose alongside any
    batch that wires scoring.
-3. **Grade on the serving `Candidate`.** Seniority is sourced from `CandidateIndexRecord.grade` +
-   `years_experience` today. Decide whether the serving `Candidate` should carry `grade` directly
-   (another frozen-contract touch) or keep sourcing it from the index record.
+3. **Grade on the serving `Candidate`.** **RESOLVED:** keep sourcing seniority from
+   `CandidateIndexRecord.grade` + `years_experience` (the `CandidateStore` adapter can attach it as
+   scoring context) — **no** frozen amendment to `Candidate`. Revisit only if a grade gate is ever
+   sanctioned (it is not — AD-090).
 4. **Open Roles CSV fixture.** None exists in-repo. Add a `data/raw/demand/` fixture + golden
    shortlist cases (ROLE-01/02/03 already have scorecards in `tests/fixtures/`), so the eval suite
    exercises the full parse→shortlist path, not just the scorecard.
 5. **LLM-rerank variant cost.** The bounded LLM reranker is a *fourth* OpenRouter call (AD-071).
    Decide if/when it's worth enabling over the Modal cross-encoder default.
-6. **Recall enable threshold value.** The ~150-candidate trip point (§6.5) is a POC estimate; tune
+6. **Recall enable threshold value.** The ~150-candidate trip point (§6.6) is a POC estimate; tune
    against real gated-pool sizes before flipping `index.recall.enabled`.
+7. **Role query-passage builder (symmetry).** **RESOLVED:** `build_role_query_passage(scorecard)` in
+   `dsm/index/text_builder.py` builds from **skills (hard+desired names) + `min_proficiency`-derived
+   seniority + `clarification_notes`** — the capability fields the scorecard already carries. **No**
+   `TargetProfileScorecard` amendment (no domain/sector field added). A test asserts the role/candidate
+   builders share the skill span contract. Add domain/sector later only if rerank quality demands it.
+8. **Batch output format.** **RESOLVED (POC, AD-050):** `dsm match` parses the whole CSV but matches
+   **one role per invocation** (selected by `--role-id`); the freshness guard is evaluated against the
+   CSV banner. A batch loop over `list[OpenRole]` (and its output format) is **deferred** — AD-050
+   scopes the MVP to single-role matching.
+9. **Query-time eval harness ownership.** **RESOLVED:** wiring the invariants (gates-respected,
+   hard-skill-not-cleared-by-adjacency, evidence-cited, no-PII-leak, determinism) is a **separate
+   Lane-C slice `c-002-query-eval-harness`**, sequenced **after B-2 is green**. B-1/B-2 DoD is
+   `make check` green + eval *cases* listed in `design.md`; `make check-all` gating follows once the
+   harness lands.
 
 ---
 
 ## 13. Proposed ADRs (pending sign-off — to be ratified into `docs/decision.md`)
 
-These are written here in the doc; **none is yet in `docs/decision.md`** and **AD-081/AD-084 must
-be signed off before implementation** because they touch frozen / shared contracts (AD-060). Next
-free ID is AD-081.
+These are written here in the doc; **none is yet in `docs/decision.md`**. Numbering starts at
+**AD-086** (AD-081…085 are already accepted — a-005 index + the c-001 deprecation). **AD-086, AD-088,
+and AD-091 touch frozen / shared contracts (AD-060) and must be signed off before implementation.**
+Next free ID after these is **AD-092**. (B-1 ratifies AD-086/087/088; B-2 ratifies AD-089/090/091.)
 
-- **AD-081 · Split `Location.remote_eligible` into `remote_within_country` + `onsite_cities`**
+- **AD-086 · Split `Location.remote_eligible` into `remote_within_country` + `onsite_cities`**
   — *Proposed.* Replace the overloaded boolean with `remote_within_country: bool` and
   `onsite_cities: frozenset[str]`. Onsite gate (`co_location_required=True`) passes iff
   `candidate.city == role.city OR role.city ∈ onsite_cities`; `remote_within_country` never clears
@@ -645,20 +732,39 @@ free ID is AD-081.
   filter facet. Why: the gate must tell "works remote from Pune" apart from "will go onsite in
   Chennai" (ROLE-02) — a load-bearing eval invariant. **Cross-lane (A owns index, C owns gates) +
   frozen-contract change → requires team sign-off.**
-- **AD-082 · Defer query-time dense recall behind the index interface (flag OFF)** — *Proposed.*
+- **AD-087 · Query-time as-of freshness guard (warn/refuse)** — *Proposed.* Compare `demand_as_of`
+  vs supply `valid_as_of`: `ok` within `config.reconcile.max_staleness_days` (=30); `warn`-flag when
+  the role start pre-dates the snapshot; `refuse` (block run) beyond the staleness bound. The
+  query-time half of ingestion's freshness guard (AD-070). Touches no model; adds reuse of the
+  existing `reconcile.max_staleness_days` config at match time.
+- **AD-088 · Add `ExclusionReason.HARD_SKILL_MISMATCH`** — *Recommended (resolved; pending sign-off).*
+  The exact hard-skill filter (§6.5) must record *why* a candidate was dropped, but the frozen enum
+  (`dsm/models.py`) has only `LOCATION_MISMATCH` / `AVAILABILITY_MISMATCH`. **Decision: add
+  `HARD_SKILL_MISMATCH`** so the no-match path can explain hard-skill gaps and order their near-misses
+  (below availability misses). **Frozen-contract amendment (AD-060) → requires sign-off.** (Rejected
+  alternative: returning exclusions with no dedicated reason — it would make hard-skill no-matches
+  unexplainable, violating the §9 lineage guarantee.)
+- **AD-089 · Defer query-time dense recall behind the index interface (flag OFF)** — *Proposed.*
   Ship deterministic exhaustive structured scoring + full-pool cross-encoder rerank over the gated,
   exact-filtered pool; keep the dense+BM25+RRF recall stage fully specified but `index.recall.enabled
   = false`, flipping ON when the post-filter pool routinely exceeds ~150. Ingest-time embedding
   (`dense_vector`) is produced regardless (AD-074); only query-time *consumption* is deferred.
   Why: at single-digit gated pools recall has nothing to narrow, and exhaustive is more explainable.
   Reinforces AD-071; does not change AD-030 weights.
-- **AD-083 · Seniority is a soft signal, never a gate** — *Proposed.* Role seniority (Title +
+- **AD-090 · Seniority is a soft signal, never a gate** — *Proposed.* Role seniority (Title +
   hard-skill `min_proficiency`) maps to a target `Grade` used only in scoring/narrative, sourced
   from `CandidateIndexRecord.grade` + `years_experience`. Why: product invariants enumerate only
   location + availability as hard gates (AD-002); a seniority gate would be unsanctioned.
-- **AD-084 · Query-time as-of freshness guard (warn/refuse)** — *Proposed.* Compare `demand_as_of`
-  vs supply `valid_as_of`: `ok` within `config.reconcile.max_staleness_days` (=30); `warn`-flag when
-  the role start pre-dates the snapshot; `refuse` (block run) beyond the staleness bound. The
-  query-time half of ingestion's freshness guard (AD-070). Touches no model; adds reuse of the
-  existing `reconcile.max_staleness_days` config at match time.
-```
+- **AD-091 · `CandidateStore` port + `Grade`/`CandidateIndexRecord` home + `match`/`index` ⊥ `ingest`
+  contract** — *Recommended (resolved; pending sign-off).* Three coupled moves:
+  1. **`CandidateStore` port (§6.0):** the serving `Candidate` is produced via a `CandidateStore`
+     protocol (in `dsm/models.py`) with a gold-backed adapter injected at the CLI. Match/index depend
+     on the interface only.
+  2. **Make the index models ingest-free:** move `Grade` to `dsm/models.py` (shared enum); keep
+     `CandidateIndexRecord` + `RetrievedCandidate` as pure data models with **no `dsm/ingest` import**;
+     relocate the gold→record projection helpers (`project_filter_fields`/`build_record`/`is_indexable`,
+     which need `GoldCandidate`) to the **build path** run by `dsm index` — a build/composition edge
+     exempt like the CLI orchestrator.
+  3. **Add the import contract:** `dsm/match/* , dsm/index/* ⊥ dsm/ingest/*` in `pyproject.toml`, with
+     `dsm/cli/*` (and the index-build edge) exempt.
+  **Touches shared contracts + cross-lane → requires sign-off.**
