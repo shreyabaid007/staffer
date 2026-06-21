@@ -187,3 +187,48 @@ def hybrid_recall(
         )
         for cid in ordered
     ]
+
+
+# ---------------------------------------------------------------------------
+# Rerank (step 7) — cross-encoder precision stage (B-2; §6.7/AD-071)
+# ---------------------------------------------------------------------------
+
+
+def rerank(
+    role_query: str,
+    candidates: list[RetrievedCandidate],
+    store: MilvusIndexStore,
+    embed_client: EmbedClient,
+    *,
+    top_k: int,
+) -> list[RetrievedCandidate]:
+    """Cross-encoder rerank the recalled pool, truncated to ``top_k`` (§6.7/AD-071).
+
+    Fetches each candidate's stored ``embed_text`` passage, scores every role–candidate pair
+    jointly via ``EmbedClient.rerank`` (the Modal ``bge-reranker-base`` cross-encoder), sets
+    ``rerank_score``, orders by it desc (``candidate_id`` asc tie-break, deterministic), and keeps
+    the top ``top_k``. Truncation *narrows which candidates get LLM-scored* (step 8) — **not** the
+    final shortlist order, which step 9 (``rank_assessments``) sets from ``combined_score``.
+
+    Failure (``EmbedError`` or any store error) → return the pool **unranked**
+    (``rerank_score=None``, **no** truncation) + log a warning; rerank is a precision lever, not an
+    eligibility gate, so its absence degrades ordering only — step 9 still produces a total order.
+    """
+    if not candidates:
+        return []
+
+    ids = [c.candidate_id for c in candidates]
+    try:
+        texts = store.fetch_embed_texts(ids)
+        passages = [texts.get(cid, "") for cid in ids]
+        scores = embed_client.rerank(role_query, passages)
+    except Exception as exc:  # noqa: BLE001 — EmbedError or store error → unranked passthrough
+        _log.warning("rerank.unavailable", reason=type(exc).__name__)
+        return candidates
+
+    pairs = sorted(
+        zip(candidates, scores, strict=True),
+        key=lambda pair: (-float(pair[1]), pair[0].candidate_id),
+    )
+    ranked = [c.model_copy(update={"rerank_score": float(score)}) for c, score in pairs]
+    return ranked[:top_k]
