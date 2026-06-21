@@ -15,6 +15,7 @@ allowed to import ``dsm/ingest/`` (§10). It reads gold via ``goldstore`` and hy
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 from dsm.ingest.goldstore import list_gold_ids, read_gold
@@ -78,6 +79,19 @@ class GoldCandidateStore:
     def all_ids(self) -> list[str]:
         """Every ``candidate_id`` currently on disk (sorted) — the POC hydrates the full pool."""
         return sorted(list_gold_ids(self._gold_dir))
+
+    def latest_valid_as_of(self) -> date | None:
+        """The newest supply snapshot date across gold — drives the freshness guard (AD-087).
+
+        ``None`` when there is no dated gold (an empty / undated pool, which resolves to a no-match
+        downstream rather than a freshness decision).
+        """
+        dates: list[date] = []
+        for cid in self.all_ids():
+            gold = read_gold(cid, self._gold_dir)
+            if gold is not None and gold.valid_as_of is not None:
+                dates.append(gold.valid_as_of)
+        return max(dates, default=None)
 
     def get(self, candidate_ids: list[str]) -> list[Candidate]:
         """Hydrate the requested ids, skipping tombstoned / thin / missing gold."""
