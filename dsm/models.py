@@ -49,6 +49,7 @@ class ExclusionReason(StrEnum):
 
     LOCATION_MISMATCH = "location_mismatch"
     AVAILABILITY_MISMATCH = "availability_mismatch"
+    HARD_SKILL_MISMATCH = "hard_skill_mismatch"  # exact hard-skill filter (AD-088)
 
 
 class FlagType(StrEnum):
@@ -74,12 +75,19 @@ class EvidenceSource(StrEnum):
 
 
 class Location(BaseModel, frozen=True):
-    """Geographic location and remote eligibility."""
+    """Geographic location and remote/onsite eligibility (AD-086).
+
+    The overloaded ``remote_eligible`` boolean is split into two orthogonal facets:
+    ``remote_within_country`` ("works remote from a home base") and ``onsite_cities``
+    (cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``
+    never clears an onsite (co-location) gate — only a city match or onsite-city membership does.
+    """
 
     city: str | None = None  # None for "Remote (India)" — no base city (AD-075)
     state: str | None = None
     country: str = "India"
-    remote_eligible: bool = False  # "remote-India" / Chennai-open in the data
+    remote_within_country: bool = False  # "Remote (India)" in the data (AD-086)
+    onsite_cities: frozenset[str] = frozenset()  # extra onsite cities, e.g. Chennai-open (AD-086)
 
 
 class Skill(BaseModel, frozen=True):

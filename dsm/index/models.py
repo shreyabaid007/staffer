@@ -37,7 +37,8 @@ class CandidateIndexRecord(BaseModel, frozen=True):
     skill_set: list[str]  # EXCLUDES demonstrated-False skills (AD-081)
     grade: Grade
     city: str | None  # None for Remote (India) — no base city (AD-075)
-    remote_eligible: bool
+    remote_within_country: bool  # AD-086 (replaces remote_eligible)
+    onsite_cities: list[str]  # AD-086; sorted list (Milvus has no set type)
     availability_type: AvailabilityType
     availability_date: date | None  # None for free_now
     valid_as_of: date | None
@@ -50,7 +51,8 @@ class FilterFields(TypedDict):
 
     grade: Grade
     city: str | None
-    remote_eligible: bool
+    remote_within_country: bool
+    onsite_cities: list[str]
     availability_type: AvailabilityType
     availability_date: date | None
     valid_as_of: date | None
@@ -90,7 +92,8 @@ def project_filter_fields(gold: GoldCandidate) -> FilterFields:
     return FilterFields(
         grade=gold.grade.value,
         city=loc.city,
-        remote_eligible=loc.remote_eligible,
+        remote_within_country=loc.remote_within_country,
+        onsite_cities=sorted(loc.onsite_cities),
         availability_type=avail.type,
         availability_date=availability_date,
         valid_as_of=gold.valid_as_of,
@@ -115,7 +118,8 @@ def build_record(
         skill_set=skill_set,
         grade=fields["grade"],
         city=fields["city"],
-        remote_eligible=fields["remote_eligible"],
+        remote_within_country=fields["remote_within_country"],
+        onsite_cities=fields["onsite_cities"],
         availability_type=fields["availability_type"],
         availability_date=fields["availability_date"],
         valid_as_of=fields["valid_as_of"],

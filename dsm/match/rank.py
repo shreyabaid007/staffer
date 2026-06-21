@@ -1,9 +1,13 @@
 """Deterministic ranking — sort, tie-break, and top-k truncation.
 
-Rank is config-free (the refinement to T-004): ``top_k`` and ``config_snapshot`` are
-supplied by the orchestrator, which owns the single read of ``config/default.yaml``.
-This avoids two defaults (function arg + config) silently diverging. Rank never builds a
-``NoMatchResult`` — the orchestrator handles the empty-pool path (AD-063c).
+Sort order is the ratified query-time order (ee-query-architecture §6.10): ``combined_score``
+desc → ``hard_skill_coverage`` desc → ``desired_skill_coverage`` desc → ``candidate.email`` asc,
+truncated to ``top_k`` (default 5). Verified unchanged by B-1 (FR-5) — no behavioural change.
+
+Rank is config-free (AD-064): ``top_k`` and ``config_snapshot`` are supplied by the orchestrator,
+which owns the single read of ``config/default.yaml``. This avoids two defaults (function arg +
+config) silently diverging. Rank never builds a ``NoMatchResult`` — the orchestrator handles the
+empty-pool path (AD-063c).
 """
 
 from __future__ import annotations

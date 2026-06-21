@@ -71,7 +71,7 @@ def test_o_nm_4_gap_summaries_recomputed_and_human_readable() -> None:
 
     assert summaries["sanjay@example.com"] == "available 1 day after deadline"
     assert summaries["meera@example.com"] == "available 31 days after deadline"
-    assert summaries["arjun@example.com"] == "in Pune, not open to relocation"
+    assert summaries["arjun@example.com"] == "in Pune, not in onsite set for Mumbai"
 
 
 def test_o_nm_1_rank_not_called_when_pool_is_empty(

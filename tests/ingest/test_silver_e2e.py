@@ -70,25 +70,25 @@ def test_bronze_to_silver_over_fixtures(tmp_path: Path) -> None:
     # valid_as_of stamped from the banner (VAOF-1).
     assert all(r.valid_as_of == date(2026, 6, 1) for r in records)
 
-    # Beach → FreeNow; Priya is Chennai-open → remote_eligible + warning (LOC-2).
+    # Beach → FreeNow; Priya is Chennai-open → onsite_cities={'Chennai'} + warning (LOC-2/AD-086).
     priya = next(
         r
         for r in beach
         if r.availability
         and r.availability.type == "free_now"
         and r.location
-        and r.location.remote_eligible
+        and r.location.onsite_cities
     )
     assert any("Chennai-open" in w for w in priya.parse_warnings)
 
-    # New joiner → NewJoiner, Remote (India) → city None + remote_eligible (LOC-3),
+    # New joiner → NewJoiner, Remote (India) → city None + remote_within_country (LOC-3/AD-086),
     # CV skills unverified (AD-032), Cobol unmapped (TX-2).
     nadia = joiners[0]
     assert nadia.availability is not None and nadia.availability.type == "new_joiner"
     assert (
         nadia.location is not None
         and nadia.location.city is None
-        and nadia.location.remote_eligible
+        and nadia.location.remote_within_country
     )
     assert nadia.skills and all(s.unverified for s in nadia.skills)
     assert any(s.unmapped and s.name == "Cobol" for s in nadia.skills)

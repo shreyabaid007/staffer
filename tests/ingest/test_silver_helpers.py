@@ -26,34 +26,41 @@ def test_parse_grade_missing_and_unknown() -> None:
 def test_parse_location_plain_city() -> None:
     loc, warnings = parse_location("Chennai", "No")
     assert loc.city == "Chennai"
-    assert loc.remote_eligible is False
+    assert loc.remote_within_country is False
+    assert loc.onsite_cities == frozenset()
     assert warnings == []
 
 
 def test_parse_location_chennai_open_yes() -> None:
-    """LOC-2: separate Chennai-open column → remote_eligible + warning."""
+    """LOC-2: separate Chennai-open column → onsite_cities={'Chennai'} + warning (AD-086)."""
     loc, warnings = parse_location("Bengaluru", "Yes")
     assert loc.city == "Bengaluru"
-    assert loc.remote_eligible is True
+    assert loc.onsite_cities == frozenset({"Chennai"})
+    assert loc.remote_within_country is False
     assert any("Chennai-open" in w for w in warnings)
 
 
-def test_parse_location_chennai_open_no_keeps_remote_false() -> None:
+def test_parse_location_chennai_open_no_keeps_defaults() -> None:
     loc, _ = parse_location("Pune", "No")
-    assert loc.remote_eligible is False
+    assert loc.remote_within_country is False
+    assert loc.onsite_cities == frozenset()
 
 
 def test_parse_location_remote_india() -> None:
-    """LOC-3: Remote (India) → city None + remote_eligible + warning (AD-075)."""
+    """LOC-3: Remote (India) → city None + remote_within_country + warning (AD-075/086)."""
     loc, warnings = parse_location("Remote (India)", "No")
     assert loc.city is None
-    assert loc.remote_eligible is True
+    assert loc.remote_within_country is True
+    assert loc.onsite_cities == frozenset()
     assert any("Remote (India)" in w for w in warnings)
 
 
-def test_parse_location_remote_india_overrides_open_no() -> None:
+def test_parse_location_remote_india_with_chennai_open() -> None:
+    """AD-086: the two facets are orthogonal — Remote (India) AND Chennai-open carries both."""
     loc, _ = parse_location("Remote (India)", "Yes")
-    assert loc.city is None and loc.remote_eligible is True
+    assert loc.city is None
+    assert loc.remote_within_country is True
+    assert loc.onsite_cities == frozenset({"Chennai"})
 
 
 def test_parse_location_missing() -> None:

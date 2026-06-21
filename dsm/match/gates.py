@@ -50,28 +50,30 @@ def effective_free_date(availability: AvailabilityState) -> date | None:
 
 
 def _location_passes(candidate: Candidate, scorecard: TargetProfileScorecard) -> bool:
-    """Whether the candidate clears the location gate (AD-020, AD-063a).
+    """Whether the candidate clears the location gate (AD-086).
 
     Args:
         candidate: the person being gated.
         scorecard: the clarified role requirements.
 
     Returns:
-        ``True`` if co-location is not required, or the candidate's city matches the
-        role's city (case-insensitive), or the candidate is ``remote_eligible``.
+        For a **distributed** role (``co_location_required=False``): ``True`` iff the
+        candidate's country matches the role's country. For an **onsite** role
+        (``co_location_required=True``): ``True`` iff the role has a city and the
+        candidate's home city matches it (case-insensitive) **or** that city is in the
+        candidate's ``onsite_cities``. ``remote_within_country`` never clears an onsite gate.
     """
     if not scorecard.co_location_required:
-        return True
-    # city is optional since AD-075 (None for "Remote (India)"); a None city never
-    # matches by name — the candidate passes only via remote_eligible.
-    cand_city = candidate.location.city
+        return candidate.location.country == scorecard.location.country
+    # Onsite: a role with no city has nothing to match against → no candidate clears.
     role_city = scorecard.location.city
-    same_city = (
-        cand_city is not None
-        and role_city is not None
-        and cand_city.strip().lower() == role_city.strip().lower()
-    )
-    return same_city or candidate.location.remote_eligible
+    if role_city is None:
+        return False
+    # Compare case-insensitively and whitespace-tolerantly (ingest already strips).
+    role_key = role_city.strip().casefold()
+    cand_key = (candidate.location.city or "").strip().casefold()
+    onsite = {c.strip().casefold() for c in candidate.location.onsite_cities}
+    return cand_key == role_key or role_key in onsite
 
 
 def _availability_passes(candidate: Candidate, deadline: date) -> bool:
@@ -95,7 +97,7 @@ def filter_candidates(
 ) -> tuple[EligiblePool, ExclusionLog]:
     """Filter candidates through the deterministic eligibility gates.
 
-    Location gate (AD-020, AD-063a) is applied first; availability gate (AD-021) second.
+    Location gate (AD-086) is applied first; availability gate (AD-021) second.
     A candidate failing location is excluded with ``LOCATION_MISMATCH`` and skips the
     availability check (G-OUT-2), so each excluded candidate yields exactly one record.
 

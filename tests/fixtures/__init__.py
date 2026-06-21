@@ -36,7 +36,8 @@ def _candidate(
     availability: AvailabilityState,
     source: CandidateSource,
     skill: str,
-    remote_eligible: bool = False,
+    remote_within_country: bool = False,
+    onsite_cities: frozenset[str] = frozenset(),
 ) -> Candidate:
     """Build a Candidate with one representative skill (gates ignore skills).
 
@@ -47,7 +48,8 @@ def _candidate(
         availability: FreeNow / RollingOff / NewJoiner variant.
         source: supply-sheet tab the candidate comes from.
         skill: a single normalised lowercase skill name (proficiency=advanced).
-        remote_eligible: whether the candidate will work from another location.
+        remote_within_country: works remote from a home base (AD-086; never clears onsite).
+        onsite_cities: extra cities the candidate will work onsite in (AD-086).
 
     Returns:
         A fully-typed ``Candidate`` suitable for the deterministic gates.
@@ -55,7 +57,9 @@ def _candidate(
     return Candidate(
         email=email,
         name=name,
-        location=Location(city=city, remote_eligible=remote_eligible),
+        location=Location(
+            city=city, remote_within_country=remote_within_country, onsite_cities=onsite_cities
+        ),
         availability=availability,
         skills=[Skill(name=skill, proficiency=ProficiencyLevel.ADVANCED)],
         feedback=FeedbackSignals(),
@@ -128,7 +132,8 @@ def role_02() -> tuple[list[Candidate], TargetProfileScorecard]:
 
     React dev, Chennai, co-location, start 2026-07-01, window 14d. Own candidate set
     (no Aarav — he would fail availability and muddy the location test). Deepa and Nikhil
-    are excluded on location; Karan, Rahul (city match) and Priya (remote_eligible) pass.
+    are excluded on location; Karan, Rahul (city match) and Priya (Chennai in onsite_cities,
+    AD-086) pass.
     """
     scorecard = TargetProfileScorecard(
         role_id="ROLE-02",
@@ -163,7 +168,6 @@ def role_02() -> tuple[list[Candidate], TargetProfileScorecard]:
             availability=FreeNow(),
             source=CandidateSource.BEACH,
             skill="react",
-            remote_eligible=False,
         ),
         _candidate(
             email="nikhil@example.com",
@@ -172,7 +176,6 @@ def role_02() -> tuple[list[Candidate], TargetProfileScorecard]:
             availability=FreeNow(),
             source=CandidateSource.BEACH,
             skill="react",
-            remote_eligible=False,
         ),
         _candidate(
             email="priya@example.com",
@@ -181,7 +184,7 @@ def role_02() -> tuple[list[Candidate], TargetProfileScorecard]:
             availability=FreeNow(),
             source=CandidateSource.BEACH,
             skill="react",
-            remote_eligible=True,
+            onsite_cities=frozenset({"Chennai"}),
         ),
     ]
     return candidates, scorecard

@@ -23,6 +23,7 @@ def _record(
     model_version: str = "BAAI/bge-base-en-v1.5",
     skill_set: list[str] | None = None,
     city: str | None = "Chennai",
+    onsite_cities: list[str] | None = None,
 ) -> CandidateIndexRecord:
     return CandidateIndexRecord(
         candidate_id=cid,
@@ -31,7 +32,8 @@ def _record(
         skill_set=["kotlin", "react"] if skill_set is None else skill_set,
         grade=Grade.LEAD_CONSULTANT,
         city=city,
-        remote_eligible=True,
+        remote_within_country=True,
+        onsite_cities=["Chennai"] if onsite_cities is None else onsite_cities,
         availability_type="free_now",
         availability_date=None,
         valid_as_of=date(2026, 6, 1),
@@ -113,3 +115,21 @@ def test_remote_india_city_none_roundtrips(store: MilvusIndexStore) -> None:
         store._collection, filter='candidate_id == "cid:remote"', output_fields=["city"]
     )
     assert rows[0]["city"] is None
+
+
+def test_onsite_cities_array_roundtrips(store: MilvusIndexStore) -> None:
+    """AD-086: the onsite_cities ARRAY<VARCHAR> upserts and reads back (incl. the empty case)."""
+    store.upsert(
+        [
+            _record("cid:onsite", onsite_cities=["Chennai", "Pune"]),
+            _record("cid:none", onsite_cities=[]),
+        ]
+    )
+    rows = store._client.query(
+        store._collection,
+        filter='candidate_id in ["cid:onsite", "cid:none"]',
+        output_fields=["candidate_id", "onsite_cities"],
+    )
+    by_id = {row["candidate_id"]: row["onsite_cities"] for row in rows}
+    assert sorted(by_id["cid:onsite"]) == ["Chennai", "Pune"]
+    assert list(by_id["cid:none"]) == []

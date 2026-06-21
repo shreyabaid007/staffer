@@ -16,7 +16,7 @@ from dsm.index.models import (
 from dsm.ingest.models import Confidence, GoldCandidate, Grade, MergedSkill, Sourced
 from dsm.models import AvailabilityState, FreeNow, Location, NewJoiner, RollingOff
 
-_DEFAULT_LOCATION = Location(city="Chennai", remote_eligible=False)
+_DEFAULT_LOCATION = Location(city="Chennai")
 _DEFAULT_AVAIL: AvailabilityState = FreeNow()
 _DEFAULT_VALID_AS_OF = date(2026, 6, 1)
 
@@ -72,21 +72,28 @@ class TestProjectFilterFields:
         assert fields["availability_type"] == "new_joiner"
         assert fields["availability_date"] == date(2026, 8, 1)
 
-    def test_maps_grade_remote_and_valid_as_of(self) -> None:
-        gold = _gold(location=Location(city="Pune", remote_eligible=True))
+    def test_maps_grade_remote_within_country_and_valid_as_of(self) -> None:
+        gold = _gold(location=Location(city="Pune", remote_within_country=True))
         fields = project_filter_fields(gold)
         assert fields["grade"] is Grade.LEAD_CONSULTANT
         assert fields["city"] == "Pune"
-        assert fields["remote_eligible"] is True
+        assert fields["remote_within_country"] is True
         assert fields["valid_as_of"] == date(2026, 6, 1)
         assert fields["gold_hash"] == "sha256:g1"
 
+    def test_onsite_cities_projected_as_sorted_list(self) -> None:
+        """AD-086: onsite_cities (a frozenset) projects to a deterministic sorted list."""
+        gold = _gold(location=Location(city="Pune", onsite_cities=frozenset({"Pune", "Chennai"})))
+        fields = project_filter_fields(gold)
+        assert fields["onsite_cities"] == ["Chennai", "Pune"]
+        assert fields["remote_within_country"] is False
+
     def test_remote_india_has_no_city(self) -> None:
         """AD-075: a Remote (India) consultant has city=None — projected through faithfully."""
-        gold = _gold(location=Location(city=None, remote_eligible=True))
+        gold = _gold(location=Location(city=None, remote_within_country=True))
         fields = project_filter_fields(gold)
         assert fields["city"] is None
-        assert fields["remote_eligible"] is True
+        assert fields["remote_within_country"] is True
 
 
 class TestBuildRecord:
