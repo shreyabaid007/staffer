@@ -67,6 +67,24 @@ type = "forbidden"
 source_modules = ["dsm.ingest"]
 forbidden_modules = ["dsm.match", "dsm.index"]
 
+# AD-091: query-time index/match must not depend on ingest.
+# dsm.index.build is the write-time build edge (exempt — needs GoldCandidate).
+[[tool.importlinter.contracts]]
+name = "Index must not depend on ingest (except build edge)"
+type = "forbidden"
+source_modules = ["dsm.index"]
+forbidden_modules = ["dsm.ingest"]
+ignore_imports = [
+    "dsm.index.build -> dsm.ingest.models",
+    "dsm.index.indexer -> dsm.ingest.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "Match must not depend on ingest"
+type = "forbidden"
+source_modules = ["dsm.match"]
+forbidden_modules = ["dsm.ingest"]
+
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
