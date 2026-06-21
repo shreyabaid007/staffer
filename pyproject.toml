@@ -67,6 +67,19 @@ type = "forbidden"
 source_modules = ["dsm.ingest"]
 forbidden_modules = ["dsm.match", "dsm.index"]
 
+# AD-091: the query plane (match + index) must not depend on ingest — the serving side is
+# read-only over the Milvus store + the CandidateStore port, never the gold/ingest internals.
+# Exempt: (1) dsm.cli (the composition root — builds the GoldCandidateStore adapter); (2) the
+# index BUILD edge — dsm.index.build / indexer / text_builder consume GoldCandidate at `dsm index`
+# write-time. These three build modules are ignored explicitly (R-1); the query-time read path
+# (dsm.index.models / retrieve / milvus_store / embed_client) carries no ingest import.
+[[tool.importlinter.contracts]]
+name = "Match and index must not depend on ingest"
+type = "forbidden"
+source_modules = ["dsm.match", "dsm.index"]
+forbidden_modules = ["dsm.ingest"]
+ignore_imports = ["dsm.index.build -> dsm.ingest.models", "dsm.index.indexer -> dsm.ingest.models", "dsm.index.text_builder -> dsm.ingest.models"]
+
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"

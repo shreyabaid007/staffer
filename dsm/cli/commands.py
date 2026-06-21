@@ -475,9 +475,9 @@ def index(
     """
     import uuid
 
+    from dsm.index.build import is_indexable
     from dsm.index.indexer import index_gold
     from dsm.index.milvus_store import MilvusIndexStore
-    from dsm.index.models import is_indexable
     from dsm.ingest.goldstore import list_gold_ids, read_gold
 
     config = load_config()

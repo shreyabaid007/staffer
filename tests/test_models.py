@@ -353,3 +353,24 @@ def test_skill_rejects_bad_proficiency() -> None:
 def test_exclusion_rejects_bad_reason() -> None:
     with pytest.raises(ValidationError):
         Exclusion(candidate_email="x@ee.com", reason="vibes", detail="nope")  # type: ignore[arg-type]
+
+
+def test_grade_shared_home_reexported_from_ingest() -> None:
+    """AD-091: Grade lives in dsm.models, re-exported from dsm.ingest.models (same object)."""
+    from dsm.ingest.models import Grade as IngestGrade
+    from dsm.models import Grade
+
+    assert IngestGrade is Grade
+    assert Grade.LEAD_CONSULTANT.value == "lead_consultant"
+
+
+def test_candidate_store_protocol_is_structural() -> None:
+    """AD-091: a class with get(ids)->list[Candidate] satisfies the runtime-checkable port."""
+    from dsm.models import CandidateStore
+
+    class _FakeStore:
+        def get(self, candidate_ids: list[str]) -> list[Candidate]:
+            return []
+
+    assert isinstance(_FakeStore(), CandidateStore)
+    assert not isinstance(object(), CandidateStore)

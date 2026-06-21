@@ -1,12 +1,11 @@
-"""Index-layer contracts (a-005, ee-ingestion-architecture §6 Phase 6).
+"""Index-layer data contracts (a-005; ee-query/ingestion-architecture).
 
-Projects a canonical ``GoldCandidate`` into the searchable, PII-free ``CandidateIndexRecord``
-written to Milvus Lite. Filter fields come from the ``Sourced[...].value`` of the gold supply
-fields; ``gold_hash`` + ``model_version`` (the *embedder* id) gate re-embedding (AD-082).
-
-``Grade`` is imported from ``dsm.ingest.models`` (never redefined); ``Location``/availability
-variants come from the frozen ``dsm.models``. ``dsm.index`` may read ``dsm.ingest`` (the reverse
-of the ``ingest ⊥ index`` contract, NF-2).
+The **searchable, PII-free** Milvus row (``CandidateIndexRecord``) + the query-time retrieval
+provenance model (``RetrievedCandidate``) + the per-run ``IndexMetrics``. This module is
+**ingest-free** (AD-091): ``Grade`` comes from the shared ``dsm.models`` home, and the
+gold→record projection helpers (``is_indexable``/``project_filter_fields``/``build_record``, which
+need ``GoldCandidate``) live in the ``dsm/index/build.py`` build edge. So the whole query-time read
+path (``models`` → ``retrieve``/``milvus_store``) imports no ``dsm.ingest``.
 """
 
 from __future__ import annotations
@@ -16,8 +15,7 @@ from typing import Literal, TypedDict
 
 from pydantic import BaseModel
 
-from dsm.ingest.models import GoldCandidate, Grade
-from dsm.models import NewJoiner, RollingOff
+from dsm.models import Grade
 
 AvailabilityType = Literal["free_now", "rolling_off", "new_joiner"]
 
@@ -59,73 +57,20 @@ class FilterFields(TypedDict):
     gold_hash: str
 
 
-def is_indexable(gold: GoldCandidate) -> bool:
-    """A gold entity is indexable only when all required filter fields are present (IDX-8).
+class RetrievedCandidate(BaseModel, frozen=True):
+    """A candidate surviving the exact filter, carrying recall/rerank provenance (§5; AD-089).
 
-    A ``False`` here is the thin-skip: the record's ``grade``/``availability_type`` are
-    non-optional, so we refuse to guess them. Tombstones are handled *before* this check (the
-    delete path), so this never sees a tombstoned entity.
+    All scores are optional: with hybrid recall deferred (``index.recall.enabled = false``, AD-089)
+    ``dense_score``/``bm25_score``/``rrf_score`` are ``None``; on a rerank ``EmbedError`` the
+    fallback passes the pool through unranked, so ``rerank_score`` is ``None`` (§6.7). It is
+    provenance for ``explain`` — **not** the final sort key (step 9 rank decides order).
     """
-    return gold.grade is not None and gold.location is not None and gold.availability is not None
 
-
-def project_filter_fields(gold: GoldCandidate) -> FilterFields:
-    """Project the structured filter fields from a gold entity's ``Sourced[...].value``s (IDX-1).
-
-    Precondition: ``is_indexable(gold)`` — grade/location/availability present. The availability
-    discriminated union maps to ``(availability_type, availability_date)``: free_now → no date,
-    rolling_off → expected_date, new_joiner → join_date.
-    """
-    assert gold.grade is not None, "project_filter_fields requires an indexable gold (grade)"
-    assert gold.location is not None, "project_filter_fields requires an indexable gold (location)"
-    assert gold.availability is not None, "project_filter_fields requires indexable gold (avail)"
-
-    loc = gold.location.value
-    avail = gold.availability.value
-    availability_date = (
-        avail.expected_date
-        if isinstance(avail, RollingOff)
-        else avail.join_date
-        if isinstance(avail, NewJoiner)
-        else None
-    )
-    return FilterFields(
-        grade=gold.grade.value,
-        city=loc.city,
-        remote_within_country=loc.remote_within_country,
-        onsite_cities=sorted(loc.onsite_cities),
-        availability_type=avail.type,
-        availability_date=availability_date,
-        valid_as_of=gold.valid_as_of,
-        gold_hash=gold.gold_hash,
-    )
-
-
-def build_record(
-    gold: GoldCandidate,
-    *,
-    embed_text: str,
-    dense_vector: list[float],
-    skill_set: list[str],
-    model_version: str,
-) -> CandidateIndexRecord:
-    """Assemble the frozen index record from the gold projection + embedded inputs (IDX-1/4)."""
-    fields = project_filter_fields(gold)
-    return CandidateIndexRecord(
-        candidate_id=gold.candidate_id,
-        embed_text=embed_text,
-        dense_vector=dense_vector,
-        skill_set=skill_set,
-        grade=fields["grade"],
-        city=fields["city"],
-        remote_within_country=fields["remote_within_country"],
-        onsite_cities=fields["onsite_cities"],
-        availability_type=fields["availability_type"],
-        availability_date=fields["availability_date"],
-        valid_as_of=fields["valid_as_of"],
-        gold_hash=fields["gold_hash"],
-        model_version=model_version,
-    )
+    candidate_id: str  # HMAC(email), AD-067 — store key + join back to the hydrated Candidate
+    dense_score: float | None = None
+    bm25_score: float | None = None
+    rrf_score: float | None = None
+    rerank_score: float | None = None
 
 
 class IndexMetrics(BaseModel):
