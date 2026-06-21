@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 import random
+from datetime import date
 
-from dsm.index.text_builder import build_embed_text, build_skill_set, included_skills
+from dsm.index.text_builder import (
+    build_embed_text,
+    build_role_query_passage,
+    build_skill_set,
+    included_skills,
+)
 from dsm.ingest.models import Confidence, GoldCandidate, Grade, MergedSkill, Sourced
-from dsm.models import FreeNow, Location, ProficiencyLevel
+from dsm.models import (
+    FreeNow,
+    Location,
+    ProficiencyLevel,
+    SkillDepth,
+    SkillRequirement,
+    TargetProfileScorecard,
+)
 
 # Sentinel identity values: if any leaks into embed_text, the assertions below catch it.
 _SECRET_NAME = "Rajesh Kumar"
@@ -154,3 +167,80 @@ class TestBuildSkillSet:
         )
         assert "terraform" not in build_skill_set(gold)
         assert "terraform" not in build_embed_text(gold)
+
+
+def _scorecard(
+    *,
+    hard: list[SkillRequirement] | None = None,
+    desired: list[SkillRequirement] | None = None,
+    notes: str | None = None,
+) -> TargetProfileScorecard:
+    return TargetProfileScorecard(
+        role_id="ROLE-01",
+        hard_depth_skills=hard or [],
+        desired_skills=desired or [],
+        location=Location(city="Chennai"),
+        co_location_required=True,
+        start_date=date(2026, 7, 1),
+        clarification_notes=notes,
+    )
+
+
+class TestBuildRoleQueryPassage:
+    def test_skills_sorted_with_floor_inline_and_notes(self) -> None:
+        passage = build_role_query_passage(
+            _scorecard(
+                hard=[
+                    SkillRequirement(
+                        name="kotlin",
+                        depth=SkillDepth.HARD,
+                        min_proficiency=ProficiencyLevel.EXPERT,
+                    )
+                ],
+                desired=[SkillRequirement(name="aws", depth=SkillDepth.DESIRED)],
+                notes="Must have led a payments platform.",
+            )
+        )
+        # sorted by name (aws before kotlin); hard floor rendered inline; notes appended verbatim
+        assert passage == "aws, kotlin expert. Must have led a payments platform."
+
+    def test_omits_empty_parts(self) -> None:
+        passage = build_role_query_passage(
+            _scorecard(hard=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)])
+        )
+        assert passage == "kotlin."
+
+    def test_deterministic_byte_identical(self) -> None:
+        sc = _scorecard(
+            hard=[
+                SkillRequirement(
+                    name="kotlin", depth=SkillDepth.HARD, min_proficiency=ProficiencyLevel.ADVANCED
+                )
+            ],
+            desired=[SkillRequirement(name="react", depth=SkillDepth.DESIRED)],
+        )
+        assert build_role_query_passage(sc) == build_role_query_passage(sc)
+
+    def test_skill_span_symmetric_with_candidate_passage(self) -> None:
+        """FR-3-AC-2: role + candidate builders render the same skill span via _skill_phrase."""
+        role = build_role_query_passage(
+            _scorecard(
+                hard=[
+                    SkillRequirement(
+                        name="kotlin",
+                        depth=SkillDepth.HARD,
+                        min_proficiency=ProficiencyLevel.EXPERT,
+                    )
+                ]
+            )
+        )
+        candidate = build_embed_text(
+            _gold(
+                skills=[_skill("kotlin", proficiency=ProficiencyLevel.EXPERT)],
+                domains=[],
+                projects=[],
+            )
+        )
+        # The shared _skill_phrase renders "kotlin expert" identically on both sides.
+        assert "kotlin expert" in role
+        assert "kotlin expert" in candidate
