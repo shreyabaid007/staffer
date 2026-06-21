@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -44,6 +44,14 @@ class SkillDepth(StrEnum):
     DESIRED = "desired"  # soft requirement; adjacency gives partial credit
 
 
+class Grade(StrEnum):
+    """Consultant grade (AD-091: shared across ingest + index + match)."""
+
+    SENIOR_CONSULTANT = "senior_consultant"
+    LEAD_CONSULTANT = "lead_consultant"
+    PRINCIPAL_CONSULTANT = "principal_consultant"
+
+
 class ExclusionReason(StrEnum):
     """Why a candidate was excluded by the deterministic gate (AD-002)."""
 
@@ -59,6 +67,7 @@ class FlagType(StrEnum):
     ADJACENCY_USED = "adjacency_used"  # AD-033: partial credit
     ROLL_OFF_UNCERTAIN = "roll_off_uncertain"  # AD-022: low confidence
     RETENTION_RISK = "retention_risk"  # AD-023: client wants to keep
+    FRESHNESS_WARNING = "freshness_warning"  # AD-091: supply snapshot stale vs demand
 
 
 class EvidenceSource(StrEnum):
@@ -152,6 +161,14 @@ class Candidate(BaseModel, frozen=True):
     # Enrichment fields (nullable until profiles ingested):
     profile_summary: str | None = None
     years_experience: int | None = None
+
+
+class CandidateStore(Protocol):
+    """Port for loading serving Candidates (AD-091)."""
+
+    def get(self, candidate_ids: list[str]) -> list[Candidate]:
+        """Return serving Candidates for the given ids."""
+        ...
 
 
 class SkillRequirement(BaseModel, frozen=True):

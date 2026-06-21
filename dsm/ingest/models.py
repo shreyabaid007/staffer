@@ -13,7 +13,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 # Frozen shared contracts (AD-060) — imported, never redefined. Silver *produces* these.
-from dsm.models import AvailabilityState, EvidenceCitation, Location, ProficiencyLevel
+# Grade moved to dsm.models (AD-091) — re-exported here for backwards compatibility.
+from dsm.models import AvailabilityState, EvidenceCitation, Grade, Location, ProficiencyLevel
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -103,14 +104,6 @@ class RunManifest(BaseModel, frozen=True):
 # or proficiency-less, and a record's location/grade may be absent. The frozen serving
 # contract (dsm/models.py) is reused where it fits (Location, AvailabilityState,
 # ProficiencyLevel) and never redefined here (structure.md: no duplicate model definitions).
-
-
-class Grade(StrEnum):
-    """Consultant grade parsed from the supply ``Grade`` column."""
-
-    SENIOR_CONSULTANT = "senior_consultant"
-    LEAD_CONSULTANT = "lead_consultant"
-    PRINCIPAL_CONSULTANT = "principal_consultant"
 
 
 class Confidence(StrEnum):
