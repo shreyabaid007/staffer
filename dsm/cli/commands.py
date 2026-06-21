@@ -346,6 +346,155 @@ def _collect_gold_valid_as_of(gold_dir: Path) -> list:
     return dates
 
 
+def _build_lineage(
+    result: ShortlistResult | NoMatchResult,
+    *,
+    recall_mode: str = "exhaustive",
+    freshness_verdict: FreshnessVerdict | None = None,
+) -> dict[str, Any]:
+    """Wrap a match result in a lineage envelope for the explain command (FR-7)."""
+    import json as _json
+
+    base = _json.loads(result.model_dump_json())
+    lineage: dict[str, Any] = {"type": type(result).__name__}
+
+    # Exclusions
+    lineage["exclusions"] = base.get("exclusion_log", {}).get("exclusions", [])
+
+    # Recall mode
+    lineage["recall_mode"] = recall_mode
+
+    # Freshness
+    if freshness_verdict is not None:
+        lineage["freshness_verdict"] = {
+            "action": freshness_verdict.action,
+            "staleness_days": freshness_verdict.staleness_days,
+            "message": freshness_verdict.message,
+        }
+    else:
+        lineage["freshness_verdict"] = None
+
+    # Config snapshot
+    if isinstance(result, ShortlistResult):
+        lineage["config_snapshot"] = base.get("config_snapshot", {})
+        lineage["candidates"] = []
+        for assessment in base.get("ranked_assessments", []):
+            lineage["candidates"].append(
+                {
+                    "email": assessment["candidate"]["email"],
+                    "skill_match_score": assessment["skill_match_score"],
+                    "feedback_score": assessment["feedback_score"],
+                    "combined_score": assessment["combined_score"],
+                    "hard_skill_coverage": assessment["hard_skill_coverage"],
+                    "desired_skill_coverage": assessment["desired_skill_coverage"],
+                    "flags": assessment["flags"],
+                    "narrative": assessment["narrative"],
+                    "evidence": assessment["evidence"],
+                }
+            )
+    else:
+        lineage["reason"] = base.get("reason", "")
+        lineage["near_misses"] = base.get("near_misses", [])
+
+    return lineage
+
+
+def explain(
+    role_id: str = typer.Option("ROLE-STUB-01", "--role-id"),
+    demand_csv: Annotated[Path | None, typer.Option("--demand-csv")] = None,
+    gold_dir: Annotated[Path | None, typer.Option("--gold-dir")] = None,
+) -> None:
+    """Explain a match result — dump full per-role lineage (FR-7).
+
+    Runs the same pipeline as ``match`` but outputs a lineage envelope with
+    gate/filter exclusions, recall mode, rerank scores, per-candidate sub-scores,
+    flags, narrative, citations, config_snapshot, and freshness verdict.
+    """
+    import json as _json
+
+    config = load_config()
+    recall_cfg = config.get("index", {}).get("recall", {})
+    recall_mode = "hybrid" if recall_cfg.get("enabled") else "exhaustive"
+
+    if demand_csv is None:
+        role = get_stub_role()
+        candidates = get_stub_candidates()
+        scorecard = clarify_role(role)
+        result = run_match(candidates, scorecard)
+        lineage = _build_lineage(result, recall_mode=recall_mode)
+        typer.echo(_json.dumps(lineage, indent=2, default=str))
+        return
+
+    # Full pipeline path
+    from dsm.cli.candidate_store import GoldCandidateStore
+    from dsm.match.demand import parse_demand
+    from dsm.match.freshness import check_freshness
+
+    resolved_gold = gold_dir or _GOLD_DEFAULT
+    if not resolved_gold.is_dir():
+        typer.echo(f"Gold directory not found: {resolved_gold}", err=True)
+        raise typer.Exit(1)
+
+    outcome = parse_demand(demand_csv)
+    role_map = {r.role_id: r for r in outcome.roles}
+    if role_id not in role_map:
+        available = ", ".join(sorted(role_map.keys())) or "(none)"
+        typer.echo(
+            f"Role '{role_id}' not found in {demand_csv}. Available: {available}",
+            err=True,
+        )
+        raise typer.Exit(1)
+    role = role_map[role_id]
+
+    store = GoldCandidateStore(resolved_gold)
+    candidates = store.get([])
+    if not candidates:
+        typer.echo("No candidates found in gold store.", err=True)
+        raise typer.Exit(1)
+
+    lm = _build_match_lm(config) if role.description else None
+    scorecard = clarify_role(role, lm=lm)
+
+    supply_valid_as_of = outcome.banner.demand_as_of
+    gold_dates = _collect_gold_valid_as_of(resolved_gold)
+    if gold_dates:
+        supply_valid_as_of = max(gold_dates)
+
+    freshness = check_freshness(
+        demand_as_of=outcome.banner.demand_as_of,
+        valid_as_of=supply_valid_as_of,
+        start_date=role.start_date,
+        max_staleness_days=config["reconcile"]["max_staleness_days"],
+    )
+
+    if freshness.action == REFUSE:
+        typer.echo(f"REFUSED: {freshness.message}", err=True)
+        raise typer.Exit(1)
+
+    freshness_verdict = freshness if freshness.action == WARN else None
+
+    adj_map = config.get("adjacency_map", {})
+    weights = config.get("weights", {})
+    rerank_cfg = config.get("index", {}).get("rerank", {})
+    embed_client_inst = _build_embed_client() if recall_cfg.get("enabled") else None
+
+    result = run_match(
+        candidates,
+        scorecard,
+        lm=lm,
+        embed_client=embed_client_inst,
+        adjacency_map=adj_map,
+        weights=weights,
+        freshness_verdict=freshness_verdict,
+        recall_enabled=recall_cfg.get("enabled", False),
+        recall_top_n=recall_cfg.get("top_n", 100),
+        rerank_top_k=rerank_cfg.get("top_k", 10),
+    )
+
+    lineage = _build_lineage(result, recall_mode=recall_mode, freshness_verdict=freshness_verdict)
+    typer.echo(_json.dumps(lineage, indent=2, default=str))
+
+
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _RAW_DEFAULT = _DATA_DIR / "raw"
 _BRONZE_DEFAULT = _DATA_DIR / "bronze"
