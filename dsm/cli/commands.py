@@ -13,6 +13,7 @@ from dsm.index.stub import retrieve_candidates
 from dsm.ingest.stub import get_stub_candidates, get_stub_role
 from dsm.match.clarify import clarify_role
 from dsm.match.gates import effective_free_date, filter_candidates
+from dsm.match.models import ScoreExtraction
 from dsm.match.rank import rank_assessments
 from dsm.match.score import score_candidate
 from dsm.models import (
@@ -106,6 +107,22 @@ def build_near_misses(
     return [near_miss for _, near_miss in ranked]
 
 
+def _interim_score_predict(
+    scorecard: TargetProfileScorecard, candidate: Candidate
+) -> ScoreExtraction:
+    """Interim deterministic score predictor for the deprecated ``run_match`` (replaced in T-009).
+
+    The full 9-step orchestrator (b-002 §6.8) injects the real ``make_score_predictor`` over
+    ``PseudonymisedLM``; until that lands, this fixed-sub-score stub keeps the c-001 e2e tests +
+    the ``dsm match`` smoke green without a live LLM. Mirrors the old Slice-0 stub scores.
+    """
+    return ScoreExtraction(
+        skill_match_score=0.75,
+        feedback_score=0.6,
+        narrative=f"Stub assessment for {candidate.name}",
+    )
+
+
 def run_match(
     candidates: list[Candidate],
     scorecard: TargetProfileScorecard,
@@ -136,7 +153,17 @@ def run_match(
         )
 
     retrieved = retrieve_candidates(eligible_pool, scorecard, top_k=10)
-    assessments = [score_candidate(candidate, scorecard) for candidate in retrieved]
+    config = load_config()
+    assessments = [
+        assessment
+        for candidate in retrieved
+        if (
+            assessment := score_candidate(
+                candidate, scorecard, predict=_interim_score_predict, config=config
+            )
+        )
+        is not None
+    ]
     top_k, config_snapshot = ranking_config()
     return rank_assessments(assessments, scorecard.role_id, exclusion_log, top_k, config_snapshot)
 

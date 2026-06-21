@@ -12,7 +12,7 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
-from dsm.models import OpenRole, SkillRequirement
+from dsm.models import EvidenceCitation, OpenRole, SkillRequirement
 
 
 class OpenRolesBanner(BaseModel, frozen=True):
@@ -51,3 +51,18 @@ class ScorecardClarification(BaseModel, frozen=True):
     hard_depth_skills: list[SkillRequirement] = Field(default_factory=list)
     desired_skills: list[SkillRequirement] = Field(default_factory=list)
     clarification_notes: str | None = None
+
+
+class ScoreExtraction(BaseModel, frozen=True):
+    """The score LLM's output (b-002; §6.8) — a match-local DSPy output type, sub-scores ONLY.
+
+    The bounded scoring signature emits the two sub-scores, a short narrative, and cited evidence.
+    **Python** computes ``combined_score`` (AD-030 weights), ``hard_skill_coverage`` (exact, no
+    adjacency), ``desired_skill_coverage`` (adjacency partial credit), and the flags — the LLM
+    never does arithmetic (tech.md rule 4). Citations are verified verbatim before use (AD-073).
+    """
+
+    skill_match_score: float = 0.0
+    feedback_score: float = 0.0
+    narrative: str = ""
+    evidence: list[EvidenceCitation] = Field(default_factory=list)
