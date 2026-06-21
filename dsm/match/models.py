@@ -12,7 +12,7 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
-from dsm.models import OpenRole
+from dsm.models import OpenRole, SkillRequirement
 
 
 class OpenRolesBanner(BaseModel, frozen=True):
@@ -37,3 +37,17 @@ class DemandParseOutcome(BaseModel, frozen=True):
     banner: OpenRolesBanner
     roles: list[OpenRole]
     skipped: list[str] = Field(default_factory=list)
+
+
+class ScorecardClarification(BaseModel, frozen=True):
+    """The clarify LLM's output (b-002; §6.2) — a match-local DSPy output type, not a frozen model.
+
+    The bounded clarify signature emits only the refined skill breakdown + free-text notes; the
+    orchestrator merges these into a ``TargetProfileScorecard`` and supplies the gate fields
+    (location / co-location / start date / window) from the parsed role, never the LLM (§6.2). The
+    LLM cannot invent or relax a gate — it only sharpens the capability requirements.
+    """
+
+    hard_depth_skills: list[SkillRequirement] = Field(default_factory=list)
+    desired_skills: list[SkillRequirement] = Field(default_factory=list)
+    clarification_notes: str | None = None
