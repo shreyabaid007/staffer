@@ -114,7 +114,7 @@ field, so identity cannot enter the passage bound for Modal. **No outbound known
 index time** — the brief's `assert_no_leak` is dropped (a known-string scan needs per-candidate
 name/email, which gold doesn't carry and which would couple `dsm index` to bronze, for only the
 narrow de-anon-into-`projects` backstop). A **generic** NER/org-dictionary outbound scan (catches
-client-org names without per-candidate identity) is **Lane C's later hardening**; `build_embed_text`
+client-org names without per-candidate identity) is **deferred to a later hardening phase**; `build_embed_text`
 is the single seam where it would attach. A test pins the construction guarantee (AC-6): build gold
 with vault refs populated → neither ref nor any identity appears in `embed_text`/`skill_set`.
 

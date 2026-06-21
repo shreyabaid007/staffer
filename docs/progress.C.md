@@ -5,13 +5,12 @@
 > Headers below are stable so `/handoff` can target them. Append to the session log, newest first; rewrite the other sections from current state.
 
 ## In flight
-- `feat/c/001-gates-rank` — gates + rank + no-match implemented end-to-end (T-001…T-007), `make check` GREEN. **Awaiting review/merge to `main`** (run `/handoff-index` on merge to refresh the shared index, AD-061).
+- _(none)_
 
 ## Next up
-1. Merge `feat/c/001-gates-rank` to `main`, then `/handoff-index`.
-2. **Real `pii/PseudonymisedLM` boundary** (currently stubbed) — Presidio/spaCy anonymise-before / deanonymise-after so no PII reaches OpenRouter unpseudonymised and no `name`/`email` reaches Modal. **Prioritised ahead of eval** so the no-PII-leak invariant tests a real boundary, not the pass-through stub. Needs a spec in `specs/c-002-*` before code (golden rule 1).
-3. Wire up `make eval` — Promptfoo + DeepEval invariants (gates-respected · hard-skill-not-cleared-by-adjacency · evidence-cited · no-PII-leak · determinism). Reuse the importable `tests/fixtures/` ROLE-01/02/03 seed cases (built for this in c-001) so `dsm/eval/` doesn't duplicate them.
-4. CLI/interface polish: the orchestrator now runs real gates/rank/no-match over **stub ingest** (`run_match` is ingest-agnostic) — swap in Lane A's real ingest when ready; consider a human-readable render for `NoMatchResult` beyond raw JSON.
+1. **Query-time pipeline architecture** — design the query-time pipeline (companion to `ee-ingestion-architecture.md`). This will settle gating, retrieval, scoring, and ranking design. The c-001 gates+rank implementation is **deprecated (AD-085)** and will be revisited/replaced.
+2. **Real `pii/PseudonymisedLM` boundary** (currently stubbed) — Presidio/spaCy anonymise-before / deanonymise-after so no PII reaches OpenRouter unpseudonymised and no `name`/`email` reaches Modal. Needs a spec before code (golden rule 1).
+3. Wire up `make eval` — Promptfoo + DeepEval invariants (evidence-cited · no-PII-leak · determinism). Eval cases and invariants will be redesigned alongside the query architecture.
 
 ## Blockers / needs a human
 - _(none)_

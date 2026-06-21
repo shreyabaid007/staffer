@@ -4,7 +4,7 @@
 > identity-resolved. **No LLM, no network.** Builds on a-001 (bronze + `BronzeRecord`).
 > References: `ee-ingestion-architecture.md` §3/§5(step 3)/§6(Phase 3)/§13/§15#3;
 > AD-012/AD-032/AD-060/AD-062/AD-063(a)/AD-065/AD-066/AD-067/AD-068/AD-070; `docs/structure.md`;
-> `docs/ownership.md`; `docs/tech.md` (determinism, PII boundary).
+> `docs/tech.md` (determinism, PII boundary).
 
 ## User story
 
