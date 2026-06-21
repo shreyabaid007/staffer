@@ -1,12 +1,21 @@
-"""Tests for dsm.index.text_builder.build_embed_text (a-005 T-002; IDX-2/PII-1; AC-2/AC-6)."""
+"""Tests for dsm.index text builders (a-005, B-002; IDX-2/PII-1; AC-2/AC-6)."""
 
 from __future__ import annotations
 
 import random
+from datetime import date
 
 from dsm.index.build import build_embed_text, build_skill_set, included_skills
+from dsm.index.text_builder import build_role_query_passage
 from dsm.ingest.models import Confidence, GoldCandidate, Grade, MergedSkill, Sourced
-from dsm.models import FreeNow, Location, ProficiencyLevel
+from dsm.models import (
+    FreeNow,
+    Location,
+    ProficiencyLevel,
+    SkillDepth,
+    SkillRequirement,
+    TargetProfileScorecard,
+)
 
 # Sentinel identity values: if any leaks into embed_text, the assertions below catch it.
 _SECRET_NAME = "Rajesh Kumar"
@@ -154,3 +163,71 @@ class TestBuildSkillSet:
         )
         assert "terraform" not in build_skill_set(gold)
         assert "terraform" not in build_embed_text(gold)
+
+
+# ---------------------------------------------------------------------------
+# build_role_query_passage (B-002 T-008; query-time)
+# ---------------------------------------------------------------------------
+
+_SC_LOC = Location(city="Pune")
+_SC_START = date(2026, 7, 1)
+
+
+def _scorecard(
+    *,
+    hard: list[SkillRequirement] | None = None,
+    desired: list[SkillRequirement] | None = None,
+    notes: str | None = None,
+) -> TargetProfileScorecard:
+    return TargetProfileScorecard(
+        role_id="R-001",
+        hard_depth_skills=hard or [],
+        desired_skills=desired or [],
+        location=_SC_LOC,
+        co_location_required=True,
+        start_date=_SC_START,
+        clarification_notes=notes,
+    )
+
+
+class TestBuildRoleQueryPassage:
+    def test_hard_and_desired(self) -> None:
+        sc = _scorecard(
+            hard=[
+                SkillRequirement(
+                    name="kotlin",
+                    depth=SkillDepth.HARD,
+                    min_proficiency=ProficiencyLevel.EXPERT,
+                ),
+            ],
+            desired=[SkillRequirement(name="react", depth=SkillDepth.DESIRED)],
+        )
+        text = build_role_query_passage(sc)
+        assert "Required: kotlin expert." in text
+        assert "Desired: react." in text
+
+    def test_with_notes(self) -> None:
+        sc = _scorecard(
+            hard=[SkillRequirement(name="python", depth=SkillDepth.HARD)],
+            notes="Deep ML experience preferred.",
+        )
+        text = build_role_query_passage(sc)
+        assert "python" in text
+        assert "Deep ML experience preferred." in text
+
+    def test_empty_scorecard(self) -> None:
+        sc = _scorecard()
+        assert build_role_query_passage(sc) == ""
+
+    def test_deterministic(self) -> None:
+        sc = _scorecard(
+            hard=[
+                SkillRequirement(name="react", depth=SkillDepth.HARD),
+                SkillRequirement(name="kotlin", depth=SkillDepth.HARD),
+            ],
+            desired=[
+                SkillRequirement(name="docker", depth=SkillDepth.DESIRED),
+                SkillRequirement(name="aws", depth=SkillDepth.DESIRED),
+            ],
+        )
+        assert build_role_query_passage(sc) == build_role_query_passage(sc)

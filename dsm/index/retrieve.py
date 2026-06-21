@@ -188,3 +188,51 @@ def _simple_bm25(query: str, documents: list[str]) -> list[float]:
         term_freq = sum(1 for t in doc_terms if t in query_terms)
         scores.append(term_freq / (len(doc_terms) + 1) if doc_terms else 0.0)
     return scores
+
+
+# ---------------------------------------------------------------------------
+# Rerank (B-2; AD-071)
+# ---------------------------------------------------------------------------
+
+
+def rerank(
+    role_query: str,
+    candidates: list[RetrievedCandidate],
+    embed_texts: dict[str, str],
+    embed_client: EmbedClient,
+    *,
+    top_k: int = 10,
+) -> list[RetrievedCandidate]:
+    """Cross-encoder rerank via EmbedClient.rerank() (AD-071).
+
+    Scores each (role_query, candidate_embed_text) pair jointly.
+    Truncates to top_k. EmbedError → pass through unranked (rerank_score=None).
+
+    Args:
+        role_query: the role query passage for reranking.
+        candidates: the recalled candidates to rerank.
+        embed_texts: mapping of candidate_id → embed_text for passage lookup.
+        embed_client: the embedder/reranker client.
+        top_k: maximum candidates to return after reranking.
+
+    Returns:
+        Reranked list of RetrievedCandidate, sorted by rerank_score desc,
+        truncated to top_k.
+    """
+    if not candidates:
+        return []
+
+    passages = [embed_texts.get(c.candidate_id, "") for c in candidates]
+
+    try:
+        scores = embed_client.rerank(role_query, passages)
+    except EmbedError as exc:
+        _log.warning("rerank.embed_failed", reason=str(exc))
+        return candidates
+
+    scored: list[RetrievedCandidate] = []
+    for rc, score in zip(candidates, scores, strict=False):
+        scored.append(rc.model_copy(update={"rerank_score": score}))
+
+    scored.sort(key=lambda rc: -(rc.rerank_score or 0.0))
+    return scored[:top_k]
