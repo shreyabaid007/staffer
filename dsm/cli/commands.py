@@ -6,12 +6,17 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
+import dspy
+import structlog
 import typer
 
 from dsm.config import load_config
-from dsm.index.stub import retrieve_candidates
+from dsm.index.embed_client import EmbedClient
+from dsm.index.retrieve import exact_hard_skill_filter, hybrid_recall, rerank
+from dsm.index.text_builder import build_role_query_passage
 from dsm.ingest.stub import get_stub_candidates, get_stub_role
 from dsm.match.clarify import clarify_role
+from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict
 from dsm.match.gates import effective_free_date, filter_candidates
 from dsm.match.rank import rank_assessments
 from dsm.match.score import score_candidate
@@ -24,6 +29,8 @@ from dsm.models import (
     ShortlistResult,
     TargetProfileScorecard,
 )
+
+_log = structlog.get_logger("dsm.cli.commands")
 
 
 def ranking_config() -> tuple[int, dict[str, Any]]:
@@ -109,21 +116,39 @@ def build_near_misses(
 def run_match(
     candidates: list[Candidate],
     scorecard: TargetProfileScorecard,
+    *,
+    lm: dspy.LM | None = None,
+    embed_client: EmbedClient | None = None,
+    adjacency_map: dict[str, list[str]] | None = None,
+    weights: dict[str, float] | None = None,
+    freshness_verdict: FreshnessVerdict | None = None,
+    recall_enabled: bool = False,
+    recall_top_n: int = 100,
+    rerank_top_k: int = 10,
 ) -> ShortlistResult | NoMatchResult:
-    """Core orchestration over structured inputs: gates → (no-match | retrieve→score→rank).
+    """Full 9-step pipeline: gates → exact filter → recall → rerank → score → rank.
 
-    Ingest-agnostic: the CLI feeds stub data today and real ingest later, and integration
-    tests inject fixtures directly. When the eligible pool is empty the orchestrator builds
-    a ``NoMatchResult`` with ordered, capped near-misses (O-NM-1/2/3); otherwise it ranks.
+    Backward-compatible: existing callers pass ``(candidates, scorecard)`` only and get
+    stub-mode scoring (no LLM), passthrough recall, and default config. The full pipeline
+    is activated by passing ``lm``, ``embed_client``, etc.
 
     Args:
         candidates: the candidates to consider (already typed).
         scorecard: the clarified role requirements.
+        lm: optional DSPy LM for score_candidate (PseudonymisedLM). None → stub sub-scores.
+        embed_client: optional embedder/reranker for recall + rerank.
+        adjacency_map: skill-name → adjacent-skill-names for partial credit (AD-035).
+        weights: ``{"skill": float, "feedback": float}`` (default 0.7/0.3, AD-030).
+        freshness_verdict: if ``warn``, every assessment gets a FRESHNESS_WARNING flag.
+        recall_enabled: whether hybrid recall is active (default False, AD-089).
+        recall_top_n: max candidates from recall (default 100).
+        rerank_top_k: max candidates after rerank (default 10).
 
     Returns:
         A ``ShortlistResult`` when at least one candidate is eligible, else a
         ``NoMatchResult``.
     """
+    # Step 1: gates (availability + location)
     eligible_pool, exclusion_log = filter_candidates(candidates, scorecard)
 
     if not eligible_pool.candidates:
@@ -131,25 +156,194 @@ def run_match(
         return NoMatchResult(
             role_id=scorecard.role_id,
             reason="No candidates passed the eligibility gates.",
-            near_misses=near_misses[:3],  # AD-063(d): cap is a presentation decision
+            near_misses=near_misses[:3],
             exclusion_log=exclusion_log,
         )
 
-    retrieved = retrieve_candidates(eligible_pool, scorecard, top_k=10)
-    assessments = [a for c in retrieved if (a := score_candidate(c, scorecard)) is not None]
+    # Step 2: exact hard-skill filter
+    filtered_pool, hard_exclusions = exact_hard_skill_filter(
+        eligible_pool, scorecard.hard_depth_skills
+    )
+    all_exclusions = ExclusionLog(exclusions=list(exclusion_log.exclusions) + hard_exclusions)
+
+    if not filtered_pool.candidates:
+        near_misses = build_near_misses(candidates, scorecard, all_exclusions)
+        return NoMatchResult(
+            role_id=scorecard.role_id,
+            reason="No candidates passed the hard-skill filter.",
+            near_misses=near_misses[:3],
+            exclusion_log=all_exclusions,
+        )
+
+    # Step 3: recall (passthrough when OFF)
+    role_query = build_role_query_passage(scorecard)
+    recalled = hybrid_recall(
+        filtered_pool,
+        role_query,
+        embed_client,
+        top_n=recall_top_n,
+        enabled=recall_enabled,
+    )
+
+    # Step 4: rerank (cross-encoder)
+    by_email = {c.email: c for c in filtered_pool.candidates}
+    embed_texts = {
+        c.email: c.profile_summary or " ".join(s.name for s in c.skills)
+        for c in filtered_pool.candidates
+    }
+    if embed_client is not None:
+        recalled = rerank(role_query, recalled, embed_texts, embed_client, top_k=rerank_top_k)
+
+    # Step 5: score each surviving candidate
+    resolved = [by_email[rc.candidate_id] for rc in recalled if rc.candidate_id in by_email]
+    assessments = [
+        a
+        for c in resolved
+        if (
+            a := score_candidate(
+                c,
+                scorecard,
+                lm=lm,
+                adjacency_map=adjacency_map,
+                weights=weights,
+                freshness_verdict=freshness_verdict,
+            )
+        )
+        is not None
+    ]
+
+    if not assessments:
+        return NoMatchResult(
+            role_id=scorecard.role_id,
+            reason="All candidates failed scoring (LLM errors).",
+            near_misses=[],
+            exclusion_log=all_exclusions,
+        )
+
+    # Step 6: rank
     top_k, config_snapshot = ranking_config()
-    return rank_assessments(assessments, scorecard.role_id, exclusion_log, top_k, config_snapshot)
+    return rank_assessments(assessments, scorecard.role_id, all_exclusions, top_k, config_snapshot)
 
 
-def match(role_id: str = typer.Option("ROLE-STUB-01", "--role-id")) -> None:
-    """Match candidates to a role (Slice 0 stub ingest, real gates + rank + no-match)."""
-    role = get_stub_role()
-    candidates = get_stub_candidates()
+def match(
+    role_id: str = typer.Option("ROLE-STUB-01", "--role-id"),
+    demand_csv: Annotated[Path | None, typer.Option("--demand-csv")] = None,
+    gold_dir: Annotated[Path | None, typer.Option("--gold-dir")] = None,
+) -> None:
+    """Match candidates to a role.
 
-    scorecard = clarify_role(role)
-    result = run_match(candidates, scorecard)
+    Without ``--demand-csv``: uses stub data (Slice 0 smoke path).
+    With ``--demand-csv`` + ``--gold-dir``: full 9-step pipeline — parse demand,
+    hydrate gold, clarify, freshness guard, gates, exact filter, recall, rerank,
+    score, rank.
+    """
+    config = load_config()
+
+    if demand_csv is None:
+        role = get_stub_role()
+        candidates = get_stub_candidates()
+        scorecard = clarify_role(role)
+        result = run_match(candidates, scorecard)
+        typer.echo(result.model_dump_json(indent=2))
+        return
+
+    # Full pipeline path
+    from dsm.cli.candidate_store import GoldCandidateStore
+    from dsm.match.demand import parse_demand
+    from dsm.match.freshness import check_freshness
+
+    resolved_gold = gold_dir or _GOLD_DEFAULT
+    if not resolved_gold.is_dir():
+        typer.echo(f"Gold directory not found: {resolved_gold}", err=True)
+        raise typer.Exit(1)
+
+    # Step 1: parse demand CSV → select role
+    outcome = parse_demand(demand_csv)
+    role_map = {r.role_id: r for r in outcome.roles}
+    if role_id not in role_map:
+        available = ", ".join(sorted(role_map.keys())) or "(none)"
+        typer.echo(
+            f"Role '{role_id}' not found in {demand_csv}. Available: {available}",
+            err=True,
+        )
+        raise typer.Exit(1)
+    role = role_map[role_id]
+
+    # Step 2: hydrate candidates from gold
+    store = GoldCandidateStore(resolved_gold)
+    candidates = store.get([])
+
+    if not candidates:
+        typer.echo("No candidates found in gold store.", err=True)
+        raise typer.Exit(1)
+
+    # Step 3: clarify role (LLM if description non-empty, else echo)
+    lm = _build_match_lm(config) if role.description else None
+    scorecard = clarify_role(role, lm=lm)
+
+    # Step 4: freshness guard
+    supply_valid_as_of = outcome.banner.demand_as_of  # fallback
+    gold_dates = _collect_gold_valid_as_of(resolved_gold)
+    if gold_dates:
+        supply_valid_as_of = max(gold_dates)
+
+    freshness = check_freshness(
+        demand_as_of=outcome.banner.demand_as_of,
+        valid_as_of=supply_valid_as_of,
+        start_date=role.start_date,
+        max_staleness_days=config["reconcile"]["max_staleness_days"],
+    )
+    _log.info("freshness_check", action=freshness.action, message=freshness.message)
+
+    if freshness.action == REFUSE:
+        typer.echo(f"REFUSED: {freshness.message}", err=True)
+        raise typer.Exit(1)
+
+    freshness_verdict = freshness if freshness.action == WARN else None
+
+    # Step 5–9: run_match (gates → exact filter → recall → rerank → score → rank)
+    adj_map = config.get("adjacency_map", {})
+    weights = config.get("weights", {})
+    recall_cfg = config.get("index", {}).get("recall", {})
+    rerank_cfg = config.get("index", {}).get("rerank", {})
+
+    embed_client_inst = _build_embed_client() if recall_cfg.get("enabled") else None
+
+    result = run_match(
+        candidates,
+        scorecard,
+        lm=lm,
+        embed_client=embed_client_inst,
+        adjacency_map=adj_map,
+        weights=weights,
+        freshness_verdict=freshness_verdict,
+        recall_enabled=recall_cfg.get("enabled", False),
+        recall_top_n=recall_cfg.get("top_n", 100),
+        rerank_top_k=rerank_cfg.get("top_k", 10),
+    )
 
     typer.echo(result.model_dump_json(indent=2))
+
+
+def _build_match_lm(config: dict[str, Any]):  # pragma: no cover - exercised only live
+    """Build the PseudonymisedLM for clarify + score (monkeypatched in CLI tests)."""
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    return PseudonymisedLM(model=config["models"]["reasoning_llm"])
+
+
+def _collect_gold_valid_as_of(gold_dir: Path) -> list:
+    """Read valid_as_of dates from gold entities for freshness comparison."""
+    from datetime import date
+
+    from dsm.ingest.goldstore import list_gold_ids, read_gold
+
+    dates: list[date] = []
+    for cid in list_gold_ids(gold_dir):
+        gold = read_gold(cid, gold_dir)
+        if gold is not None and gold.valid_as_of is not None:
+            dates.append(gold.valid_as_of)
+    return dates
 
 
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"

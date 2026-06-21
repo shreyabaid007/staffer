@@ -75,8 +75,9 @@ def test_cli_match_smoke_runs_through_real_gates_and_rank() -> None:
     """Refinement: `dsm match` over the stub ingest yields valid output via real gates/rank.
 
     The three stub candidates (FreeNow, RollingOff on the deadline, NewJoiner on the
-    deadline) all pass the real gates under a non-co-located role, so the command emits a
-    ShortlistResult with three ranked assessments, no exclusions, and a config snapshot.
+    deadline) all pass the availability/location gates under a non-co-located role. Bob
+    is excluded by the exact hard-skill filter (has java, not python). Alice and Carol
+    are ranked.
     """
     completed = subprocess.run(
         ["uv", "run", "dsm", "match", "--role-id", "ROLE-STUB-01"],
@@ -87,7 +88,8 @@ def test_cli_match_smoke_runs_through_real_gates_and_rank() -> None:
     payload = json.loads(completed.stdout)
 
     assert payload["role_id"] == "ROLE-STUB-01"
-    assert len(payload["ranked_assessments"]) == 3
-    assert payload["total_eligible"] == 3
-    assert payload["exclusion_log"]["exclusions"] == []
+    assert len(payload["ranked_assessments"]) == 2
+    assert payload["total_eligible"] == 2
+    assert len(payload["exclusion_log"]["exclusions"]) == 1
+    assert payload["exclusion_log"]["exclusions"][0]["reason"] == "hard_skill_mismatch"
     assert payload["config_snapshot"]["top_k"] == 5
