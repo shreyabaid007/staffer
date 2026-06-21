@@ -6,12 +6,10 @@ from datetime import date
 
 import pytest
 
+from dsm.index.build import build_record, is_indexable, project_filter_fields
 from dsm.index.models import (
     CandidateIndexRecord,
     IndexMetrics,
-    build_record,
-    is_indexable,
-    project_filter_fields,
 )
 from dsm.ingest.models import Confidence, GoldCandidate, Grade, MergedSkill, Sourced
 from dsm.models import AvailabilityState, FreeNow, Location, NewJoiner, RollingOff

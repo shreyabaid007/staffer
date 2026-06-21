@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from dsm.index.text_builder import build_embed_text, build_skill_set, included_skills
+from dsm.index.build import build_embed_text, build_skill_set, included_skills
 from dsm.ingest.models import Confidence, GoldCandidate, Grade, MergedSkill, Sourced
 from dsm.models import FreeNow, Location, ProficiencyLevel
 
