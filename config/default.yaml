@@ -8,7 +8,31 @@ ranking:
 availability:
   window_days: 14
 
-adjacency_map: {}
+adjacency_map:
+  kotlin: [java]
+  java: [kotlin]
+  react: [nextjs]
+  nextjs: [react]
+  typescript: [javascript]
+  javascript: [typescript]
+  aws: [gcp]
+  gcp: [aws]
+  docker: [kubernetes]
+  kubernetes: [docker]
+  postgres: [mysql, sql]
+  mysql: [postgres, sql]
+  sql: [postgres, mysql]
+  spark: [dbt, airflow]
+  dbt: [spark, airflow]
+  airflow: [spark, dbt]
+  selenium: [cypress, playwright]
+  cypress: [selenium, playwright]
+  playwright: [selenium, cypress]
+  llm: [rag, vector]
+  rag: [llm, vector]
+  vector: [llm, rag]
+  ml: [scikit-learn]
+  scikit-learn: [ml]
 
 models:
   reasoning_llm: "openrouter/anthropic/claude-sonnet-4-6"
@@ -34,6 +58,11 @@ index:
     db_path: "data/index/milvus.db"
     collection: "candidates"
     dense_metric: "IP"
+  recall:
+    enabled: false
+    top_n: 100
+  rerank:
+    top_k: 10
 
 logging:
   level: "INFO"
