@@ -8,7 +8,35 @@ ranking:
 availability:
   window_days: 14
 
-adjacency_map: {}
+# Skill adjacency seed (AD-035) — symmetric map skill → adjacent skills, normalised lowercase.
+# Drives desired-skill partial credit at score time (exact desired = 1.0, adjacent = 0.5, else 0;
+# AD-033). A HARD skill is NEVER credited via adjacency (enforced in code, tech.md rule 5).
+# Config-driven + expandable; names mirror the taxonomy's lowercase ids.
+adjacency_map:
+  kotlin: ["java"]
+  java: ["kotlin"]
+  react: ["next.js"]
+  next.js: ["react"]
+  typescript: ["javascript"]
+  javascript: ["typescript"]
+  aws: ["gcp"]
+  gcp: ["aws"]
+  docker: ["kubernetes"]
+  kubernetes: ["docker"]
+  postgres: ["mysql", "sql"]
+  mysql: ["postgres", "sql"]
+  sql: ["postgres", "mysql"]
+  spark: ["dbt", "airflow"]
+  dbt: ["spark", "airflow"]
+  airflow: ["spark", "dbt"]
+  selenium: ["cypress", "playwright"]
+  cypress: ["selenium", "playwright"]
+  playwright: ["selenium", "cypress"]
+  llm: ["rag", "vector"]
+  rag: ["llm", "vector"]
+  vector: ["llm", "rag"]
+  ml: ["scikit-learn"]
+  scikit-learn: ["ml"]
 
 models:
   reasoning_llm: "openrouter/anthropic/claude-sonnet-4-6"
@@ -34,6 +62,16 @@ index:
     db_path: "data/index/milvus.db"
     collection: "candidates"
     dense_metric: "IP"
+  # Query-time hybrid recall (b-002, AD-089). DEFERRED: OFF by default — at POC-scale gated pools
+  # there is nothing to narrow. Flip `enabled: true` (a config change, not code) when the
+  # post-exact-filter pool routinely exceeds ~150. top_n bounds the dense/BM25/RRF fan-out.
+  recall:
+    enabled: false
+    top_n: 100
+  # Cross-encoder rerank (b-002, AD-071): truncate the recalled pool to top_k before LLM scoring.
+  # Narrows which candidates get scored — NOT the final sort (step 9 rank decides order).
+  rerank:
+    top_k: 50
 
 logging:
   level: "INFO"
