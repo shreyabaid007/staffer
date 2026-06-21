@@ -72,6 +72,7 @@ class FlagType(StrEnum):
     ADJACENCY_USED = "adjacency_used"  # AD-033: partial credit
     ROLL_OFF_UNCERTAIN = "roll_off_uncertain"  # AD-022: low confidence
     RETENTION_RISK = "retention_risk"  # AD-023: client wants to keep
+    FRESHNESS_WARNING = "freshness_warning"  # AD-092: supply snapshot stale-but-usable (warn)
 
 
 class EvidenceSource(StrEnum):

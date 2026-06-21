@@ -374,3 +374,10 @@ def test_candidate_store_protocol_is_structural() -> None:
 
     assert isinstance(_FakeStore(), CandidateStore)
     assert not isinstance(object(), CandidateStore)
+
+
+def test_flagtype_has_freshness_warning() -> None:
+    """AD-092: FRESHNESS_WARNING added so a warn freshness verdict surfaces as a per-line Flag."""
+    from dsm.models import FlagType
+
+    assert FlagType.FRESHNESS_WARNING.value == "freshness_warning"

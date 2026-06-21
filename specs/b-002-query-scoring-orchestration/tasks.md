@@ -73,8 +73,9 @@
   `feat(match): bounded DSPy clarify over PseudonymisedLM with echo fallback per §6.2`.
   _(FR-2-AC-1..5)_
 
-- **T-007 — Score rewrite: sub-scores + combine + adjacency + flags + citations** → rewrite
-  `dsm/match/score.py`: `ScoreExtraction` (match-local DSPy output), `CandidateScoring` signature,
+- **T-007 — Score rewrite: sub-scores + combine + adjacency + flags + citations** → ratify
+  **AD-092** (add `FlagType.FRESHNESS_WARNING`, frozen amendment) in `docs/decision.md` + the enum
+  member first (own commit), then rewrite `dsm/match/score.py`: `ScoreExtraction` (match-local DSPy output), `CandidateScoring` signature,
   `make_score_predictor`, the `predict`-seam `score_candidate` (Python combine from `config.weights`;
   exact `hard_skill_coverage` no-adjacency; adjacency partial-credit `desired_skill_coverage`;
   citation verify drop; flags incl. freshness; LLM error → None). Tests (`tests/match/test_score.py`):

@@ -40,6 +40,9 @@ trade-offs surfaced for a human to decide, reproducibly and with no PII leaving 
   `is_indexable`) to the `dsm index` build edge; add the
   `dsm/match/* , dsm/index/* ⊥ dsm/ingest/*` import contract (CLI + build edge exempt).
   **Frozen / shared-contract + cross-lane → requires sign-off.**
+- **AD-092** *(ratified at the T-007 score gate)* — Add `FlagType.FRESHNESS_WARNING` so the `warn`
+  freshness verdict (AD-087) surfaces as a per-assessment `Flag` (FR-6-AC-5). Frozen-contract
+  amendment (AD-060), parallel to AD-088.
 
 ---
 
