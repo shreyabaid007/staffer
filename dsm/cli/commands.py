@@ -136,7 +136,7 @@ def run_match(
         )
 
     retrieved = retrieve_candidates(eligible_pool, scorecard, top_k=10)
-    assessments = [score_candidate(candidate, scorecard) for candidate in retrieved]
+    assessments = [a for c in retrieved if (a := score_candidate(c, scorecard)) is not None]
     top_k, config_snapshot = ranking_config()
     return rank_assessments(assessments, scorecard.role_id, exclusion_log, top_k, config_snapshot)
 
