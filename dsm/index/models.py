@@ -59,6 +59,16 @@ class FilterFields(TypedDict):
     gold_hash: str
 
 
+class RetrievedCandidate(BaseModel, frozen=True):
+    """A candidate surviving recall/rerank, carrying provenance scores (AD-089)."""
+
+    candidate_id: str
+    dense_score: float | None = None
+    bm25_score: float | None = None
+    rrf_score: float | None = None
+    rerank_score: float | None = None
+
+
 class IndexMetrics(BaseModel):
     """Per-run index outcome counts (mirrors ``dsm.ingest.lineage.QualityMetrics``).
 

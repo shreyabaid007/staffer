@@ -5,11 +5,13 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 
 from dsm.index.build import build_record, is_indexable, project_filter_fields
 from dsm.index.models import (
     CandidateIndexRecord,
     IndexMetrics,
+    RetrievedCandidate,
 )
 from dsm.ingest.models import Confidence, GoldCandidate, Grade, MergedSkill, Sourced
 from dsm.models import AvailabilityState, FreeNow, Location, NewJoiner, RollingOff
@@ -123,6 +125,31 @@ class TestBuildRecord:
             model_version="BAAI/bge-base-en-v1.5",
         )
         assert record.model_version != gold.model_version
+
+
+class TestRetrievedCandidate:
+    def test_defaults_scores_none(self) -> None:
+        rc = RetrievedCandidate(candidate_id="cid:abc")
+        assert rc.dense_score is None
+        assert rc.bm25_score is None
+        assert rc.rrf_score is None
+        assert rc.rerank_score is None
+
+    def test_with_scores(self) -> None:
+        rc = RetrievedCandidate(
+            candidate_id="cid:abc",
+            dense_score=0.85,
+            bm25_score=0.72,
+            rrf_score=0.78,
+            rerank_score=0.91,
+        )
+        assert rc.dense_score == 0.85
+        assert rc.rerank_score == 0.91
+
+    def test_frozen(self) -> None:
+        rc = RetrievedCandidate(candidate_id="cid:abc", dense_score=0.5)
+        with pytest.raises(ValidationError):
+            rc.dense_score = 0.9  # type: ignore[misc]
 
 
 class TestIndexMetrics:
