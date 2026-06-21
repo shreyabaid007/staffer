@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Any
@@ -267,17 +268,14 @@ def _freshness_for(
     )
 
 
-def match(
-    role_id: Annotated[str, typer.Option("--role-id")],
-    csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
-    gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
-    db_path: Annotated[str, typer.Option("--db-path")] = "",
-) -> None:
-    """Match one open role (``--role-id``, parsed from the demand CSV) to a ranked shortlist (§4).
+def _match_role(
+    role_id: str, csv_path: Path, gold_dir: Path, db_path: str
+) -> ShortlistResult | NoMatchResult:
+    """Drive the full spine for one ``role_id`` (shared by ``match`` + ``explain``).
 
-    Runs the full spine: parse demand → freshness guard → clarify → gate → exact filter → recall →
-    rerank → score → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment.
-    Single role per invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON.
+    parse demand → select role → hydrate → freshness guard → clarify → ``run_match``. ``refuse``
+    blocks the run (``typer.Exit(1)``); ``warn`` is threaded into scoring. Single role per
+    invocation (AD-050). Builds the live deps (LM / embed / store) — monkeypatched in CLI tests.
     """
     config = load_config()
     try:
@@ -300,7 +298,7 @@ def match(
         raise typer.Exit(1)
 
     scorecard = clarify_role(role, predict=_build_clarify_predictor(config))
-    result = run_match(
+    return run_match(
         candidates,
         scorecard,
         store=_build_query_store(config, db_path),
@@ -309,7 +307,87 @@ def match(
         config=config,
         freshness=verdict if verdict is not None and verdict.action == WARN else None,
     )
+
+
+def _exclusion_lines(result: ShortlistResult | NoMatchResult) -> list[dict[str, str]]:
+    """The gate/exact-filter outcomes (who was dropped and why) for the lineage dump."""
+    return [
+        {"candidate": e.candidate_email, "reason": e.reason.value, "detail": e.detail}
+        for e in result.exclusion_log.exclusions
+    ]
+
+
+def _lineage(result: ShortlistResult | NoMatchResult) -> dict[str, Any]:
+    """Build the explain lineage from what the result already carries (§9; no new persistence)."""
+    if isinstance(result, NoMatchResult):
+        return {
+            "role_id": result.role_id,
+            "outcome": "no_match",
+            "reason": result.reason,
+            "exclusions": _exclusion_lines(result),
+            "near_misses": [
+                {"candidate": nm.candidate_email, "reason": nm.reason, "gap": nm.gap_summary}
+                for nm in result.near_misses
+            ],
+        }
+
+    snapshot = result.config_snapshot
+    recall_enabled = bool(snapshot.get("recall", {}).get("enabled"))
+    return {
+        "role_id": result.role_id,
+        "outcome": "shortlist",
+        "total_eligible": result.total_eligible,
+        "recall_mode": "hybrid" if recall_enabled else "exhaustive",
+        "freshness": snapshot.get("freshness"),
+        "config_snapshot": snapshot,
+        "exclusions": _exclusion_lines(result),
+        "shortlist": [
+            {
+                "candidate": a.candidate.email,
+                "combined_score": a.combined_score,
+                "skill_match_score": a.skill_match_score,
+                "feedback_score": a.feedback_score,
+                "hard_skill_coverage": a.hard_skill_coverage,
+                "desired_skill_coverage": a.desired_skill_coverage,
+                "flags": [{"type": f.type.value, "message": f.message} for f in a.flags],
+                "evidence": [{"source": c.source.value, "text": c.text} for c in a.evidence],
+                "narrative": a.narrative,
+            }
+            for a in result.ranked_assessments
+        ],
+    }
+
+
+def match(
+    role_id: Annotated[str, typer.Option("--role-id")],
+    csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
+    gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
+    db_path: Annotated[str, typer.Option("--db-path")] = "",
+) -> None:
+    """Match one open role (``--role-id``, parsed from the demand CSV) to a ranked shortlist (§4).
+
+    Runs the full spine: parse demand → freshness guard → clarify → gate → exact filter → recall →
+    rerank → score → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment.
+    Single role per invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON.
+    """
+    result = _match_role(role_id, csv_path, gold_dir, db_path)
     typer.echo(result.model_dump_json(indent=2))
+
+
+def explain(
+    role_id: Annotated[str, typer.Option("--role-id")],
+    csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
+    gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
+    db_path: Annotated[str, typer.Option("--db-path")] = "",
+) -> None:
+    """Re-run the pipeline for ``--role-id`` and dump its full lineage (§9).
+
+    Reads only what ``ShortlistResult`` / ``NoMatchResult`` already carry — freshness verdict,
+    gate + exact-filter outcomes, recall mode, sub-scores, citations, ``config_snapshot``
+    (shortlist); or the reason + ordered near-misses (no-match). No new persistence layer.
+    """
+    result = _match_role(role_id, csv_path, gold_dir, db_path)
+    typer.echo(json.dumps(_lineage(result), indent=2))
 
 
 def _bronze_cell(raw: dict[str, str | list[str]], *names: str) -> str:
