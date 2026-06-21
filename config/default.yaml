@@ -26,5 +26,14 @@ enrich:
 reconcile:
   max_staleness_days: 30
 
+# Index build + upsert (a-005). The Milvus Lite store the indexer writes; the CLI passes these to
+# MilvusIndexStore (the store reads no config itself — mirrors rank, AD-064). The embedder id used as
+# the re-embed gate (model_version, AD-082) is sourced from models.embedder, not duplicated here.
+index:
+  milvus:
+    db_path: "data/index/milvus.db"
+    collection: "candidates"
+    dense_metric: "IP"
+
 logging:
   level: "INFO"

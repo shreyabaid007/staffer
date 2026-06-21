@@ -17,6 +17,7 @@ dependencies = [
     "httpx",
     "pyyaml>=6.0",
     "structlog",
+    "milvus-lite>=3.0",
 ]
 
 [project.scripts]

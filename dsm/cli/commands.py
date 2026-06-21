@@ -184,6 +184,13 @@ def _build_feedback_predictor(config: dict[str, Any]):  # pragma: no cover - exe
     return make_feedback_predictor(lm)
 
 
+def _build_embed_client():  # pragma: no cover - exercised only live (monkeypatched in CLI tests)
+    """Build the live Modal embed client (monkeypatched to a FakeEmbedClient in CLI tests)."""
+    from dsm.index.embed_client import ModalEmbedClient
+
+    return ModalEmbedClient()
+
+
 def ingest(
     raw_dir: Annotated[Path, typer.Option("--raw-dir")] = _RAW_DEFAULT,
     bronze_dir: Annotated[Path, typer.Option("--bronze-dir")] = _BRONZE_DEFAULT,
@@ -449,4 +456,65 @@ def ingest(
 
     if parse_errors or silver_errors:
         raise typer.Exit(1)
+    typer.echo("")
+
+
+def index(
+    gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
+    db_path: Annotated[str, typer.Option("--db-path")] = "",
+    run_id: Annotated[str, typer.Option("--run-id")] = "",
+) -> None:
+    """Build PII-free index records from gold, embed (passage), and upsert to Milvus Lite (a-005).
+
+    Write-time only: re-embeds a candidate solely when its ``(gold_hash, model_version)`` changed
+    (AD-082). No ``DSM_CANDIDATE_ID_KEY`` and no bronze read — ``embed_text`` is PII-free by
+    construction (AD-084), so no per-candidate identity is needed.
+    """
+    import uuid
+
+    from dsm.index.indexer import index_gold
+    from dsm.index.milvus_store import MilvusIndexStore
+    from dsm.index.models import is_indexable
+    from dsm.ingest.goldstore import list_gold_ids, read_gold
+
+    config = load_config()
+    milvus_cfg = config["index"]["milvus"]
+    model_version = config["models"]["embedder"]  # the embedder id — gates re-embed (AD-082)
+    resolved_db = db_path or milvus_cfg["db_path"]
+    rid = run_id or f"run-{uuid.uuid4().hex[:8]}"
+
+    store = MilvusIndexStore(
+        resolved_db, milvus_cfg["collection"], dim=768, metric=milvus_cfg["dense_metric"]
+    )
+    store.ensure_collection()
+
+    # Read gold once; back the indexer's reader with it and reuse it for the PII-safe row lines.
+    ids = sorted(list_gold_ids(gold_dir))
+    golds = {cid: read_gold(cid, gold_root=gold_dir) for cid in ids}
+
+    metrics = index_gold(
+        ids,
+        read_gold=golds.get,
+        store=store,
+        embed_client=_build_embed_client(),
+        model_version=model_version,
+        run_id=rid,
+    )
+
+    typer.echo(f"\n── Index ── run_id={rid}")
+    typer.echo(f"  indexed           : {metrics.indexed}")
+    typer.echo(f"  skipped-unchanged : {metrics.skipped_unchanged}")
+    typer.echo(f"  tombstoned-removed: {metrics.tombstoned_removed}")
+    typer.echo(f"  thin-skipped      : {metrics.thin_skipped}")
+    if not ids:
+        typer.echo(f"  (no gold found under {gold_dir})")
+    for cid in ids:  # PII-safe per-entity line: candidate_id token + structured fields only
+        g = golds[cid]
+        if g is None:
+            continue
+        typer.echo(
+            f"    {cid} grade={g.grade.value.value if g.grade else 'none'} "
+            f"avail={g.availability.value.type if g.availability else 'none'} "
+            f"skills={len(g.skills)} indexable={is_indexable(g)} tombstoned={g.is_tombstoned}"
+        )
     typer.echo("")
