@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from dsm.models import EvidenceCitation, OpenRole, SkillRequirement
 
@@ -66,3 +66,17 @@ class ScoreExtraction(BaseModel, frozen=True):
     feedback_score: float = 0.0
     narrative: str = ""
     evidence: list[EvidenceCitation] = Field(default_factory=list)
+
+    @field_validator("skill_match_score", "feedback_score")
+    @classmethod
+    def _clamp_sub_score(cls, value: float) -> float:
+        """Clamp the LLM sub-scores into ``[0.0, 1.0]`` — degrade, don't drop (AD-030).
+
+        The signature is bounded but the LLM is not constrained to the range; an out-of-bounds
+        value (e.g. ``1.4`` or ``-0.1``) would propagate through the deterministic combine into
+        ``combined_score`` and skew the final ranking. We **clamp** rather than reject so an
+        otherwise-usable assessment (narrative + verified citations) is kept — a raising validator
+        would surface as a ``ValidationError`` outside ``score_candidate``'s LLM-error handling,
+        breaking the "one bad candidate must not kill the batch" rule (§6.8).
+        """
+        return max(0.0, min(1.0, value))

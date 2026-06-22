@@ -96,6 +96,34 @@ class TestCombine:
         assert a.feedback_score == 0.6
         assert abs(a.combined_score - (0.7 * 0.8 + 0.3 * 0.6)) < 1e-9
 
+    def test_over_range_sub_scores_clamped_to_one(self) -> None:
+        # LLM returns out-of-range highs → clamped to 1.0 before combine (AD-030); not dropped.
+        a = score_candidate(
+            _candidate(),
+            _scorecard(),
+            predict=_predict(ScoreExtraction(skill_match_score=1.4, feedback_score=2.0)),
+            config=_CONFIG,
+        )
+        assert a is not None
+        assert a.skill_match_score == 1.0
+        assert a.feedback_score == 1.0
+        assert 0.0 <= a.combined_score <= 1.0
+        assert a.combined_score == 1.0
+
+    def test_under_range_sub_scores_clamped_to_zero(self) -> None:
+        # LLM returns negatives → clamped to 0.0 before combine (AD-030); not dropped.
+        a = score_candidate(
+            _candidate(),
+            _scorecard(),
+            predict=_predict(ScoreExtraction(skill_match_score=-0.1, feedback_score=-5.0)),
+            config=_CONFIG,
+        )
+        assert a is not None
+        assert a.skill_match_score == 0.0
+        assert a.feedback_score == 0.0
+        assert 0.0 <= a.combined_score <= 1.0
+        assert a.combined_score == 0.0
+
 
 class TestCoverage:
     def test_hard_coverage_exact_no_adjacency(self) -> None:
