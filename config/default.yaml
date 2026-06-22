@@ -71,7 +71,7 @@ index:
   # Cross-encoder rerank (b-002, AD-071): truncate the recalled pool to top_k before LLM scoring.
   # Narrows which candidates get scored — NOT the final sort (step 9 rank decides order).
   rerank:
-    top_k: 50
+    top_k: 10
 
 logging:
   level: "INFO"
