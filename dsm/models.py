@@ -288,7 +288,7 @@ class NearMiss(BaseModel, frozen=True):
     name: str
     reason: str  # why they didn't qualify
     gap_summary: str  # "free 2 weeks late" or "wrong city"
-    # AD-096: LLM "why consider once the gap is resolved"; set only for the shown top-3, None
+    # AD-098: LLM "why consider once the gap is resolved"; set only for the shown top-3, None
     # otherwise (beyond the cap, or on predictor error). Optional → existing constructions valid.
     selection_rationale: str | None = None
 
@@ -298,8 +298,8 @@ class NoMatchResult(BaseModel, frozen=True):
 
     role_id: str
     reason: str  # high-level: "no candidates passed location gate"
-    near_misses: list[NearMiss]  # AD-097: clears hard skills, one negotiable gate away (top 3)
-    # AD-098: the skill-axis counterpart — cleared both gates, only a hard skill or two short
+    near_misses: list[NearMiss]  # AD-099: clears hard skills, one negotiable gate away (top 3)
+    # AD-100: the skill-axis counterpart — cleared both gates, only a hard skill or two short
     # (top 3, fewest gaps first). Disjoint from near_misses; default keeps existing ctors valid.
     closest_on_skills: list[NearMiss] = Field(default_factory=list)
     exclusion_log: ExclusionLog

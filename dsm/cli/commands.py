@@ -56,14 +56,14 @@ def build_near_misses(
     scorecard: TargetProfileScorecard,
     exclusion_log: ExclusionLog,
 ) -> list[NearMiss]:
-    """Build ordered near-misses from structured data (AD-063b/c; AD-097).
+    """Build ordered near-misses from structured data (AD-063b/c; AD-099).
 
     A near-miss is a candidate **one fixable decision** from qualifying: it fails only a negotiable
-    gate (availability or location) **and** clears the non-negotiable hard skills (AD-097). A
+    gate (availability or location) **and** clears the non-negotiable hard skills (AD-099). A
     candidate missing a hard skill is *not* a near-miss — hard skills are exact-match with no
     adjacency (AD-033/072), so no date or location change rescues them; they stay fully recorded in
     the ``exclusion_log`` (the transparency layer), just not surfaced here. This **supersedes
-    AD-088** (which listed hard-skill misses as near-misses) and **AD-095** (which instead labelled
+    AD-088** (which listed hard-skill misses as near-misses) and **AD-097** (which instead labelled
     the skill gap in ``gap_summary``).
 
     Candidates excluded by a gate were never skill-checked (the exact filter runs only on gate
@@ -87,7 +87,7 @@ def build_near_misses(
     deadline = scorecard.start_date + timedelta(days=scorecard.availability_window_days)
     by_email = {candidate.email: candidate for candidate in candidates}
 
-    # Which availability/location misses also clear the hard skills (AD-097)? They were dropped by
+    # Which availability/location misses also clear the hard skills (AD-099)? They were dropped by
     # a gate before the exact filter ran, so re-run the real filter and keep only the clearers as
     # near-misses — the rest are not "one decision away" and belong only in the exclusion log.
     pre_filter = [
@@ -108,7 +108,7 @@ def build_near_misses(
         candidate = by_email.get(exclusion.candidate_email)
         if candidate is None:
             continue  # exclusion without a matching candidate — skip defensively
-        # AD-097: only availability/location misses that clear hard skills are near-misses;
+        # AD-099: only availability/location misses that clear hard skills are near-misses;
         # hard-skill misses (and gate misses that also fail skills) are not.
         if candidate.email not in clears_skills:
             continue
@@ -159,7 +159,7 @@ def build_closest_on_skills(
     scorecard: TargetProfileScorecard,
     exclusion_log: ExclusionLog,
 ) -> list[NearMiss]:
-    """Build the 'closest on skills' list (AD-098) — the skill-axis mirror of near-misses.
+    """Build the 'closest on skills' list (AD-100) — the skill-axis mirror of near-misses.
 
     Candidates whose exclusion reason is ``HARD_SKILL_MISMATCH`` cleared **both** gates (the exact
     filter runs only on gate survivors) and failed only on hard skills. Surface them ranked by
@@ -188,7 +188,7 @@ def build_closest_on_skills(
             parts.append("below required proficiency: " + ", ".join(gap.below_floor))
         ranked.append(
             (
-                (gap.count, candidate.email),  # fewest gaps first, then email (AD-098)
+                (gap.count, candidate.email),  # fewest gaps first, then email (AD-100)
                 NearMiss(
                     candidate_email=candidate.email,
                     name=candidate.name,
@@ -211,9 +211,9 @@ def _no_match(
 ) -> NoMatchResult:
     """Assemble a ``NoMatchResult``: top-3 near-misses + closest-on-skills (AD-063/097/098).
 
-    ``near_misses`` (AD-097): clears hard skills, one negotiable gate away. ``closest_on_skills``
-    (AD-098): cleared both gates, only a hard skill short. When a rationale predictor is injected,
-    attach an LLM ``selection_rationale`` (AD-096) to the shown ≤3 of **each** list — after the
+    ``near_misses`` (AD-099): clears hard skills, one negotiable gate away. ``closest_on_skills``
+    (AD-100): cleared both gates, only a hard skill short. When a rationale predictor is injected,
+    attach an LLM ``selection_rationale`` (AD-098) to the shown ≤3 of **each** list — after the
     cap, so we never explain entries beyond the top-3.
     """
     log = ExclusionLog(exclusions=exclusions)
@@ -285,7 +285,7 @@ def run_match(
         config: runtime config (weights, ranking.top_k, index.recall/rerank, adjacency_map).
         freshness: the run's verdict; a ``warn`` is threaded into scoring to flag every assessment.
         near_miss_predict: optional LLM seam for the no-match path — attaches a
-            ``selection_rationale`` to the shown near-misses (AD-096); ``None`` leaves them bare.
+            ``selection_rationale`` to the shown near-misses (AD-098); ``None`` leaves them bare.
 
     Returns:
         A ``ShortlistResult`` (≥1 scored candidate) or a ``NoMatchResult`` (empty post-gate pool).

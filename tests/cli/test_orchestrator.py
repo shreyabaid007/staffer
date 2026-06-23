@@ -102,7 +102,7 @@ class TestRunMatch:
         )
         assert isinstance(result, NoMatchResult)
         assert "hard-skill" in result.reason.lower()
-        # AD-097: a hard-skill failure is not a near-miss (no negotiable fix), but it is still
+        # AD-099: a hard-skill failure is not a near-miss (no negotiable fix), but it is still
         # recorded in the exclusion log (the transparency layer).
         assert result.near_misses == []
         assert [e.candidate_email for e in result.exclusion_log.exclusions] == ["cid:a"]

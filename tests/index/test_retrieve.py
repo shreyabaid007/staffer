@@ -143,7 +143,7 @@ def test_multiple_hard_skills_all_required() -> None:
 
 
 def test_hard_skill_gap_structured_missing_and_below_floor() -> None:
-    """AD-098: hard_skill_gap returns structured missing + below-floor; None when fully cleared."""
+    """AD-100: hard_skill_gap returns structured missing + below-floor; None when fully cleared."""
     cand = _candidate(
         "g@x.com",
         [("kotlin", ProficiencyLevel.INTERMEDIATE), ("kafka", ProficiencyLevel.ADVANCED)],

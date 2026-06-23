@@ -57,7 +57,7 @@ def _best_proficiency_by_name(skills: list[Skill]) -> dict[str, ProficiencyLevel
 
 
 class HardSkillGap(BaseModel, frozen=True):
-    """A candidate's structured hard-skill shortfall vs a role (AD-098).
+    """A candidate's structured hard-skill shortfall vs a role (AD-100).
 
     Single source of truth for both ``exact_hard_skill_filter``'s exclusion detail and the no-match
     ``closest_on_skills`` builder, so the two can never drift (AD-072/033; no adjacency).
@@ -68,7 +68,7 @@ class HardSkillGap(BaseModel, frozen=True):
 
     @property
     def count(self) -> int:
-        """Total shortfalls — ranks 'closest on skills' (fewest first, AD-098)."""
+        """Total shortfalls — ranks 'closest on skills' (fewest first, AD-100)."""
         return len(self.missing) + len(self.below_floor)
 
 
@@ -97,7 +97,7 @@ def hard_skill_gap(
 def _hard_skill_gap(candidate: Candidate, hard_skills: list[SkillRequirement]) -> str | None:
     """Human-readable gap detail (``Exclusion.detail``) if the candidate misses a hard skill.
 
-    Thin string view over ``hard_skill_gap`` — identical wording as before the AD-098 refactor.
+    Thin string view over ``hard_skill_gap`` — identical wording as before the AD-100 refactor.
     """
     gap = hard_skill_gap(candidate, hard_skills)
     if gap is None:

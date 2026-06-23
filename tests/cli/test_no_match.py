@@ -135,7 +135,7 @@ def test_o_nm_4_gap_summaries_recomputed_and_human_readable() -> None:
     summaries = {nm.candidate_email: nm.gap_summary for nm in near_misses}
 
     # Every ROLE-03 candidate holds java (the sole hard skill), so all four are near-misses with
-    # plain negotiable-gap wording (AD-097: skill-clearers only; no skill suffix).
+    # plain negotiable-gap wording (AD-099: skill-clearers only; no skill suffix).
     assert summaries["sanjay@example.com"] == "available 1 day after deadline"
     assert summaries["meera@example.com"] == "available 31 days after deadline"
     assert summaries["arjun@example.com"] == "in Pune, not in onsite set for Mumbai"
@@ -176,32 +176,32 @@ def test_empty_candidate_list_produces_no_match_with_no_near_misses() -> None:
     assert result.exclusion_log.exclusions == []
 
 
-# --- AD-097: a near-miss must clear the hard skills (skill-failers are excluded) ---------------
+# --- AD-099: a near-miss must clear the hard skills (skill-failers are excluded) ---------------
 
 
 def _near(candidates: list[Candidate], scorecard: TargetProfileScorecard) -> dict[str, str]:
-    """email → gap_summary for the near-misses (skill-failers are absent under AD-097)."""
+    """email → gap_summary for the near-misses (skill-failers are absent under AD-099)."""
     _, log = filter_candidates(candidates, scorecard)
     return {
         nm.candidate_email: nm.gap_summary for nm in build_near_misses(candidates, scorecard, log)
     }
 
 
-def test_ad097_availability_miss_with_skill_gap_is_excluded() -> None:
+def test_ad099_availability_miss_with_skill_gap_is_excluded() -> None:
     """A date miss that also lacks a hard skill is NOT a near-miss — a shift wouldn't qualify."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     near = _near([_cand("nokia@example.com", skill="python")], scorecard)
     assert near == {}  # excluded — fixing the date alone doesn't help
 
 
-def test_ad097_availability_miss_clearing_skills_is_a_clean_near_miss() -> None:
+def test_ad099_availability_miss_clearing_skills_is_a_clean_near_miss() -> None:
     """A date miss that holds the hard skill is a near-miss, with plain wording (no suffix)."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     near = _near([_cand("yes@example.com", skill="java")], scorecard)
     assert near == {"yes@example.com": "available 1 day after deadline"}
 
 
-def test_ad097_location_miss_clearing_skills_is_a_clean_near_miss() -> None:
+def test_ad099_location_miss_clearing_skills_is_a_clean_near_miss() -> None:
     """A location miss holding the hard skill is a near-miss; a skill-failing one is not."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     candidates = [
@@ -212,14 +212,14 @@ def test_ad097_location_miss_clearing_skills_is_a_clean_near_miss() -> None:
     assert near == {"pune@example.com": "in Pune, not in onsite set for Mumbai"}
 
 
-def test_ad097_empty_hard_skills_keeps_every_gate_miss() -> None:
+def test_ad099_empty_hard_skills_keeps_every_gate_miss() -> None:
     """With no hard requirement, everyone clears → all negotiable-gate misses are near-misses."""
     scorecard = _java_scorecard([])
     near = _near([_cand("any@example.com", skill="python")], scorecard)
     assert near == {"any@example.com": "available 1 day after deadline"}
 
 
-def test_ad097_below_proficiency_floor_is_excluded() -> None:
+def test_ad099_below_proficiency_floor_is_excluded() -> None:
     """Below-floor edge: holds the skill but below min_proficiency → not a near-miss."""
     scorecard = _java_scorecard(
         [
@@ -232,7 +232,7 @@ def test_ad097_below_proficiency_floor_is_excluded() -> None:
     assert _near([cand], scorecard) == {}
 
 
-def test_ad097_pure_hard_skill_miss_is_not_a_near_miss() -> None:
+def test_ad099_pure_hard_skill_miss_is_not_a_near_miss() -> None:
     """A candidate in the right place + available, missing only a hard skill, is excluded too."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     # FreeNow + right city → clears both gates; lacks java → HARD_SKILL_MISMATCH.
@@ -244,7 +244,7 @@ def test_ad097_pure_hard_skill_miss_is_not_a_near_miss() -> None:
     assert result.exclusion_log.exclusions[0].reason is ExclusionReason.HARD_SKILL_MISMATCH
 
 
-def test_ad097_build_near_misses_is_deterministic() -> None:
+def test_ad099_build_near_misses_is_deterministic() -> None:
     """Determinism: same input → identical near-misses (set + order + gap_summary)."""
     candidates, scorecard = role_03()
     _, log = filter_candidates(candidates, scorecard)
@@ -253,10 +253,10 @@ def test_ad097_build_near_misses_is_deterministic() -> None:
     assert first == second
 
 
-# --- AD-096: LLM selection rationale on the shown near-misses ----------------------------------
+# --- AD-098: LLM selection rationale on the shown near-misses ----------------------------------
 
 
-def test_ad096_rationale_attached_to_shown_near_misses() -> None:
+def test_ad098_rationale_attached_to_shown_near_misses() -> None:
     """FR-9-AC-2: with a predictor injected, each shown near-miss gets a selection_rationale."""
     candidates, scorecard = role_03()
     calls: list[str] = []
@@ -275,7 +275,7 @@ def test_ad096_rationale_attached_to_shown_near_misses() -> None:
     assert "kavita@example.com" not in calls
 
 
-def test_ad096_predictor_error_leaves_rationale_none() -> None:
+def test_ad098_predictor_error_leaves_rationale_none() -> None:
     """FR-9-AC-4: a predictor failure leaves selection_rationale None; near-miss still shows."""
     candidates, scorecard = role_03()
 
@@ -290,7 +290,7 @@ def test_ad096_predictor_error_leaves_rationale_none() -> None:
     assert all(nm.selection_rationale is None for nm in result.near_misses)
 
 
-def test_ad096_no_predictor_leaves_rationale_none() -> None:
+def test_ad098_no_predictor_leaves_rationale_none() -> None:
     """Without a predictor (the pure-unit path), selection_rationale stays None."""
     candidates, scorecard = role_03()
     result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
@@ -298,7 +298,7 @@ def test_ad096_no_predictor_leaves_rationale_none() -> None:
     assert all(nm.selection_rationale is None for nm in result.near_misses)
 
 
-# --- AD-098: closest_on_skills (cleared both gates, only a hard skill short) -------------------
+# --- AD-100: closest_on_skills (cleared both gates, only a hard skill short) -------------------
 
 
 def _skilled(email: str, skills: list[str], *, city: str = "Mumbai") -> Candidate:
@@ -321,7 +321,7 @@ def _full_log(candidates: list[Candidate], scorecard: TargetProfileScorecard) ->
     return ExclusionLog(exclusions=gate.exclusions + hard)
 
 
-def test_ad098_skill_short_candidate_is_in_closest_not_near() -> None:
+def test_ad100_skill_short_candidate_is_in_closest_not_near() -> None:
     """A FreeNow in-location candidate missing a hard skill → closest_on_skills, not near."""
     sc = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     result = run_match(
@@ -333,7 +333,7 @@ def test_ad098_skill_short_candidate_is_in_closest_not_near() -> None:
     assert result.closest_on_skills[0].gap_summary == "missing 1 hard skill: java"
 
 
-def test_ad098_ordered_by_fewest_gaps_then_email() -> None:
+def test_ad100_ordered_by_fewest_gaps_then_email() -> None:
     """closest_on_skills ranks fewest hard-skill gaps first, then email."""
     sc = _java_scorecard(
         [
@@ -350,7 +350,7 @@ def test_ad098_ordered_by_fewest_gaps_then_email() -> None:
     assert closest[0].gap_summary == "missing 1 hard skill: kafka"
 
 
-def test_ad098_capped_at_three() -> None:
+def test_ad100_capped_at_three() -> None:
     """closest_on_skills is capped at 3 (AD-063d)."""
     sc = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     candidates = [_skilled(f"c{i}@x.com", ["python"]) for i in range(5)]
@@ -359,7 +359,7 @@ def test_ad098_capped_at_three() -> None:
     assert len(result.closest_on_skills) == 3
 
 
-def test_ad098_double_miss_in_neither_list() -> None:
+def test_ad100_double_miss_in_neither_list() -> None:
     """A late AND skill-short candidate is in neither list — only the exclusion log."""
     sc = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     # RollingOff one day late (availability miss) AND holds python not java.
@@ -372,11 +372,11 @@ def test_ad098_double_miss_in_neither_list() -> None:
     assert [e.candidate_email for e in result.exclusion_log.exclusions] == ["d@x.com"]
 
 
-def test_ad098_near_and_closest_are_disjoint() -> None:
+def test_ad100_near_and_closest_are_disjoint() -> None:
     """Mixed no-match: a skill-clearing late candidate (near) + a skill-short FreeNow (closest)."""
     sc = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     candidates = [
-        _cand("late@x.com", skill="java"),  # late but holds java → near-miss (AD-097)
+        _cand("late@x.com", skill="java"),  # late but holds java → near-miss (AD-099)
         _skilled("short@x.com", ["python"]),  # FreeNow, lacks java → closest_on_skills
     ]
     result = run_match(candidates, sc, score_predict=_predict, config=_CONFIG)
@@ -388,7 +388,7 @@ def test_ad098_near_and_closest_are_disjoint() -> None:
     assert near.isdisjoint(closest)
 
 
-def test_ad098_rationale_attached_to_closest() -> None:
+def test_ad100_rationale_attached_to_closest() -> None:
     """FR-12-AC-3: the reused predictor annotates shown closest_on_skills entries."""
     sc = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
 
@@ -406,7 +406,7 @@ def test_ad098_rationale_attached_to_closest() -> None:
     assert result.closest_on_skills[0].selection_rationale == "strong python, could ramp on java"
 
 
-def test_ad098_below_floor_wording() -> None:
+def test_ad100_below_floor_wording() -> None:
     """A held-but-below-floor hard skill surfaces with 'below required proficiency' wording."""
     sc = _java_scorecard(
         [
@@ -431,7 +431,7 @@ def test_ad098_below_floor_wording() -> None:
     assert "java" in summary
 
 
-def test_ad098_gate_only_no_match_has_empty_closest() -> None:
+def test_ad100_gate_only_no_match_has_empty_closest() -> None:
     """FR-13-AC-2: a gate-only no-match (nobody cleared the gates) → closest_on_skills empty."""
     sc = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
     # Pune candidate fails the Mumbai co-location gate → excluded before the skill filter.
@@ -445,7 +445,7 @@ def test_ad098_gate_only_no_match_has_empty_closest() -> None:
     ]
 
 
-def test_ad098_empty_input_has_empty_closest() -> None:
+def test_ad100_empty_input_has_empty_closest() -> None:
     _, sc = role_03()
     result = run_match([], sc, score_predict=_predict, config=_CONFIG)
     assert isinstance(result, NoMatchResult)

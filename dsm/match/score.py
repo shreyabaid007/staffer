@@ -79,7 +79,7 @@ def make_score_predictor(lm: dspy.LM) -> ScorePredictor:
     return _predict
 
 
-# Injected seam for the no-match path: (scorecard, candidate, gap_summary) → rationale (AD-096).
+# Injected seam for the no-match path: (scorecard, candidate, gap_summary) → rationale (AD-098).
 NearMissRationalePredictor = Callable[[TargetProfileScorecard, Candidate, str], str]
 
 
@@ -116,7 +116,7 @@ def explain_near_misses(
     scorecard: TargetProfileScorecard,
     predict: NearMissRationalePredictor,
 ) -> list[NearMiss]:
-    """Attach an LLM ``selection_rationale`` to each near-miss (AD-096).
+    """Attach an LLM ``selection_rationale`` to each near-miss (AD-098).
 
     Only the near-misses passed in are explained — the caller passes the shown top-3, so we never
     pay for misses beyond the AD-063d cap. PII-free by construction: the predictor sees only the

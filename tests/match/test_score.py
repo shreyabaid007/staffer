@@ -254,7 +254,7 @@ class TestLLMError:
 
 
 class TestNearMissRationale:
-    """AD-096: the near-miss rationale seam + PII-free predictor."""
+    """AD-098: the near-miss rationale seam + PII-free predictor."""
 
     def test_explain_sets_rationale(self) -> None:
         from dsm.match.score import explain_near_misses
