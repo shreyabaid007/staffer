@@ -187,4 +187,19 @@
 
 ---
 
-*Next ADRs start at AD-104.*
+## AI eval layer (c-004)
+
+> Ratified as part of C-4 (`specs/c-004-ai-eval-layer/`). No frozen-contract amendments.
+> These decisions add the model-quality evaluation tier that the c-002 deterministic
+> invariants cannot cover: faithfulness judging, retrieval quality metrics, and the
+> labelled golden set they depend on. All **non-gating** — `make eval` only.
+
+- **AD-104 · Hand-labelled golden set for AI-quality evals** — Accepted — Create a hand-labelled golden set (`tests/fixtures/golden_set.json`, 20–40 cases) binding seed roles to expected shortlists, expected relevant sets (for Recall@K), and per-candidate faithfulness labels (y/n). The file carries `_meta.review_status: "draft"|"signed_off"` — all eval tests that depend on label correctness (judge validation, metric reporting) gate on `review_status == "signed_off"` and skip otherwise. **Labels are drafted by machine** from fixture definitions + pipeline output analysis (deterministic invariants already tell us who passes gates, who is excluded, and what the ordered shortlist looks like under the cassette LM). **They are not trusted until a human reviews and signs off** — generated labels carry the risk of encoding pipeline bugs as ground truth. Why: the narrative-faithfulness judge (AD-095 deferred) needs labelled validation data with TPR/TNR ≥ 80% to be adopted; Recall@K needs a relevant set; ranking metrics need expected orderings. Without labels these metrics are either unvalidatable or unmeasurable. See `specs/c-004-ai-eval-layer/`.
+
+- **AD-105 · DeepEval G-Eval faithfulness judge (validated, non-gating)** — Accepted — Wire a `deepeval.metrics.GEval` faithfulness judge that scores whether a candidate narrative follows from the cited evidence + candidate data. The judge is **validated against the golden set** — adopted only if TPR ≥ 0.80 and TNR ≥ 0.80 against signed-off human labels; if it fails validation, the test skips (not fails). The judge **SHALL NOT** evaluate objective properties already covered by the six deterministic invariants (gates, PII, citations, adjacency, hard-skill-exclusion, determinism) — the LLM judge covers only the subjective residual: fabrication, contradiction, and consistency between narrative and sub-scores. Runs under `make eval` only (`eval_live`, key-gated `skipif`). **Never in `make check`** (non-deterministic + costs keys). The six deterministic invariants remain the commit gate. Why: an unvalidated LLM judge is worse than no judge — it adds cost and false confidence. Validation-first (TPR/TNR ≥ 80%) ensures the judge earns its place before results are reported. AD-095 deferred this until labelled data existed; AD-104 provides it. See `specs/c-004-ai-eval-layer/`.
+
+- **AD-106 · Retrieval Recall@K + contextual precision (non-gating)** — Accepted — Compute deterministic Recall@K and contextual precision over the golden set's `expected_relevant_set`. Recall@K = |retrieved ∩ relevant| / |relevant| where K = `index.rerank.top_k`. Contextual precision = |relevant ∩ top-K| / K. Computed over the post-rerank set (the candidates that enter scoring). Additionally, run `deepeval.metrics.ContextualRecallMetric` / `ContextualPrecisionMetric` for the LLM-judged retrieval view (signed-off labels only). Skipped when `index.recall.enabled = false` (trivially 1.0). Runs under `make eval` only. Why: hybrid recall is ON (AD-089 default `true`), so retrieval quality is now a meaningful axis; without metrics on it, retrieval regressions are invisible. See `specs/c-004-ai-eval-layer/`.
+
+---
+
+*Next ADRs start at AD-107.*

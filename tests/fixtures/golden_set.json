@@ -1,0 +1,732 @@
+{
+  "_meta": {
+    "labeller": "machine-draft, human-signed-off (shreya.baid@equalexperts.com)",
+    "label_date": "2026-06-23",
+    "review_status": "signed_off",
+    "notes": "Signed off 2026-06-23. 53 faithful + 5 adversarial labels. CID mappings verified by HMAC. Cassette narratives for faithful, crafted adversarials for false."
+  },
+  "cases": [
+    {
+      "case_id": "GS-ROLE-01-shortlist",
+      "role_fixture": "ROLE-01",
+      "description": "Kotlin dev, Chennai co-location \u2014 4 pass gates+skills (Karan, Vivaan, Rahul, Vikram), Aarav excluded avail, Suresh excluded hard-skill",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-shortlist",
+      "role_fixture": "ROLE-02",
+      "description": "React dev, Chennai co-location \u2014 3 pass (Karan, Rahul, Priya), Deepa+Nikhil excluded location",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Experienced React developer with component library expertise.",
+          "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
+          "narrative": "Senior React and Vue.js developer with design system specialisation.",
+          "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-03-no-match",
+      "role_fixture": "ROLE-03",
+      "description": "Java dev, Mumbai co-location \u2014 all 4 excluded (Sanjay+Meera avail, Arjun+Kavita location)",
+      "expected_shortlist": [],
+      "expected_relevant_set": [
+        "cid:4225c096cfd87edad5163d2bb554546cf639cff972d12667284c57ded1306aa5",
+        "cid:402b211052a240ab026931a047f129dbe07670aa789f34ca84140c2faae560f7",
+        "cid:7fafcab39008708cfa7f7c2edb7f73c57dbb978de20884da7027d6aae99db544",
+        "cid:b7990379085873865e7b180e66896f49805dd0206df689322227fa9db09e1e7d"
+      ],
+      "faithfulness_labels": {}
+    },
+    {
+      "case_id": "GS-ROLE-01-avail-boundary-pass",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: Aarav's roll-off moved to 2026-07-15 (exactly at deadline) \u2014 should now pass gates",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5",
+        "cid:32b729086c27b75208ad24f7891c3964ebfce5359cd7a9fc5c26e4bdd7040ead"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5",
+        "cid:32b729086c27b75208ad24f7891c3964ebfce5359cd7a9fc5c26e4bdd7040ead"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true,
+        "cid:32b729086c27b75208ad24f7891c3964ebfce5359cd7a9fc5c26e4bdd7040ead": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:32b729086c27b75208ad24f7891c3964ebfce5359cd7a9fc5c26e4bdd7040ead": {
+          "narrative": "Experienced senior Kotlin/JVM developer with 6 years of deep platform experience.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 6 years Kotlin/JVM, senior developer.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-avail-boundary-fail",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: Aarav's roll-off at 2026-07-16 (+1d past deadline) \u2014 excluded on availability",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-all-adjacent-no-exact",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: all candidates have java (adjacent to kotlin) but none has kotlin \u2014 all excluded HARD_SKILL_MISMATCH, no-match",
+      "expected_shortlist": [],
+      "expected_relevant_set": [],
+      "faithfulness_labels": {}
+    },
+    {
+      "case_id": "GS-ROLE-01-single-candidate",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: only Karan in the pool \u2014 degenerate single-candidate shortlist",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-location-relaxed",
+      "role_fixture": "ROLE-02",
+      "description": "Variant: co_location_required=false (distributed) \u2014 all 5 candidates pass location gate",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:6a3cdfbf9e717e51839efa3c923594c73c7066428818afb01e3efb7aa0248373",
+        "cid:e177dc3c7f6111477156ba7d935c7be97735d532cb15e42665d4716f9b0cfb97",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:6a3cdfbf9e717e51839efa3c923594c73c7066428818afb01e3efb7aa0248373",
+        "cid:e177dc3c7f6111477156ba7d935c7be97735d532cb15e42665d4716f9b0cfb97",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:6a3cdfbf9e717e51839efa3c923594c73c7066428818afb01e3efb7aa0248373": true,
+        "cid:e177dc3c7f6111477156ba7d935c7be97735d532cb15e42665d4716f9b0cfb97": true,
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Experienced React developer with component library expertise.",
+          "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:6a3cdfbf9e717e51839efa3c923594c73c7066428818afb01e3efb7aa0248373": {
+          "narrative": "React developer with 3 years of dashboard application experience.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React, dashboard applications.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:e177dc3c7f6111477156ba7d935c7be97735d532cb15e42665d4716f9b0cfb97": {
+          "narrative": "React Native developer with 2 years of mobile development experience.",
+          "candidate_context": "Skills: react (advanced). Profile: 2 years React Native, mobile development.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
+          "narrative": "Senior React and Vue.js developer with design system specialisation.",
+          "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-onsite-only",
+      "role_fixture": "ROLE-02",
+      "description": "Variant: Priya loses onsite_cities \u2014 only 2 pass (Karan, Rahul in Chennai)",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Experienced React developer with component library expertise.",
+          "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-03-avail-shifted-pass",
+      "role_fixture": "ROLE-03",
+      "description": "Variant: Sanjay's roll-off moved to 2026-07-15 (at deadline) \u2014 passes gates, shortlist of 1",
+      "expected_shortlist": [
+        "cid:4225c096cfd87edad5163d2bb554546cf639cff972d12667284c57ded1306aa5"
+      ],
+      "expected_relevant_set": [
+        "cid:4225c096cfd87edad5163d2bb554546cf639cff972d12667284c57ded1306aa5"
+      ],
+      "faithfulness_labels": {
+        "cid:4225c096cfd87edad5163d2bb554546cf639cff972d12667284c57ded1306aa5": true
+      },
+      "narrative_fixtures": {
+        "cid:4225c096cfd87edad5163d2bb554546cf639cff972d12667284c57ded1306aa5": {
+          "narrative": "Experienced Java/Spring Boot developer with 6 years of microservices expertise.",
+          "candidate_context": "Skills: java (advanced). Profile: 6 years Java/Spring Boot, microservices.",
+          "role_context": "Java developer role, Mumbai co-location, hard skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-03-location-relaxed",
+      "role_fixture": "ROLE-03",
+      "description": "Variant: co_location_required=false \u2014 Arjun+Kavita pass location, Sanjay+Meera still excluded on avail",
+      "expected_shortlist": [
+        "cid:7fafcab39008708cfa7f7c2edb7f73c57dbb978de20884da7027d6aae99db544",
+        "cid:b7990379085873865e7b180e66896f49805dd0206df689322227fa9db09e1e7d"
+      ],
+      "expected_relevant_set": [
+        "cid:7fafcab39008708cfa7f7c2edb7f73c57dbb978de20884da7027d6aae99db544",
+        "cid:b7990379085873865e7b180e66896f49805dd0206df689322227fa9db09e1e7d"
+      ],
+      "faithfulness_labels": {
+        "cid:7fafcab39008708cfa7f7c2edb7f73c57dbb978de20884da7027d6aae99db544": true,
+        "cid:b7990379085873865e7b180e66896f49805dd0206df689322227fa9db09e1e7d": true
+      },
+      "narrative_fixtures": {
+        "cid:7fafcab39008708cfa7f7c2edb7f73c57dbb978de20884da7027d6aae99db544": {
+          "narrative": "Java backend developer with 4 years of solid development experience.",
+          "candidate_context": "Skills: java (advanced). Profile: 4 years Java backend development.",
+          "role_context": "Java developer role, Mumbai co-location, hard skill: java"
+        },
+        "cid:b7990379085873865e7b180e66896f49805dd0206df689322227fa9db09e1e7d": {
+          "narrative": "Java enterprise developer with 3 years of application development.",
+          "candidate_context": "Skills: java (advanced). Profile: 3 years Java enterprise applications.",
+          "role_context": "Java developer role, Mumbai co-location, hard skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-desired-skill-swap",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: desired skill changed from java to python \u2014 no adjacency credit fires (no candidate has python-adjacent)",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-no-desired-skills",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: desired_skills=[] \u2014 no adjacency flag fires; same shortlist",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-empty-pool",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: empty candidate list \u2014 no-match with no near-misses",
+      "expected_shortlist": [],
+      "expected_relevant_set": [],
+      "faithfulness_labels": {}
+    },
+    {
+      "case_id": "GS-ROLE-01-tie-break",
+      "role_fixture": "ROLE-01",
+      "description": "Variant: Karan and Rahul have identical skills/feedback \u2014 tie-break by candidate_id (deterministic)",
+      "expected_shortlist": [
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-skill-swap-typescript",
+      "role_fixture": "ROLE-02",
+      "description": "Variant: hard skill changed to typescript \u2014 all candidates have react not typescript, all excluded HARD_SKILL_MISMATCH",
+      "expected_shortlist": [],
+      "expected_relevant_set": [],
+      "faithfulness_labels": {}
+    },
+    {
+      "case_id": "GS-ROLE-01-fabrication-karan",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial: Karan's narrative claims 'extensive Python experience' \u2014 fabricated (not in evidence)",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": false,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Karan has extensive Python and machine learning experience, having led a data science team at a Fortune 500 company. He also has deep expertise in Rust and systems programming.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-contradiction-vivaan",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial: Vivaan's narrative says 'struggled with Kotlin' \u2014 contradicts positive feedback",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": false,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Vivaan struggled with Kotlin coroutines and received negative feedback about their communication skills. The team found them unreliable for backend work.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-score-inconsistency-rahul",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial: Rahul's narrative praises highly but skill_match_score is 0.2 \u2014 inconsistent",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": false,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Rahul is an exceptional Kotlin expert with the strongest technical skills on the team, demonstrating mastery across all banking integration projects with outstanding client delivery.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-fabrication-priya",
+      "role_fixture": "ROLE-02",
+      "description": "Faithfulness adversarial: Priya's narrative claims 'led a team of 20 engineers' \u2014 not in evidence",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": false
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Experienced React developer with component library expertise.",
+          "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
+          "narrative": "Priya led a team of 20 engineers in building an enterprise-scale microservices platform, delivering three major product launches to over 10 million users.",
+          "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-evidence-mismatch",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial: narrative cites evidence text that does not exist in candidate data",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": false,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "According to Karan's annual performance review, he achieved a 40% improvement in system throughput. His manager noted \"Outstanding leadership in the API redesign project.\"",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    }
+  ]
+}
