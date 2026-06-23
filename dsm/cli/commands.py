@@ -23,6 +23,7 @@ from dsm.match.rank import rank_assessments
 from dsm.match.score import ScorePredictor, score_candidate
 from dsm.models import (
     Candidate,
+    EligiblePool,
     Exclusion,
     ExclusionLog,
     ExclusionReason,
@@ -45,27 +46,60 @@ def build_near_misses(
     scorecard: TargetProfileScorecard,
     exclusion_log: ExclusionLog,
 ) -> list[NearMiss]:
-    """Build ordered near-misses from structured data (AD-063b/c; AD-088).
+    """Build ordered near-misses from structured data (AD-063b/c; AD-088; AD-095).
 
     Gaps are recomputed from the ``Candidate`` + ``TargetProfileScorecard`` objects — the
-    human-readable ``Exclusion.detail`` is never parsed (O-NM-4). Ordering: **availability**
-    misses first (actionable; smallest overshoot in days), then the structural misses —
-    **location** (AD-086), then **hard-skill** (AD-088; fewest missing hard skills first) — each
-    tie-broken by ``candidate_email``. The full ordered list is returned; the orchestrator applies
-    the top-3 cap (AD-063d).
+    human-readable ``Exclusion.detail`` is never parsed (O-NM-4). Candidates excluded *before* the
+    hard-skill filter (availability, location) are also run through ``exact_hard_skill_filter`` so
+    their ``gap_summary`` states whether they'd clear the hard skills (AD-095) — a date shift only
+    helps an availability miss that *also* clears skills.
+
+    Ordering uses a uniform ``(type_rank, sub_rank, metric, candidate_email)`` key:
+    **availability** first (actionable), and within it the skill-clearing misses (``sub_rank=0``)
+    above those with a remaining skill gap (``sub_rank=1``), each by smallest overshoot; then
+    **location** (AD-086, structural); then **hard-skill** (AD-088; fewest missing first). The full
+    ordered list is returned; the orchestrator applies the top-3 cap (AD-063d).
 
     Args:
-        candidates: the original candidate set (to look up name/location/availability).
-        scorecard: the clarified role (provides the availability deadline).
+        candidates: the original candidate set (to look up name/location/availability/skills).
+        scorecard: the clarified role (provides the availability deadline + hard skills).
         exclusion_log: the gate exclusions to turn into near-misses.
 
     Returns:
-        Near-misses sorted per AD-063(b); unbounded (caller caps).
+        Near-misses sorted per AD-063(b)/AD-095; unbounded (caller caps).
     """
     deadline = scorecard.start_date + timedelta(days=scorecard.availability_window_days)
     by_email = {candidate.email: candidate for candidate in candidates}
 
-    ranked: list[tuple[tuple[int, int, str], NearMiss]] = []
+    # Hard-skill verdict for pre-skill-filter misses: availability/location candidates were dropped
+    # by a gate before exact_hard_skill_filter ran, so their skills are unverified. Reuse the real
+    # filter (no adjacency AD-033, proficiency floor AD-072) so the verdict can't drift (AD-095).
+    pre_filter = [
+        by_email[exclusion.candidate_email]
+        for exclusion in exclusion_log.exclusions
+        if exclusion.reason
+        in (ExclusionReason.AVAILABILITY_MISMATCH, ExclusionReason.LOCATION_MISMATCH)
+        and exclusion.candidate_email in by_email
+    ]
+    cleared_pool, _ = exact_hard_skill_filter(
+        EligiblePool(candidates=pre_filter, scorecard_id=scorecard.role_id),
+        scorecard.hard_depth_skills,
+    )
+    clears_skills = {candidate.email for candidate in cleared_pool.candidates}
+
+    def _skill_suffix(candidate: Candidate) -> str:
+        """The AD-095 hard-skill verdict appended to a pre-filter miss's gap_summary."""
+        if candidate.email in clears_skills:
+            return "; clears all hard skills"
+        held = {skill.name for skill in candidate.skills}
+        missing = sorted(h.name for h in scorecard.hard_depth_skills if h.name not in held)
+        if not missing:
+            # Holds every hard skill by name but was dropped on the proficiency floor (AD-072).
+            return "; also missing hard skills (below required proficiency)"
+        skill_word = "skill" if len(missing) == 1 else "skills"
+        return f"; also missing {len(missing)} hard {skill_word}: {', '.join(missing)}"
+
+    ranked: list[tuple[tuple[int, int, int, str], NearMiss]] = []
     for exclusion in exclusion_log.exclusions:
         candidate = by_email.get(exclusion.candidate_email)
         if candidate is None:
@@ -75,20 +109,27 @@ def build_near_misses(
             free_date = effective_free_date(candidate.availability)
             overshoot = (free_date - deadline).days if free_date is not None else 0
             day_word = "day" if overshoot == 1 else "days"
-            gap_summary = f"available {overshoot} {day_word} after deadline"
-            sort_key = (0, overshoot, candidate.email)
+            gap_summary = (
+                f"available {overshoot} {day_word} after deadline{_skill_suffix(candidate)}"
+            )
+            # Skill-clearing avail misses (sub_rank 0) rank above those with a gap (1) — only the
+            # former are truly actionable: shift the date and they qualify (AD-095).
+            skill_rank = 0 if candidate.email in clears_skills else 1
+            sort_key = (0, skill_rank, overshoot, candidate.email)
         elif exclusion.reason is ExclusionReason.HARD_SKILL_MISMATCH:
             held = {skill.name for skill in candidate.skills}
             missing = sorted(h.name for h in scorecard.hard_depth_skills if h.name not in held)
             count = len(missing)
             skill_word = "skill" if count == 1 else "skills"
             gap_summary = f"missing {count} hard {skill_word}: {', '.join(missing)}"
-            sort_key = (2, count, candidate.email)  # structural, below availability + location
+            sort_key = (2, 0, count, candidate.email)  # structural, below availability + location
         else:  # LOCATION_MISMATCH
             cand_city = candidate.location.city or "no base city"
             role_city = scorecard.location.city or "required city"
-            gap_summary = f"in {cand_city}, not in onsite set for {role_city}"
-            sort_key = (1, 0, candidate.email)
+            gap_summary = (
+                f"in {cand_city}, not in onsite set for {role_city}{_skill_suffix(candidate)}"
+            )
+            sort_key = (1, 0, 0, candidate.email)
 
         ranked.append(
             (

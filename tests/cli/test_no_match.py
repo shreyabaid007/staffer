@@ -78,9 +78,19 @@ def test_o_nm_4_gap_summaries_recomputed_and_human_readable() -> None:
     near_misses = build_near_misses(candidates, scorecard, exclusion_log)
     summaries = {nm.candidate_email: nm.gap_summary for nm in near_misses}
 
-    assert summaries["sanjay@example.com"] == "available 1 day after deadline"
-    assert summaries["meera@example.com"] == "available 31 days after deadline"
-    assert summaries["arjun@example.com"] == "in Pune, not in onsite set for Mumbai"
+    # AD-095: every ROLE-03 candidate holds java (the sole hard skill), so each pre-filter miss
+    # reports it clears hard skills — the availability misses are genuinely actionable.
+    assert (
+        summaries["sanjay@example.com"] == "available 1 day after deadline; clears all hard skills"
+    )
+    assert (
+        summaries["meera@example.com"]
+        == "available 31 days after deadline; clears all hard skills"
+    )
+    assert (
+        summaries["arjun@example.com"]
+        == "in Pune, not in onsite set for Mumbai; clears all hard skills"
+    )
 
 
 def test_o_nm_1_rank_not_called_when_pool_is_empty(
@@ -106,7 +116,10 @@ def test_o_nm_5_no_match_result_renders_to_json() -> None:
     assert payload["reason"]
     assert len(payload["near_misses"]) == 3
     assert payload["near_misses"][0]["candidate_email"] == "sanjay@example.com"
-    assert payload["near_misses"][0]["gap_summary"] == "available 1 day after deadline"
+    assert (
+        payload["near_misses"][0]["gap_summary"]
+        == "available 1 day after deadline; clears all hard skills"
+    )
 
 
 def test_empty_candidate_list_produces_no_match_with_no_near_misses() -> None:
