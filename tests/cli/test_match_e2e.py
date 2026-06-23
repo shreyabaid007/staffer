@@ -29,7 +29,7 @@ def _predict(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreEx
 
 
 def test_e_r01_partial_exclusion_ranks_remaining_four() -> None:
-    """E-R01: Aarav excluded on availability (both dates in detail); the other 4 are ranked."""
+    """E-R01: Aarav excluded on availability, Suresh on hard skill; the other 4 are ranked."""
     candidates, scorecard = role_01()
     result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
 
@@ -42,12 +42,11 @@ def test_e_r01_partial_exclusion_ranks_remaining_four() -> None:
         "vikram@example.com",
     }
 
-    assert len(result.exclusion_log.exclusions) == 1
-    aarav = result.exclusion_log.exclusions[0]
-    assert aarav.candidate_email == "aarav@example.com"
-    assert aarav.reason is ExclusionReason.AVAILABILITY_MISMATCH
-    assert "2026-08-01" in aarav.detail  # Aarav's free date
-    assert "2026-07-15" in aarav.detail  # role deadline
+    excluded = {e.candidate_email: e.reason for e in result.exclusion_log.exclusions}
+    assert excluded == {
+        "aarav@example.com": ExclusionReason.AVAILABILITY_MISMATCH,
+        "suresh@example.com": ExclusionReason.HARD_SKILL_MISMATCH,
+    }
 
 
 def test_e_r02_location_filter_excludes_non_chennai_non_remote() -> None:
