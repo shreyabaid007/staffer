@@ -133,3 +133,20 @@ def test_onsite_cities_array_roundtrips(store: MilvusIndexStore) -> None:
     by_id = {row["candidate_id"]: row["onsite_cities"] for row in rows}
     assert sorted(by_id["cid:onsite"]) == ["Chennai", "Pune"]
     assert list(by_id["cid:none"]) == []
+
+
+def test_sparse_index_type_survives_cross_process_reload(store: MilvusIndexStore) -> None:
+    """Regression: the BM25 ``sparse`` index must be SPARSE_INVERTED_INDEX, never AUTOINDEX.
+
+    milvus-lite only short-circuits sparse fields during its per-segment index rebuild when the
+    persisted ``index_type`` is exactly ``SPARSE_INVERTED_INDEX`` (storage/segment.py). Declared as
+    ``AUTOINDEX`` it instead tries to read the binary-encoded sparse column as a dense
+    FixedSizeList and raises ``vector column must be FixedSizeList, got binary`` — but *only* when a
+    fresh process cold-opens the persisted db (``dsm match`` over the index written by
+    ``dsm index``). In-process build+search (every other test here) never hits that path, and a
+    same-process second client shares milvus-lite's engine state, so a true cross-process reload
+    can't be reproduced in-test without spawning subprocesses. We instead pin the persisted index
+    spec, which is the exact thing the reload checks.
+    """
+    desc = store._client.describe_index(store._collection, "sparse")
+    assert desc["index_type"] == "SPARSE_INVERTED_INDEX"
