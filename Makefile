@@ -1,6 +1,6 @@
-.PHONY: check check-all lint format typecheck test eval imports smoke docker docker-dev
+.PHONY: check check-all lint format typecheck test eval eval-tier1 eval-record imports smoke docker docker-dev
 
-check: format lint typecheck test imports
+check: format lint typecheck test eval-tier1 imports
 
 check-all: check eval
 
@@ -19,14 +19,19 @@ typecheck:
 	uv run pyright
 
 test:
-	uv run pytest tests/ -v
+	uv run pytest tests/ --ignore=tests/eval -v
 
 imports:
 	uv run lint-imports
 
 eval:
-	@echo "SKIP: eval suite not configured yet (Promptfoo + DeepEval — see docs/tech.md)"
-	@exit 1
+	uv run pytest tests/eval -m "eval_offline or eval_live" -v
+
+eval-tier1:
+	uv run pytest tests/eval/test_invariants.py -v
+
+eval-record:
+	uv run python -m dsm.eval.record
 
 docker:
 	docker compose build app

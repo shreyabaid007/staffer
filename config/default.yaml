@@ -66,7 +66,7 @@ index:
   # there is nothing to narrow. Flip `enabled: true` (a config change, not code) when the
   # post-exact-filter pool routinely exceeds ~150. top_n bounds the dense/BM25/RRF fan-out.
   recall:
-    enabled: false
+    enabled: true
     top_n: 100
   # Cross-encoder rerank (b-002, AD-071): truncate the recalled pool to top_k before LLM scoring.
   # Narrows which candidates get scored — NOT the final sort (step 9 rank decides order).

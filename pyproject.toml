@@ -29,7 +29,6 @@ dev = [
     "pyright",
     "ruff",
     "import-linter",
-    "promptfoo",
     "deepeval",
 ]
 
@@ -79,6 +78,12 @@ type = "forbidden"
 source_modules = ["dsm.match", "dsm.index"]
 forbidden_modules = ["dsm.ingest"]
 ignore_imports = ["dsm.index.build -> dsm.ingest.models", "dsm.index.indexer -> dsm.ingest.models", "dsm.index.text_builder -> dsm.ingest.models"]
+
+[tool.pytest.ini_options]
+markers = [
+    "eval_offline: deterministic eval (cassette LM, no network, no keys) — Tier 1/2 (AD-094)",
+    "eval_live: live eval (needs API keys; skipif absent) — Tier 3 (AD-094)",
+]
 
 [tool.pyright]
 pythonVersion = "3.12"

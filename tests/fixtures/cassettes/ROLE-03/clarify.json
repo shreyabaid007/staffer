@@ -1,0 +1,13 @@
+{
+  "key": {
+    "case_id": "ROLE-03",
+    "signature": "clarify",
+    "prompt_hash": "9ded43221a94e3ee",
+    "model_version": "openrouter/anthropic/claude-sonnet-4-6"
+  },
+  "response": {
+    "hard_depth_skills": [{"name": "java", "depth": "hard"}],
+    "desired_skills": [],
+    "clarification_notes": "Java developer for Mumbai co-located team."
+  }
+}

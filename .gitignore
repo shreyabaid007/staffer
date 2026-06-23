@@ -6,6 +6,8 @@ __pycache__/
 data/.cache/*
 !data/.cache/.gitkeep
 # Raw inputs and bronze layer are PII-dense — never commit (a-001 L-LAYOUT-3)
+data/raw/demand/*
+!data/raw/demand/.gitkeep
 data/raw/supply/*
 !data/raw/supply/.gitkeep
 data/raw/resumes/*

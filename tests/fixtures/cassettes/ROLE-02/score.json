@@ -1,0 +1,37 @@
+{
+  "key": {
+    "case_id": "ROLE-02",
+    "signature": "score",
+    "prompt_hash": "7a2fdda1082619ad",
+    "model_version": "openrouter/anthropic/claude-sonnet-4-6"
+  },
+  "responses": {
+    "karan@example.com": {
+      "skill_match_score": 0.85,
+      "feedback_score": 0.75,
+      "narrative": "Experienced React developer with component library expertise.",
+      "evidence": [
+        {"source": "feedback", "text": "Built reusable React component library."},
+        {"source": "profile_pdf", "text": "component library development"}
+      ]
+    },
+    "rahul@example.com": {
+      "skill_match_score": 0.7,
+      "feedback_score": 0.8,
+      "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+      "evidence": [
+        {"source": "feedback", "text": "Delivered React migration ahead of schedule."},
+        {"source": "profile_pdf", "text": "e-commerce frontends"}
+      ]
+    },
+    "priya@example.com": {
+      "skill_match_score": 0.8,
+      "feedback_score": 0.7,
+      "narrative": "Senior React and Vue.js developer with design system specialisation.",
+      "evidence": [
+        {"source": "feedback", "text": "Excellent React architecture skills."},
+        {"source": "profile_pdf", "text": "design system specialist"}
+      ]
+    }
+  }
+}
