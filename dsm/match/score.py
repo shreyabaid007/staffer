@@ -264,6 +264,14 @@ def score_candidate(
     try:
         extraction = predict(scorecard, candidate)
     except Exception as exc:  # noqa: BLE001 — one bad candidate must not kill the batch (§6.8)
+        # A leak-scan trip is a PII-boundary failure, not a flaky-call skip: redaction let a known
+        # identifier through, which is a logic bug affecting every candidate, not data variance.
+        # Propagate it (halt loudly, like ingest) instead of burying it as a per-candidate skip.
+        # Matched by class name because `dsm.match` must not import `dsm.pii` (boundary at the
+        # CLI; AD-101). `PIILeakError` is `dsm.pii.leakscan`'s outbound hard gate (AD-069).
+        if type(exc).__name__ == "PIILeakError":
+            _log.error("score.pii_leak_block", candidate_id=candidate.email)
+            raise
         _log.warning("score.failed_skip", candidate_id=candidate.email, reason=type(exc).__name__)
         return None
 

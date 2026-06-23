@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
+import structlog
 import typer
 
 if TYPE_CHECKING:
@@ -46,6 +48,12 @@ from dsm.models import (
     ShortlistResult,
     TargetProfileScorecard,
 )
+
+# Route logs to STDERR so the machine-readable JSON that `match`/`explain` write to STDOUT stays
+# clean — structlog's unconfigured default is a PrintLogger to stdout, which would otherwise let a
+# warning (e.g. a vault miss or a per-candidate skip) corrupt the CLI's parseable output.
+structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
+_log = structlog.get_logger("dsm.cli.commands")
 
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _RAW_DEFAULT = _DATA_DIR / "raw"
@@ -363,14 +371,22 @@ def _pii_aware_score_predictor(base: ScorePredictor, vault: Vault) -> ScorePredi
     ``profile_summary``), so before scoring we resolve that candidate's name/email from the vault
     (keyed by ``candidate_id``, which ``Candidate.email`` carries — AD-091) and enter
     :func:`pii_context`, so ``PseudonymisedLM`` strips them deterministically (+ NER residual) and
-    leak-scans the outbound text. A missing vault entry → empty known list → NER-only, never a
-    crash. This wiring lives at the CLI composition root so ``dsm.match`` never imports ``dsm.pii``
-    (R-11).
+    leak-scans the outbound text. This wiring lives at the CLI composition root so ``dsm.match``
+    never imports ``dsm.pii`` (R-11).
+
+    **Vault miss is loud (not silent).** A missing entry yields an empty known list, so the
+    deterministic strip + leak-scan have nothing to match on and protection falls back to NER alone
+    — which itself degrades to a no-op when the spaCy model is absent. That combination would send
+    candidate's de-anonymised gold free-text to the provider unredacted, so a miss is logged as a
+    ``WARNING`` (PII-safe: ``candidate_id`` only) rather than passing quietly. (Fail-*closed* on a
+    miss is a separate boundary-behaviour decision, deferred.)
     """
     from dsm.pii.pseudonymised_lm import pii_context
 
     def wrapped(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreExtraction:
         identity = vault.get_identity(candidate.email)
+        if identity is None:
+            _log.warning("score.vault_miss_reduced_redaction", candidate_id=candidate.email)
         known_pii = [p for p in (identity or ()) if p]
         with pii_context(known_pii):
             return base(scorecard, candidate)

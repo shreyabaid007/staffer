@@ -175,6 +175,22 @@ def test_deanonymize_resolves_nested_placeholder_value() -> None:
     assert deanonymize("Reviewed by [[NER_0]].", mapping) == "Reviewed by Aarav Smith."
 
 
+def test_known_pass_does_not_corrupt_its_own_placeholders() -> None:
+    """Finding[2]: a short id must not match INSIDE a placeholder a prior id inserted.
+
+    ``"Ii"`` case-insensitively matches the ``II`` in ``[[PII_0]]`` — a sequential pass would
+    corrupt it. The single-pass alternation over the original text prevents that.
+    """
+    result = redact(
+        "Aarav Pii reviewed the Ii module.",
+        known_pii=["Aarav Pii", "Ii"],
+        ner=lambda _t: [],
+    )
+    assert "Aarav Pii" not in result.text
+    assert "[[P[[" not in result.text and "]]_0]]" not in result.text  # no nested/corrupt token
+    assert deanonymize(result.text, result.mapping) == "Aarav Pii reviewed the Ii module."
+
+
 def test_dedupe_known_skips_non_str_entries() -> None:
     """Review[5]: a non-str entry in known_pii is dropped, not crashed on."""
     result = redact(

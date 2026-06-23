@@ -252,6 +252,18 @@ class TestLLMError:
 
         assert score_candidate(_candidate(), _scorecard(), predict=_boom, config=_CONFIG) is None
 
+    def test_pii_leak_block_is_not_swallowed(self) -> None:
+        """A leak-scan trip (PII-boundary failure) propagates — never degraded to a skip."""
+
+        class PIILeakError(RuntimeError):  # matched by class name (dsm.match ⊥ dsm.pii)
+            pass
+
+        def _leak(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreExtraction:
+            raise PIILeakError("known PII survived redaction")
+
+        with pytest.raises(PIILeakError):
+            score_candidate(_candidate(), _scorecard(), predict=_leak, config=_CONFIG)
+
 
 class TestNearMissRationale:
     """AD-098: the near-miss rationale seam + PII-free predictor."""

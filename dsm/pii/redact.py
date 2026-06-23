@@ -102,15 +102,28 @@ class Redactor:
         return self._apply_ner(self._apply_known(text))
 
     def _apply_known(self, text: str) -> str:
-        """Deterministic known-PII pass (case-insensitive); index-stable ``PII_i`` placeholders."""
-        redacted = text
-        for i, identifier in enumerate(self._known):
-            pattern = re.compile(re.escape(identifier), re.IGNORECASE)
-            if pattern.search(redacted):
-                placeholder = _placeholder(_KNOWN_PREFIX, i)
-                redacted = pattern.sub(placeholder, redacted)
-                self._mapping[placeholder] = identifier
-        return redacted
+        """Deterministic known-PII pass (case-insensitive); index-stable ``PII_i`` placeholders.
+
+        **Single pass** over the original text via one longest-first alternation, so a short
+        identifier can never match *inside* a placeholder this pass already inserted (e.g.
+        ``known=["Aarav Pii", "Ii"]`` must not let ``"Ii"`` corrupt ``"[[PII_0]]"``). Regex
+        alternation is leftmost-first, and ``self._known`` is pre-sorted longest-first, so the
+        longest identifier wins at any position — preserving the substring guarantee.
+        """
+        if not self._known:
+            return text
+        index = {identifier.lower(): i for i, identifier in enumerate(self._known)}
+        pattern = re.compile(
+            "|".join(re.escape(identifier) for identifier in self._known), re.IGNORECASE
+        )
+
+        def _replace(match: re.Match[str]) -> str:
+            i = index[match.group(0).lower()]
+            placeholder = _placeholder(_KNOWN_PREFIX, i)
+            self._mapping[placeholder] = self._known[i]
+            return placeholder
+
+        return pattern.sub(_replace, text)
 
     def _apply_ner(self, text: str) -> str:
         """NER residual pass (mockable seam); reuses placeholders for spans seen in prior frags.
