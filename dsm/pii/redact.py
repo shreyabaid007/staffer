@@ -60,6 +60,82 @@ def _dedupe_known(known_pii: list[str]) -> list[str]:
     return out
 
 
+class Redactor:
+    """A redaction session that holds **one** placeholder→original mapping across many fragments.
+
+    A single LLM call spans several text fragments (the ``prompt`` plus each chat ``message``
+    content). Redacting each fragment with an independent :func:`redact` would assign clashing
+    ``NER_j`` indices (fragment 2's ``NER_0`` ≠ fragment 1's), so a unified response
+    de-anonymisation would be ambiguous. ``Redactor`` shares the mapping so the **same surface form
+    yields the same placeholder everywhere in the call** (AD-097 / R-09):
+
+    - **Known-PII placeholders are index-stable by construction:** ``PII_i`` is keyed to position
+      ``i`` in the longest-first-sorted ``known_pii`` list, independent of which fragment it is in.
+    - **NER residual placeholders are made stable** via a cumulative ``surface→placeholder``
+      reverse map + a monotonic ``NER`` counter: a span first seen in fragment 1 reuses its
+      placeholder when it recurs in fragment 2; new spans get the next index (assigned
+      longest-first for determinism).
+
+    Deterministic for a fixed ``(fragments, known_pii, ner)`` processed in a fixed order — the same
+    inputs yield byte-identical output. The mapping is **in-memory only** (never persisted/logged).
+    """
+
+    def __init__(self, known_pii: list[str], ner: NerFn | None = None) -> None:
+        self._known = _dedupe_known(known_pii)  # longest-first, deduped
+        self._ner: NerFn = ner or _default_ner
+        self._mapping: dict[str, str] = {}  # placeholder → original
+        self._reverse: dict[str, str] = {}  # original.lower() → placeholder (cross-fragment reuse)
+        self._ner_counter = 0
+
+    @property
+    def mapping(self) -> dict[str, str]:
+        """Cumulative placeholder→original map (used by :func:`deanonymize` on the response)."""
+        return self._mapping
+
+    def redact(self, text: str) -> str:
+        """Redact one fragment, updating the shared mapping; returns the redacted text."""
+        return self._apply_ner(self._apply_known(text))
+
+    def _apply_known(self, text: str) -> str:
+        """Deterministic known-PII pass (case-insensitive); index-stable ``PII_i`` placeholders."""
+        redacted = text
+        for i, identifier in enumerate(self._known):
+            pattern = re.compile(re.escape(identifier), re.IGNORECASE)
+            if pattern.search(redacted):
+                placeholder = _placeholder(_KNOWN_PREFIX, i)
+                redacted = pattern.sub(placeholder, redacted)
+                self._mapping[placeholder] = identifier
+                self._reverse[identifier.lower()] = placeholder
+        return redacted
+
+    def _apply_ner(self, text: str) -> str:
+        """NER residual pass (mockable seam); reuses placeholders for spans seen in prior frags."""
+        surfaces: list[str] = []
+        seen: set[str] = set()
+        for span_text, _entity_type in self._ner(text):
+            s = span_text.strip()
+            low = s.lower()
+            if s and low not in seen:
+                seen.add(low)
+                surfaces.append(s)
+        # Assign placeholders to genuinely new surfaces (longest-first → stable indices).
+        new_surfaces = sorted(
+            (s for s in surfaces if s.lower() not in self._reverse),
+            key=lambda x: (-len(x), x.lower()),
+        )
+        for span in new_surfaces:
+            placeholder = _placeholder(_NER_PREFIX, self._ner_counter)
+            self._ner_counter += 1
+            self._mapping[placeholder] = span
+            self._reverse[span.lower()] = placeholder
+        # Apply replacements (longest-first) for every detected surface present in this fragment.
+        redacted = text
+        for span in sorted(surfaces, key=lambda x: (-len(x), x.lower())):
+            if span in redacted:
+                redacted = redacted.replace(span, self._reverse[span.lower()])
+        return redacted
+
+
 def redact(
     text: str,
     *,
@@ -68,38 +144,29 @@ def redact(
 ) -> RedactionResult:
     """Redact known identifiers then NER residuals; return redacted text + de-anon mapping.
 
-    Deterministic for a fixed ``(text, known_pii, ner)``: placeholders are assigned in a stable
-    (longest-first, then lexical) order, so the same input yields byte-identical output.
+    Single-fragment convenience over :class:`Redactor` (one code path). Deterministic for a fixed
+    ``(text, known_pii, ner)``: placeholders are assigned in a stable (longest-first, then lexical)
+    order, so the same input yields byte-identical output.
     """
-    mapping: dict[str, str] = {}
-    redacted = text
+    redactor = Redactor(known_pii, ner=ner)
+    redacted = redactor.redact(text)
+    return RedactionResult(text=redacted, mapping=redactor.mapping)
 
-    # 1. Deterministic known-PII pass (case-insensitive exact match).
-    for i, identifier in enumerate(_dedupe_known(known_pii)):
-        pattern = re.compile(re.escape(identifier), re.IGNORECASE)
-        if pattern.search(redacted):
-            placeholder = _placeholder(_KNOWN_PREFIX, i)
-            redacted = pattern.sub(placeholder, redacted)
-            mapping[placeholder] = identifier
 
-    # 2. NER residual pass (mockable seam).
-    ner_fn = ner or _default_ner
-    already = {v.lower() for v in mapping.values()}
-    residual: list[str] = []
-    seen: set[str] = set()
-    for span_text, _entity_type in ner_fn(redacted):
-        s = span_text.strip()
-        if s and s.lower() not in seen and s.lower() not in already:
-            seen.add(s.lower())
-            residual.append(s)
-    residual.sort(key=lambda x: (-len(x), x.lower()))
-    for j, span in enumerate(residual):
-        if span in redacted:
-            placeholder = _placeholder(_NER_PREFIX, j)
-            redacted = redacted.replace(span, placeholder)
-            mapping[placeholder] = span
+def redact_fragments(
+    texts: list[str],
+    *,
+    known_pii: list[str],
+    ner: NerFn | None = None,
+) -> tuple[list[str], dict[str, str]]:
+    """Redact a batch of fragments under **one** :class:`Redactor`; return ``(redacted, mapping)``.
 
-    return RedactionResult(text=redacted, mapping=mapping)
+    Used by ``PseudonymisedLM`` to redact a ``prompt`` + several ``messages`` under one coherent
+    mapping, so the response de-anonymisation is unambiguous (R-09). Order is preserved.
+    """
+    redactor = Redactor(known_pii, ner=ner)
+    redacted = [redactor.redact(t) for t in texts]
+    return redacted, redactor.mapping
 
 
 def deanonymize(text: str, mapping: dict[str, str]) -> str:
