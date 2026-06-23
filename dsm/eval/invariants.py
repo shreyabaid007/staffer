@@ -153,7 +153,7 @@ def evidence_cited(result: ShortlistResult) -> InvariantResult:
 
 
 # ---------------------------------------------------------------------------
-# 4. no-PII-leak (structural only — stub anonymiser limitation)
+# 4. no-PII-leak (real anonymiser — AD-097)
 # ---------------------------------------------------------------------------
 
 
@@ -163,11 +163,19 @@ def no_pii_leak(
     seam_inputs: SeamInputs | None = None,
     known_pii: list[str] | None = None,
 ) -> InvariantResult:
-    """No raw name/email reaches seam inputs or output narratives.
+    """No raw name/email reaches the provider seam inputs or output narratives.
 
-    **Structural only** — because ``PseudonymisedLM`` is still a pass-through stub,
-    this invariant verifies seam inputs are capability/``candidate_id``-only. It does
-    NOT yet exercise a real anonymiser. TODO: tighten when the live anonymiser lands.
+    Exercises the **real** anonymiser (AD-097): ``PseudonymisedLM`` now redacts (deterministic
+    vault-backed strip — load-bearing — + NER residual) and leak-scans every outbound fragment
+    before the provider sees it, so ``seam_inputs`` captured **after** redaction must be free of
+    every ``known_pii`` string. The deterministic strip is the guarantee; NER is best-effort.
+
+    Coverage note: in the cassette golden-case tier the ``predict`` seam is **replaced** by a
+    recorded cassette (which bypasses ``PseudonymisedLM`` by construction), so those cases pass no
+    ``seam_inputs`` and this invariant checks output narratives only. The real redaction path is
+    exercised by the dedicated planted-name test (`TestNoPiiLeakRealAnonymiser`) that captures the
+    provider input after ``PseudonymisedLM`` runs. (Final human-facing output legitimately carries
+    identity for the authorised reader; this invariant governs **provider** inputs, not output.)
     """
     failures: list[str] = []
     pii_strings = [s.lower() for s in (known_pii or []) if s.strip()]
@@ -201,7 +209,9 @@ def no_pii_leak(
 
     if failures:
         return InvariantResult(passed=False, reason="; ".join(failures))
-    return InvariantResult(passed=True, reason="No PII leak detected (structural check).")
+    return InvariantResult(
+        passed=True, reason="No PII leak: post-anonymiser seam inputs + output narratives clean."
+    )
 
 
 # ---------------------------------------------------------------------------

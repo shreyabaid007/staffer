@@ -245,6 +245,64 @@ class TestNoPiiLeak:
         assert "PII" in r.reason
 
 
+@pytest.mark.eval_offline
+class TestNoPiiLeakRealAnonymiser:
+    """The real anonymiser (AD-097) strips a planted name before the provider sees it.
+
+    Unlike the cassette golden cases (which bypass PseudonymisedLM), this drives the actual
+    PseudonymisedLM redaction path — candidate gold free-text carries a de-anonymised name, and
+    the captured provider seam input must be PII-free. Offline: the inner provider call is
+    monkeypatched (no network); NER is a fake.
+    """
+
+    _KNOWN = ["Priya Nair", "priya@acme.example"]
+    _GOLD_TEXT = "Led the payments platform with Priya Nair (priya@acme.example)."
+
+    def _capture_provider_input(self, monkeypatch: pytest.MonkeyPatch) -> str:
+        """Run the real PseudonymisedLM over the planted text; return what the provider saw."""
+        import dspy
+
+        from dsm.pii.pseudonymised_lm import PseudonymisedLM, pii_context
+
+        captured: dict[str, Any] = {}
+
+        def fake_base_call(
+            _self: dspy.LM,
+            prompt: str | None = None,
+            messages: list[dict[str, Any]] | None = None,
+            **kwargs: Any,
+        ) -> list[Any]:
+            captured["content"] = messages[-1]["content"] if messages else prompt
+            return ["ok"]
+
+        monkeypatch.setattr(dspy.LM, "__call__", fake_base_call)
+        lm = PseudonymisedLM(model="openrouter/anthropic/claude-sonnet-4-6", ner=lambda _t: [])
+        with pii_context(self._KNOWN):
+            lm(messages=[{"role": "user", "content": self._GOLD_TEXT}])
+        return captured["content"]
+
+    def test_real_anonymiser_strips_name_from_seam(
+        self, role_01_result: ShortlistResult, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """R-10: after PseudonymisedLM redaction the seam input has no known PII → passes."""
+        from dsm.eval.invariants import SeamInputs
+
+        provider_text = self._capture_provider_input(monkeypatch)
+        assert "Priya Nair" not in provider_text  # sanity: redaction ran
+        seam = SeamInputs(score_inputs=[{"profile_summary": provider_text}])
+        r = no_pii_leak(role_01_result, seam_inputs=seam, known_pii=self._KNOWN)
+        assert r.passed, r.reason
+
+    def test_detects_raw_pii_reaching_seam(self, role_01_result: ShortlistResult) -> None:
+        """R-10/R-15: deliberately-failing — raw (un-redacted) text at the seam → fails."""
+        from dsm.eval.invariants import SeamInputs
+
+        seam = SeamInputs(score_inputs=[{"profile_summary": self._GOLD_TEXT}])
+        r = no_pii_leak(role_01_result, seam_inputs=seam, known_pii=self._KNOWN)
+        assert not r.passed
+        assert "PII" in r.reason
+
+
 # ---------------------------------------------------------------------------
 # 5. determinism
 # ---------------------------------------------------------------------------
