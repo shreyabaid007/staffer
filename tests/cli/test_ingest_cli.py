@@ -123,3 +123,115 @@ def test_idempotent_rerun_does_not_tombstone(tmp_path: Path) -> None:
 
     for path in (tmp_path / "gold").glob("*.json"):
         assert json.loads(path.read_text())["is_tombstoned"] is False
+
+
+def test_removing_one_supply_row_tombstones_only_that_candidate(tmp_path: Path) -> None:
+    """Regression (AD-093): editing ONE supply file must tombstone only the row removed from it —
+    not every candidate whose (unchanged) supply file was SKIPPED at landing. Reconcile diffs
+    against the full current supply roster, not just files re-landed this run."""
+    import json
+
+    from dsm.pii.vault import candidate_id
+
+    raw = tmp_path / "raw"
+    (raw / "supply").mkdir(parents=True, exist_ok=True)
+    (raw / "supply" / "beach.csv").write_bytes(_BEACH)
+    (raw / "supply" / "rolling_off.csv").write_bytes(_ROLLING_OFF)
+
+    def _ingest():
+        return _runner.invoke(
+            app,
+            [
+                "ingest",
+                "--raw-dir",
+                str(raw),
+                "--bronze-dir",
+                str(tmp_path / "bronze"),
+                "--silver-dir",
+                str(tmp_path / "silver"),
+                "--gold-dir",
+                str(tmp_path / "gold"),
+                "--run-id",
+                "run-cli",
+            ],
+        )
+
+    first = _ingest()
+    assert first.exit_code == 0, first.output
+
+    # Remove Arjun from beach.csv; leave rolling_off.csv byte-identical (→ SKIPPED at landing).
+    (raw / "supply" / "beach.csv").write_bytes(
+        b"Beach - as of 2026-06-01 (synthetic)\n"
+        b"Name,Email,Grade,Key Skills,Location,Chennai-open\n"
+        b'Priya,priya@acme.example,Lead Consultant,"Java, Kotlin",Bengaluru,Yes\n'
+    )
+
+    second = _ingest()
+    assert second.exit_code == 0, second.output
+    assert "tombstones  : 1" in second.output  # ONLY Arjun — not Meera (her file was SKIPPED)
+
+    tombstoned = {
+        json.loads(p.read_text())["candidate_id"]
+        for p in (tmp_path / "gold").glob("*.json")
+        if json.loads(p.read_text())["is_tombstoned"]
+    }
+    assert tombstoned == {candidate_id("arjun@acme.example")}
+    assert candidate_id("meera@acme.example") not in tombstoned
+    assert candidate_id("priya@acme.example") not in tombstoned
+
+
+def test_readding_supply_row_revives_tombstoned_candidate(tmp_path: Path) -> None:
+    """Re-adding a previously-tombstoned candidate to a supply file revives them: the fresh merge
+    overwrites the tombstone with a live (is_tombstoned=False) gold record, and they are not
+    re-tombstoned."""
+    import json
+
+    from dsm.pii.vault import candidate_id
+
+    raw = tmp_path / "raw"
+    (raw / "supply").mkdir(parents=True, exist_ok=True)
+    (raw / "supply" / "rolling_off.csv").write_bytes(_ROLLING_OFF)
+    beach_path = raw / "supply" / "beach.csv"
+
+    def _ingest():
+        return _runner.invoke(
+            app,
+            [
+                "ingest",
+                "--raw-dir",
+                str(raw),
+                "--bronze-dir",
+                str(tmp_path / "bronze"),
+                "--silver-dir",
+                str(tmp_path / "silver"),
+                "--gold-dir",
+                str(tmp_path / "gold"),
+                "--run-id",
+                "run-cli",
+            ],
+        )
+
+    arjun_cid = candidate_id("arjun@acme.example")
+    arjun_path = tmp_path / "gold" / f"{arjun_cid.removeprefix('cid:')}.json"
+    beach_without_arjun = (
+        b"Beach - as of 2026-06-01 (synthetic)\n"
+        b"Name,Email,Grade,Key Skills,Location,Chennai-open\n"
+        b'Priya,priya@acme.example,Lead Consultant,"Java, Kotlin",Bengaluru,Yes\n'
+    )
+
+    # 1) Arjun present → live.
+    beach_path.write_bytes(_BEACH)
+    assert _ingest().exit_code == 0
+    assert json.loads(arjun_path.read_text())["is_tombstoned"] is False
+
+    # 2) Arjun removed → tombstoned.
+    beach_path.write_bytes(beach_without_arjun)
+    assert _ingest().exit_code == 0
+    assert json.loads(arjun_path.read_text())["is_tombstoned"] is True
+
+    # 3) Arjun re-added → revived (live again), not re-tombstoned.
+    beach_path.write_bytes(_BEACH)
+    third = _ingest()
+    assert third.exit_code == 0, third.output
+    assert "tombstones  : 0" in third.output
+    assert json.loads(arjun_path.read_text())["is_tombstoned"] is False
