@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import timedelta
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
+import structlog
 import typer
+
+if TYPE_CHECKING:
+    from dsm.pii.vault import Vault
 
 from dsm.cli.store import GoldCandidateStore
 from dsm.config import load_config
@@ -24,6 +29,7 @@ from dsm.match.clarify import clarify_role
 from dsm.match.demand import parse_demand
 from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict, check_freshness
 from dsm.match.gates import effective_free_date, filter_candidates
+from dsm.match.models import ScoreExtraction
 from dsm.match.rank import rank_assessments
 from dsm.match.score import (
     NearMissRationalePredictor,
@@ -42,6 +48,12 @@ from dsm.models import (
     ShortlistResult,
     TargetProfileScorecard,
 )
+
+# Route logs to STDERR so the machine-readable JSON that `match`/`explain` write to STDOUT stays
+# clean — structlog's unconfigured default is a PrintLogger to stdout, which would otherwise let a
+# warning (e.g. a vault miss or a per-candidate skip) corrupt the CLI's parseable output.
+structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
+_log = structlog.get_logger("dsm.cli.commands")
 
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _RAW_DEFAULT = _DATA_DIR / "raw"
@@ -348,7 +360,38 @@ def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma:
     from dsm.match.score import make_score_predictor
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
-    return make_score_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
+    ner = None if config.get("pii", {}).get("ner_enabled", True) else (lambda _t: [])
+    return make_score_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"], ner=ner))
+
+
+def _pii_aware_score_predictor(base: ScorePredictor, vault: Vault) -> ScorePredictor:
+    """Wrap the score predictor so each candidate's known identity is redacted before the LLM call.
+
+    AD-101: the serving ``Candidate`` carries **de-anonymised** gold free-text (``feedback`` /
+    ``profile_summary``), so before scoring we resolve that candidate's name/email from the vault
+    (keyed by ``candidate_id``, which ``Candidate.email`` carries — AD-091) and enter
+    :func:`pii_context`, so ``PseudonymisedLM`` strips them deterministically (+ NER residual) and
+    leak-scans the outbound text. This wiring lives at the CLI composition root so ``dsm.match``
+    never imports ``dsm.pii`` (R-11).
+
+    **Vault miss is loud (not silent).** A missing entry yields an empty known list, so the
+    deterministic strip + leak-scan have nothing to match on and protection falls back to NER alone
+    — which itself degrades to a no-op when the spaCy model is absent. That combination would send
+    candidate's de-anonymised gold free-text to the provider unredacted, so a miss is logged as a
+    ``WARNING`` (PII-safe: ``candidate_id`` only) rather than passing quietly. (Fail-*closed* on a
+    miss is a separate boundary-behaviour decision, deferred.)
+    """
+    from dsm.pii.pseudonymised_lm import pii_context
+
+    def wrapped(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreExtraction:
+        identity = vault.get_identity(candidate.email)
+        if identity is None:
+            _log.warning("score.vault_miss_reduced_redaction", candidate_id=candidate.email)
+        known_pii = [p for p in (identity or ()) if p]
+        with pii_context(known_pii):
+            return base(scorecard, candidate)
+
+    return wrapped
 
 
 def _build_near_miss_rationale_predictor(  # pragma: no cover - exercised only live
@@ -388,7 +431,7 @@ def _freshness_for(
 
 
 def _match_role(
-    role_id: str, csv_path: Path, gold_dir: Path, db_path: str
+    role_id: str, csv_path: Path, gold_dir: Path, db_path: str, vault_path: Path | None = None
 ) -> ShortlistResult | NoMatchResult:
     """Drive the full spine for one ``role_id`` (shared by ``match`` + ``explain``).
 
@@ -416,13 +459,19 @@ def _match_role(
         typer.echo(verdict.message, err=True)
         raise typer.Exit(1)
 
+    # clarify reads role text only (no candidate PII, §7) → predictor left unwrapped, pass-through.
     scorecard = clarify_role(role, predict=_build_clarify_predictor(config))
+    # score sees the candidate's de-anonymised gold free-text → wrap the predictor so each call
+    # runs under pii_context from the vault (AD-101). Read path mirrors the ingest write.
+    from dsm.pii.vault import FileVault
+
+    vault = FileVault(vault_path or gold_dir.parent / "identity" / "vault.json")
     return run_match(
         candidates,
         scorecard,
         store=_build_query_store(config, db_path),
         embed_client=_build_embed_client(),
-        score_predict=_build_score_predictor(config),
+        score_predict=_pii_aware_score_predictor(_build_score_predictor(config), vault),
         config=config,
         freshness=verdict if verdict is not None and verdict.action == WARN else None,
         near_miss_predict=_build_near_miss_rationale_predictor(config),
@@ -497,6 +546,7 @@ def match(
     csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
     gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
     db_path: Annotated[str, typer.Option("--db-path")] = "",
+    vault_path: Annotated[Path | None, typer.Option("--vault-path")] = None,
 ) -> None:
     """Match one open role (``--role-id``, parsed from the demand CSV) to a ranked shortlist (§4).
 
@@ -504,7 +554,7 @@ def match(
     rerank → score → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment.
     Single role per invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON.
     """
-    result = _match_role(role_id, csv_path, gold_dir, db_path)
+    result = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
     typer.echo(result.model_dump_json(indent=2))
 
 
@@ -513,6 +563,7 @@ def explain(
     csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
     gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
     db_path: Annotated[str, typer.Option("--db-path")] = "",
+    vault_path: Annotated[Path | None, typer.Option("--vault-path")] = None,
 ) -> None:
     """Re-run the pipeline for ``--role-id`` and dump its full lineage (§9).
 
@@ -520,7 +571,7 @@ def explain(
     gate + exact-filter outcomes, recall mode, sub-scores, citations, ``config_snapshot``
     (shortlist); or the reason + ordered near-misses (no-match). No new persistence layer.
     """
-    result = _match_role(role_id, csv_path, gold_dir, db_path)
+    result = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
     typer.echo(json.dumps(_lineage(result), indent=2))
 
 
@@ -564,6 +615,7 @@ def ingest(
     bronze_dir: Annotated[Path, typer.Option("--bronze-dir")] = _BRONZE_DEFAULT,
     silver_dir: Annotated[Path, typer.Option("--silver-dir")] = _SILVER_DEFAULT,
     gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
+    vault_path: Annotated[Path | None, typer.Option("--vault-path")] = None,
     run_id: Annotated[str, typer.Option("--run-id")] = "",
 ) -> None:
     """Land + parse → bronze, normalize → silver, enrich + merge → gold, and print a summary."""
@@ -709,11 +761,14 @@ def ingest(
     from dsm.ingest.models import FeedbackExtraction, ProfileSummaryExtraction
     from dsm.ingest.reconcile import freshness_guard, reconcile, revive, tombstone
     from dsm.pii.leakscan import PIILeakError
-    from dsm.pii.vault import InMemoryVault
+    from dsm.pii.vault import FileVault
     from dsm.pii.vault import candidate_id as derive_cid
 
     config = load_config()
-    vault = InMemoryVault()
+    # Persistent identity vault (AD-102): ingest WRITES here; a later `dsm match` process READS it
+    # to drive the query-time deterministic redact pass (AD-101). Defaults alongside gold under the
+    # same (gitignored) data root, so it follows --gold-dir in tests + prod.
+    vault = FileVault(vault_path or gold_dir.parent / "identity" / "vault.json")
     identities: dict[str, tuple[str, str]] = {}
     known_pii: dict[str, list[str]] = {}
     for br in bronze_supply:

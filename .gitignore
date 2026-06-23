@@ -28,6 +28,9 @@ data/gold/*
 # Index is a rebuildable artifact: derived (PII-free) vectors + metadata in Milvus Lite (NF-5)
 data/index/*
 !data/index/.gitkeep
+# Identity vault: raw name/email keyed by candidate_id (AD-098) — never commit. Plaintext this
+# slice; encryption/retention/purge deferred to AD-068.
+data/identity/
 *.egg-info/
 dist/
 .mypy_cache/

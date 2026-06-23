@@ -108,6 +108,31 @@ def test_gold_layer_persisted(tmp_path: Path) -> None:
     assert len(written) == 3
 
 
+def test_ingest_persists_identity_vault(tmp_path: Path) -> None:
+    """R-06: ingest writes a gitignored FileVault (beside gold) the query plane can read back."""
+    from dsm.pii.vault import FileVault
+    from dsm.pii.vault import candidate_id as derive_cid
+
+    result = _run(tmp_path)
+    assert result.exit_code == 0, result.output
+
+    vault_file = tmp_path / "identity" / "vault.json"
+    assert vault_file.exists()
+    # A separate FileVault instance (≈ the query process) reads the seeded identities back.
+    vault = FileVault(vault_file)
+    assert vault.get_identity(derive_cid("priya@acme.example")) == ("Priya", "priya@acme.example")
+    assert vault.get_identity(derive_cid("meera@acme.example")) == ("Meera", "meera@acme.example")
+
+
+def test_ingest_vault_file_is_the_only_place_raw_identity_lives(tmp_path: Path) -> None:
+    """R-06: gold keeps vault REFS only — raw name/email never enters gold/<cid>.json."""
+    _run(tmp_path)
+    gold_text = "\n".join(p.read_text() for p in (tmp_path / "gold").glob("*.json"))
+    for leaked in ("Priya", "priya@acme.example", "Meera", "meera@acme.example"):
+        assert leaked not in gold_text
+    assert "name_vault_ref" in gold_text and "email_vault_ref" in gold_text
+
+
 def test_idempotent_rerun_does_not_tombstone(tmp_path: Path) -> None:
     """Regression: a re-run lands everything SKIPPED → 0 candidates processed; it must leave gold
     UNCHANGED, never tombstone the prior set (RC-1 guard)."""
