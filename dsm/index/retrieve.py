@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
+from pydantic import BaseModel
 
 from dsm.index.embed_client import EmbedClient
 from dsm.index.milvus_store import MilvusIndexStore
@@ -55,11 +56,29 @@ def _best_proficiency_by_name(skills: list[Skill]) -> dict[str, ProficiencyLevel
     return best
 
 
-def _hard_skill_gap(candidate: Candidate, hard_skills: list[SkillRequirement]) -> str | None:
-    """Return a human-readable gap detail if the candidate misses a hard skill, else ``None``.
+class HardSkillGap(BaseModel, frozen=True):
+    """A candidate's structured hard-skill shortfall vs a role (AD-098).
 
-    A gap is either a hard skill whose *name* is absent from the candidate's skills, or a present
-    skill whose proficiency is below the requirement's ``min_proficiency`` floor.
+    Single source of truth for both ``exact_hard_skill_filter``'s exclusion detail and the no-match
+    ``closest_on_skills`` builder, so the two can never drift (AD-072/033; no adjacency).
+    """
+
+    missing: list[str]  # hard skills absent by name
+    below_floor: list[str]  # held but below the floor, e.g. "java (intermediate < expert)"
+
+    @property
+    def count(self) -> int:
+        """Total shortfalls — ranks 'closest on skills' (fewest first, AD-098)."""
+        return len(self.missing) + len(self.below_floor)
+
+
+def hard_skill_gap(
+    candidate: Candidate, hard_skills: list[SkillRequirement]
+) -> HardSkillGap | None:
+    """Structured hard-skill gap, or ``None`` if the candidate clears every hard skill.
+
+    A gap is a hard skill whose *name* is absent from the candidate's skills, or a held skill whose
+    proficiency is below the requirement's ``min_proficiency`` floor.
     """
     held = _best_proficiency_by_name(candidate.skills)
     missing = sorted(req.name for req in hard_skills if req.name not in held)
@@ -72,12 +91,22 @@ def _hard_skill_gap(candidate: Candidate, hard_skills: list[SkillRequirement]) -
     )
     if not missing and not below:
         return None
+    return HardSkillGap(missing=missing, below_floor=below)
 
+
+def _hard_skill_gap(candidate: Candidate, hard_skills: list[SkillRequirement]) -> str | None:
+    """Human-readable gap detail (``Exclusion.detail``) if the candidate misses a hard skill.
+
+    Thin string view over ``hard_skill_gap`` — identical wording as before the AD-098 refactor.
+    """
+    gap = hard_skill_gap(candidate, hard_skills)
+    if gap is None:
+        return None
     parts: list[str] = []
-    if missing:
-        parts.append("missing hard skills: " + ", ".join(missing))
-    if below:
-        parts.append("below proficiency floor: " + ", ".join(below))
+    if gap.missing:
+        parts.append("missing hard skills: " + ", ".join(gap.missing))
+    if gap.below_floor:
+        parts.append("below proficiency floor: " + ", ".join(gap.below_floor))
     return "; ".join(parts)
 
 
