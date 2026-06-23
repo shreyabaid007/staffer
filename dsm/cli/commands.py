@@ -2,21 +2,28 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 
+from dsm.cli.store import GoldCandidateStore
 from dsm.config import load_config
-from dsm.index.stub import retrieve_candidates
-from dsm.ingest.stub import get_stub_candidates, get_stub_role
+from dsm.index.embed_client import EmbedClient
+from dsm.index.milvus_store import MilvusIndexStore
+from dsm.index.retrieve import exact_hard_skill_filter, hybrid_recall, rerank
+from dsm.index.text_builder import build_role_query_passage
 from dsm.match.clarify import clarify_role
+from dsm.match.demand import parse_demand
+from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict, check_freshness
 from dsm.match.gates import effective_free_date, filter_candidates
 from dsm.match.rank import rank_assessments
-from dsm.match.score import score_candidate
+from dsm.match.score import ScorePredictor, score_candidate
 from dsm.models import (
     Candidate,
+    Exclusion,
     ExclusionLog,
     ExclusionReason,
     NearMiss,
@@ -25,25 +32,12 @@ from dsm.models import (
     TargetProfileScorecard,
 )
 
-
-def ranking_config() -> tuple[int, dict[str, Any]]:
-    """Read ranking config from ``config/default.yaml`` (AD-043, AD-064).
-
-    Rank is config-free, so the orchestrator owns this single read and the
-    reproducibility snapshot it passes down.
-
-    Returns:
-        ``(top_k, config_snapshot)`` — the shortlist size and a snapshot of the weights,
-        ``top_k``, and model IDs for reproducibility tracing.
-    """
-    config = load_config()
-    top_k = int(config["ranking"]["top_k"])
-    snapshot: dict[str, Any] = {
-        "top_k": top_k,
-        "weights": config["weights"],
-        "models": config["models"],
-    }
-    return top_k, snapshot
+_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+_RAW_DEFAULT = _DATA_DIR / "raw"
+_BRONZE_DEFAULT = _DATA_DIR / "bronze"
+_SILVER_DEFAULT = _DATA_DIR / "silver"
+_GOLD_DEFAULT = _DATA_DIR / "gold"
+_DEMAND_DEFAULT = _RAW_DEFAULT / "demand" / "open_roles.csv"
 
 
 def build_near_misses(
@@ -51,14 +45,13 @@ def build_near_misses(
     scorecard: TargetProfileScorecard,
     exclusion_log: ExclusionLog,
 ) -> list[NearMiss]:
-    """Build ordered near-misses from structured data (AD-063b/c).
+    """Build ordered near-misses from structured data (AD-063b/c; AD-088).
 
     Gaps are recomputed from the ``Candidate`` + ``TargetProfileScorecard`` objects — the
-    human-readable ``Exclusion.detail`` is never parsed (O-NM-4). Ordering (AD-063b):
-    availability misses first (smallest overshoot in days), then location misses
-    (alphabetical by ``candidate_email`` — location misses have no gap metric, since the
-    onsite gate is structural: the candidate's city is neither the role city nor in their
-    ``onsite_cities``, AD-086). The full ordered list is returned; the orchestrator applies
+    human-readable ``Exclusion.detail`` is never parsed (O-NM-4). Ordering: **availability**
+    misses first (actionable; smallest overshoot in days), then the structural misses —
+    **location** (AD-086), then **hard-skill** (AD-088; fewest missing hard skills first) — each
+    tie-broken by ``candidate_email``. The full ordered list is returned; the orchestrator applies
     the top-3 cap (AD-063d).
 
     Args:
@@ -84,6 +77,13 @@ def build_near_misses(
             day_word = "day" if overshoot == 1 else "days"
             gap_summary = f"available {overshoot} {day_word} after deadline"
             sort_key = (0, overshoot, candidate.email)
+        elif exclusion.reason is ExclusionReason.HARD_SKILL_MISMATCH:
+            held = {skill.name for skill in candidate.skills}
+            missing = sorted(h.name for h in scorecard.hard_depth_skills if h.name not in held)
+            count = len(missing)
+            skill_word = "skill" if count == 1 else "skills"
+            gap_summary = f"missing {count} hard {skill_word}: {', '.join(missing)}"
+            sort_key = (2, count, candidate.email)  # structural, below availability + location
         else:  # LOCATION_MISMATCH
             cand_city = candidate.location.city or "no base city"
             role_city = scorecard.location.city or "required city"
@@ -106,57 +106,288 @@ def build_near_misses(
     return [near_miss for _, near_miss in ranked]
 
 
+def _config_snapshot(config: dict[str, Any], freshness: FreshnessVerdict | None) -> dict[str, Any]:
+    """Reproducibility snapshot embedded on every result (AD-064; extended for b-002 lineage)."""
+    index_cfg = config.get("index", {})
+    return {
+        "top_k": int(config["ranking"]["top_k"]),
+        "weights": config["weights"],
+        "models": config["models"],
+        "recall": index_cfg.get("recall", {}),
+        "rerank": index_cfg.get("rerank", {}),
+        "freshness": freshness.model_dump() if freshness is not None else None,
+    }
+
+
+def _no_match(
+    scorecard: TargetProfileScorecard,
+    candidates: list[Candidate],
+    exclusions: list[Exclusion],
+    reason: str,
+) -> NoMatchResult:
+    """Assemble a ``NoMatchResult`` with ordered, top-3-capped near-misses (AD-063b/c/d)."""
+    log = ExclusionLog(exclusions=exclusions)
+    near_misses = build_near_misses(candidates, scorecard, log)
+    return NoMatchResult(
+        role_id=scorecard.role_id, reason=reason, near_misses=near_misses[:3], exclusion_log=log
+    )
+
+
+def _retrieve_and_rerank(
+    candidates: list[Candidate],
+    scorecard: TargetProfileScorecard,
+    store: MilvusIndexStore | None,
+    embed_client: EmbedClient | None,
+    config: dict[str, Any],
+) -> list[Candidate]:
+    """Recall (OFF→passthrough) + rerank → candidates in scored order (§6.6/§6.7).
+
+    When the retrieval deps aren't injected (``store``/``embed_client`` ``None`` — the pure-unit
+    path), score the exact-filtered pool directly in input order. Otherwise build the role query
+    passage, run hybrid recall (a no-op passthrough while ``index.recall.enabled`` is false),
+    rerank to ``index.rerank.top_k``, and resolve the reranked ids back to the hydrated candidates.
+    """
+    if store is None or embed_client is None:
+        return candidates
+    role_query = build_role_query_passage(scorecard)
+    retrieved = hybrid_recall(candidates, role_query, store, embed_client, config)
+    top_k = int(config["index"]["rerank"]["top_k"])
+    reranked = rerank(role_query, retrieved, store, embed_client, top_k=top_k)
+    by_id = {candidate.email: candidate for candidate in candidates}
+    return [by_id[r.candidate_id] for r in reranked if r.candidate_id in by_id]
+
+
 def run_match(
     candidates: list[Candidate],
     scorecard: TargetProfileScorecard,
+    *,
+    store: MilvusIndexStore | None = None,
+    embed_client: EmbedClient | None = None,
+    score_predict: ScorePredictor,
+    config: dict[str, Any],
+    freshness: FreshnessVerdict | None = None,
 ) -> ShortlistResult | NoMatchResult:
-    """Core orchestration over structured inputs: gates → (no-match | retrieve→score→rank).
+    """The query-time spine (§4/§10): gate → exact filter → recall → rerank → score → rank.
 
-    Ingest-agnostic: the CLI feeds stub data today and real ingest later, and integration
-    tests inject fixtures directly. When the eligible pool is empty the orchestrator builds
-    a ``NoMatchResult`` with ordered, capped near-misses (O-NM-1/2/3); otherwise it ranks.
+    Parse / clarify / freshness happen at the command edge (``match``); this is the per-role
+    pipeline over already-hydrated candidates. An empty pool at any narrowing stage (gate, exact
+    filter) yields a ``NoMatchResult`` with ordered, capped near-misses (AD-063); otherwise the
+    scored survivors are ranked. Retrieval deps are injected — ``store``/``embed_client`` ``None``
+    skips recall+rerank (the pure-unit path); the LLM score seam (``score_predict``) and ``config``
+    are always required.
 
     Args:
-        candidates: the candidates to consider (already typed).
-        scorecard: the clarified role requirements.
+        candidates: the hydrated serving pool (``email`` carries the pseudonymised candidate_id).
+        scorecard: the clarified role.
+        store: the Milvus read store for recall/rerank, or ``None`` to skip them.
+        embed_client: the embed/rerank client, or ``None`` to skip recall/rerank.
+        score_predict: the injected LLM score seam (§6.8).
+        config: runtime config (weights, ranking.top_k, index.recall/rerank, adjacency_map).
+        freshness: the run's verdict; a ``warn`` is threaded into scoring to flag every assessment.
 
     Returns:
-        A ``ShortlistResult`` when at least one candidate is eligible, else a
-        ``NoMatchResult``.
+        A ``ShortlistResult`` (≥1 scored candidate) or a ``NoMatchResult`` (empty post-gate pool).
     """
-    eligible_pool, exclusion_log = filter_candidates(candidates, scorecard)
-
+    eligible_pool, gate_exclusions = filter_candidates(candidates, scorecard)
     if not eligible_pool.candidates:
-        near_misses = build_near_misses(candidates, scorecard, exclusion_log)
-        return NoMatchResult(
-            role_id=scorecard.role_id,
-            reason="No candidates passed the eligibility gates.",
-            near_misses=near_misses[:3],  # AD-063(d): cap is a presentation decision
-            exclusion_log=exclusion_log,
+        return _no_match(
+            scorecard,
+            candidates,
+            gate_exclusions.exclusions,
+            "No candidates passed the eligibility gates.",
         )
 
-    retrieved = retrieve_candidates(eligible_pool, scorecard, top_k=10)
-    assessments = [score_candidate(candidate, scorecard) for candidate in retrieved]
-    top_k, config_snapshot = ranking_config()
-    return rank_assessments(assessments, scorecard.role_id, exclusion_log, top_k, config_snapshot)
+    filtered_pool, hard_exclusions = exact_hard_skill_filter(
+        eligible_pool, scorecard.hard_depth_skills
+    )
+    all_exclusions = gate_exclusions.exclusions + hard_exclusions
+    if not filtered_pool.candidates:
+        return _no_match(
+            scorecard, candidates, all_exclusions, "No candidates cleared the hard-skill filter."
+        )
+
+    ordered = _retrieve_and_rerank(
+        filtered_pool.candidates, scorecard, store, embed_client, config
+    )
+    assessments = [
+        assessment
+        for candidate in ordered
+        if (
+            assessment := score_candidate(
+                candidate, scorecard, predict=score_predict, config=config, freshness=freshness
+            )
+        )
+        is not None
+    ]
+    return rank_assessments(
+        assessments,
+        scorecard.role_id,
+        ExclusionLog(exclusions=all_exclusions),
+        int(config["ranking"]["top_k"]),
+        _config_snapshot(config, freshness),
+    )
 
 
-def match(role_id: str = typer.Option("ROLE-STUB-01", "--role-id")) -> None:
-    """Match candidates to a role (Slice 0 stub ingest, real gates + rank + no-match)."""
-    role = get_stub_role()
-    candidates = get_stub_candidates()
+def _build_clarify_predictor(config: dict[str, Any]):  # pragma: no cover - exercised only live
+    """Build the live clarify predictor over PseudonymisedLM (monkeypatched in CLI tests)."""
+    from dsm.match.clarify import make_clarify_predictor
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
-    scorecard = clarify_role(role)
-    result = run_match(candidates, scorecard)
+    return make_clarify_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
 
+
+def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma: no cover - live
+    """Build the live score predictor over PseudonymisedLM (monkeypatched in CLI tests)."""
+    from dsm.match.score import make_score_predictor
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    return make_score_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
+
+
+def _build_query_store(
+    config: dict[str, Any], db_path: str = ""
+) -> MilvusIndexStore:  # pragma: no cover - live
+    """Open the read-side Milvus store for recall/rerank (monkeypatched in CLI tests)."""
+    milvus = config["index"]["milvus"]
+    store = MilvusIndexStore(
+        db_path or milvus["db_path"], milvus["collection"], dim=768, metric=milvus["dense_metric"]
+    )
+    store.ensure_collection()
+    return store
+
+
+def _freshness_for(
+    demand_as_of: Any, start_date: Any, store: GoldCandidateStore, config: dict[str, Any]
+) -> FreshnessVerdict | None:
+    """Evaluate the freshness guard against the latest supply ``valid_as_of`` (None if undated)."""
+    supply_as_of = store.latest_valid_as_of()
+    if supply_as_of is None:
+        return None  # no dated supply — an empty/undated pool resolves to no-match downstream
+    return check_freshness(
+        demand_as_of, supply_as_of, start_date, config["reconcile"]["max_staleness_days"]
+    )
+
+
+def _match_role(
+    role_id: str, csv_path: Path, gold_dir: Path, db_path: str
+) -> ShortlistResult | NoMatchResult:
+    """Drive the full spine for one ``role_id`` (shared by ``match`` + ``explain``).
+
+    parse demand → select role → hydrate → freshness guard → clarify → ``run_match``. ``refuse``
+    blocks the run (``typer.Exit(1)``); ``warn`` is threaded into scoring. Single role per
+    invocation (AD-050). Builds the live deps (LM / embed / store) — monkeypatched in CLI tests.
+    """
+    config = load_config()
+    try:
+        outcome = parse_demand(csv_path)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(f"Cannot parse demand CSV: {exc}", err=True)
+        raise typer.Exit(1) from None
+
+    role = next((r for r in outcome.roles if r.role_id == role_id), None)
+    if role is None:
+        typer.echo(f"Role {role_id!r} not found in {csv_path}", err=True)
+        raise typer.Exit(1)
+
+    store = GoldCandidateStore(gold_dir)
+    candidates = store.get(store.all_ids())
+
+    verdict = _freshness_for(outcome.banner.demand_as_of, role.start_date, store, config)
+    if verdict is not None and verdict.action == REFUSE:
+        typer.echo(verdict.message, err=True)
+        raise typer.Exit(1)
+
+    scorecard = clarify_role(role, predict=_build_clarify_predictor(config))
+    return run_match(
+        candidates,
+        scorecard,
+        store=_build_query_store(config, db_path),
+        embed_client=_build_embed_client(),
+        score_predict=_build_score_predictor(config),
+        config=config,
+        freshness=verdict if verdict is not None and verdict.action == WARN else None,
+    )
+
+
+def _exclusion_lines(result: ShortlistResult | NoMatchResult) -> list[dict[str, str]]:
+    """The gate/exact-filter outcomes (who was dropped and why) for the lineage dump."""
+    return [
+        {"candidate": e.candidate_email, "reason": e.reason.value, "detail": e.detail}
+        for e in result.exclusion_log.exclusions
+    ]
+
+
+def _lineage(result: ShortlistResult | NoMatchResult) -> dict[str, Any]:
+    """Build the explain lineage from what the result already carries (§9; no new persistence)."""
+    if isinstance(result, NoMatchResult):
+        return {
+            "role_id": result.role_id,
+            "outcome": "no_match",
+            "reason": result.reason,
+            "exclusions": _exclusion_lines(result),
+            "near_misses": [
+                {"candidate": nm.candidate_email, "reason": nm.reason, "gap": nm.gap_summary}
+                for nm in result.near_misses
+            ],
+        }
+
+    snapshot = result.config_snapshot
+    recall_enabled = bool(snapshot.get("recall", {}).get("enabled"))
+    return {
+        "role_id": result.role_id,
+        "outcome": "shortlist",
+        "total_eligible": result.total_eligible,
+        "recall_mode": "hybrid" if recall_enabled else "exhaustive",
+        "freshness": snapshot.get("freshness"),
+        "config_snapshot": snapshot,
+        "exclusions": _exclusion_lines(result),
+        "shortlist": [
+            {
+                "candidate": a.candidate.email,
+                "combined_score": a.combined_score,
+                "skill_match_score": a.skill_match_score,
+                "feedback_score": a.feedback_score,
+                "hard_skill_coverage": a.hard_skill_coverage,
+                "desired_skill_coverage": a.desired_skill_coverage,
+                "flags": [{"type": f.type.value, "message": f.message} for f in a.flags],
+                "evidence": [{"source": c.source.value, "text": c.text} for c in a.evidence],
+                "narrative": a.narrative,
+            }
+            for a in result.ranked_assessments
+        ],
+    }
+
+
+def match(
+    role_id: Annotated[str, typer.Option("--role-id")],
+    csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
+    gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
+    db_path: Annotated[str, typer.Option("--db-path")] = "",
+) -> None:
+    """Match one open role (``--role-id``, parsed from the demand CSV) to a ranked shortlist (§4).
+
+    Runs the full spine: parse demand → freshness guard → clarify → gate → exact filter → recall →
+    rerank → score → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment.
+    Single role per invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON.
+    """
+    result = _match_role(role_id, csv_path, gold_dir, db_path)
     typer.echo(result.model_dump_json(indent=2))
 
 
-_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
-_RAW_DEFAULT = _DATA_DIR / "raw"
-_BRONZE_DEFAULT = _DATA_DIR / "bronze"
-_SILVER_DEFAULT = _DATA_DIR / "silver"
-_GOLD_DEFAULT = _DATA_DIR / "gold"
+def explain(
+    role_id: Annotated[str, typer.Option("--role-id")],
+    csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
+    gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
+    db_path: Annotated[str, typer.Option("--db-path")] = "",
+) -> None:
+    """Re-run the pipeline for ``--role-id`` and dump its full lineage (§9).
+
+    Reads only what ``ShortlistResult`` / ``NoMatchResult`` already carry — freshness verdict,
+    gate + exact-filter outcomes, recall mode, sub-scores, citations, ``config_snapshot``
+    (shortlist); or the reason + ordered near-misses (no-match). No new persistence layer.
+    """
+    result = _match_role(role_id, csv_path, gold_dir, db_path)
+    typer.echo(json.dumps(_lineage(result), indent=2))
 
 
 def _bronze_cell(raw: dict[str, str | list[str]], *names: str) -> str:
@@ -475,9 +706,9 @@ def index(
     """
     import uuid
 
+    from dsm.index.build import is_indexable
     from dsm.index.indexer import index_gold
     from dsm.index.milvus_store import MilvusIndexStore
-    from dsm.index.models import is_indexable
     from dsm.ingest.goldstore import list_gold_ids, read_gold
 
     config = load_config()

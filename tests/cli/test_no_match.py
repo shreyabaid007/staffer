@@ -8,15 +8,24 @@ import pytest
 
 import dsm.cli.commands as commands
 from dsm.cli.commands import build_near_misses, run_match
+from dsm.config import load_config
 from dsm.match.gates import filter_candidates
-from dsm.models import ExclusionReason, NoMatchResult
+from dsm.match.models import ScoreExtraction
+from dsm.models import Candidate, ExclusionReason, NoMatchResult, TargetProfileScorecard
 from tests.fixtures import role_03
+
+_CONFIG = load_config()
+
+
+def _predict(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreExtraction:
+    """Deterministic score seam — never invoked on the no-match path (empty pool)."""
+    return ScoreExtraction()
 
 
 def test_e_r03_role_03_returns_no_match_with_ordered_near_misses() -> None:
     """E-R03 / O-NM-1/2/3: ROLE-03 → NoMatchResult, near-misses [Sanjay, Meera, Arjun]."""
     candidates, scorecard = role_03()
-    result = run_match(candidates, scorecard)
+    result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
 
     assert isinstance(result, NoMatchResult)
     assert result.role_id == "ROLE-03"
@@ -31,7 +40,7 @@ def test_e_r03_role_03_returns_no_match_with_ordered_near_misses() -> None:
 def test_o_nm_3_near_misses_capped_at_three() -> None:
     """O-NM-3: all four ROLE-03 candidates fail, but only three near-misses surface."""
     candidates, scorecard = role_03()
-    result = run_match(candidates, scorecard)
+    result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
     assert isinstance(result, NoMatchResult)
     assert len(result.near_misses) == 3
     # Kavita (the second, later-alphabetical location miss) is the one dropped by the cap.
@@ -84,14 +93,14 @@ def test_o_nm_1_rank_not_called_when_pool_is_empty(
 
     monkeypatch.setattr(commands, "rank_assessments", _boom)
     candidates, scorecard = role_03()
-    result = run_match(candidates, scorecard)
+    result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
     assert isinstance(result, NoMatchResult)
 
 
 def test_o_nm_5_no_match_result_renders_to_json() -> None:
     """O-NM-5: the NoMatchResult (reason + near-misses + gap summaries) serialises for the CLI."""
     candidates, scorecard = role_03()
-    result = run_match(candidates, scorecard)
+    result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
     payload = json.loads(result.model_dump_json())
 
     assert payload["reason"]
@@ -103,7 +112,7 @@ def test_o_nm_5_no_match_result_renders_to_json() -> None:
 def test_empty_candidate_list_produces_no_match_with_no_near_misses() -> None:
     """Edge case (design.md): empty input → NoMatchResult with empty near_misses."""
     _, scorecard = role_03()
-    result = run_match([], scorecard)
+    result = run_match([], scorecard, score_predict=_predict, config=_CONFIG)
     assert isinstance(result, NoMatchResult)
     assert result.near_misses == []
     assert result.exclusion_log.exclusions == []

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,19 @@ class CandidateSource(StrEnum):
     NEW_JOINER = "new_joiner"
 
 
+class Grade(StrEnum):
+    """Consultant grade parsed from the supply ``Grade`` column.
+
+    Shared home (AD-091): moved here from ``dsm.ingest.models`` (which now re-imports it) so the
+    index models can carry a ``Grade`` facet without importing ``dsm.ingest``. Query-time
+    seniority is a soft signal sourced from the index record, never a gate (AD-090).
+    """
+
+    SENIOR_CONSULTANT = "senior_consultant"
+    LEAD_CONSULTANT = "lead_consultant"
+    PRINCIPAL_CONSULTANT = "principal_consultant"
+
+
 class SkillDepth(StrEnum):
     """How strictly a skill requirement must be met (AD-033)."""
 
@@ -59,6 +72,7 @@ class FlagType(StrEnum):
     ADJACENCY_USED = "adjacency_used"  # AD-033: partial credit
     ROLL_OFF_UNCERTAIN = "roll_off_uncertain"  # AD-022: low confidence
     RETENTION_RISK = "retention_risk"  # AD-023: client wants to keep
+    FRESHNESS_WARNING = "freshness_warning"  # AD-092: supply snapshot stale-but-usable (warn)
 
 
 class EvidenceSource(StrEnum):
@@ -283,3 +297,24 @@ class NoMatchResult(BaseModel, frozen=True):
     reason: str  # high-level: "no candidates passed location gate"
     near_misses: list[NearMiss]  # top 3 closest
     exclusion_log: ExclusionLog
+
+
+# ---------------------------------------------------------------------------
+# Ports (dependency-inversion interfaces; AD-091)
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class CandidateStore(Protocol):
+    """The port the query pipeline depends on to materialise serving ``Candidate``s (§6.0/AD-091).
+
+    ``dsm/match`` + ``dsm/index`` depend on this **interface only** — never on where candidates
+    come from. The concrete gold-backed adapter (``GoldCandidateStore``) lives at the CLI
+    composition root (the only layer allowed to import ``dsm/ingest/``) and is injected there, so
+    the data source is swappable (gold today → DB later) and the import boundary holds by
+    construction. ``candidate_id`` is the store key (HMAC(email), AD-067).
+    """
+
+    def get(self, candidate_ids: list[str]) -> list[Candidate]:
+        """Return hydrated serving ``Candidate``s for the given ids (coverage adapter-defined)."""
+        ...

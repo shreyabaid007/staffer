@@ -16,9 +16,10 @@ from collections.abc import Callable, Iterable
 
 import structlog
 
+from dsm.index.build import build_record, is_indexable
 from dsm.index.embed_client import EmbedClient
 from dsm.index.milvus_store import MilvusIndexStore
-from dsm.index.models import IndexMetrics, build_record, is_indexable
+from dsm.index.models import IndexMetrics
 from dsm.index.text_builder import build_embed_text, build_skill_set
 from dsm.ingest.models import GoldCandidate
 

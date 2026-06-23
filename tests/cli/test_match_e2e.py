@@ -1,25 +1,37 @@
 """Integration tests: drive the orchestrator with injected fixtures (E-R01, E-R02, E-R03).
 
-These exercise the real gates → score → rank (or gates → no-match) flow via ``run_match``
-with fixture inputs — they do NOT wire ROLE-01/02/03 into the production ``dsm match`` CLI,
-which keeps using whatever ingest provides. A thin subprocess smoke test covers the actual
-command entry point over the stub ingest.
+These exercise the real gate → exact-filter → score → rank (or → no-match) flow via ``run_match``
+with fixture inputs and an injected deterministic score predictor (no LLM, no Milvus — recall and
+rerank are skipped by passing ``store=None``/``embed_client=None``). The full ``dsm match`` command
+wiring is covered in ``tests/cli/test_orchestrator.py``.
 """
 
 from __future__ import annotations
 
-import json
-import subprocess
-
 from dsm.cli.commands import run_match
-from dsm.models import ExclusionReason, NoMatchResult, ShortlistResult
+from dsm.config import load_config
+from dsm.match.models import ScoreExtraction
+from dsm.models import (
+    Candidate,
+    ExclusionReason,
+    NoMatchResult,
+    ShortlistResult,
+    TargetProfileScorecard,
+)
 from tests.fixtures import role_01, role_02, role_03
+
+_CONFIG = load_config()
+
+
+def _predict(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreExtraction:
+    """Deterministic stand-in for the LLM score seam (fixed sub-scores; no network)."""
+    return ScoreExtraction(skill_match_score=0.75, feedback_score=0.6, narrative="ok")
 
 
 def test_e_r01_partial_exclusion_ranks_remaining_four() -> None:
     """E-R01: Aarav excluded on availability (both dates in detail); the other 4 are ranked."""
     candidates, scorecard = role_01()
-    result = run_match(candidates, scorecard)
+    result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
 
     assert isinstance(result, ShortlistResult)
     assert result.total_eligible == 4
@@ -41,7 +53,7 @@ def test_e_r01_partial_exclusion_ranks_remaining_four() -> None:
 def test_e_r02_location_filter_excludes_non_chennai_non_remote() -> None:
     """E-R02: Deepa + Nikhil excluded on location; Karan, Rahul, Priya (remote) are ranked."""
     candidates, scorecard = role_02()
-    result = run_match(candidates, scorecard)
+    result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
 
     assert isinstance(result, ShortlistResult)
     assert result.total_eligible == 3
@@ -61,7 +73,7 @@ def test_e_r02_location_filter_excludes_non_chennai_non_remote() -> None:
 def test_e_r03_total_exclusion_produces_no_match() -> None:
     """E-R03: ROLE-03 empty pool → NoMatchResult with 3 ordered near-misses."""
     candidates, scorecard = role_03()
-    result = run_match(candidates, scorecard)
+    result = run_match(candidates, scorecard, score_predict=_predict, config=_CONFIG)
 
     assert isinstance(result, NoMatchResult)
     assert [nm.candidate_email for nm in result.near_misses] == [
@@ -69,25 +81,3 @@ def test_e_r03_total_exclusion_produces_no_match() -> None:
         "meera@example.com",
         "arjun@example.com",
     ]
-
-
-def test_cli_match_smoke_runs_through_real_gates_and_rank() -> None:
-    """Refinement: `dsm match` over the stub ingest yields valid output via real gates/rank.
-
-    The three stub candidates (FreeNow, RollingOff on the deadline, NewJoiner on the
-    deadline) all pass the real gates under a non-co-located role, so the command emits a
-    ShortlistResult with three ranked assessments, no exclusions, and a config snapshot.
-    """
-    completed = subprocess.run(
-        ["uv", "run", "dsm", "match", "--role-id", "ROLE-STUB-01"],
-        capture_output=True,
-        text=True,
-    )
-    assert completed.returncode == 0, completed.stderr
-    payload = json.loads(completed.stdout)
-
-    assert payload["role_id"] == "ROLE-STUB-01"
-    assert len(payload["ranked_assessments"]) == 3
-    assert payload["total_eligible"] == 3
-    assert payload["exclusion_log"]["exclusions"] == []
-    assert payload["config_snapshot"]["top_k"] == 5

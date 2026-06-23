@@ -128,6 +128,64 @@ class MilvusIndexStore:
         )
         return {row["candidate_id"]: (row["gold_hash"], row["model_version"]) for row in rows}
 
+    def search_dense(
+        self, query_vector: list[float], candidate_ids: list[str], *, top_n: int
+    ) -> list[tuple[str, float]]:
+        """Dense ANN search over ``dense``, restricted to ``candidate_ids`` (b-002 recall, AD-089).
+
+        Returns ``(candidate_id, score)`` pairs ordered best-first, capped at ``top_n``. Empty
+        ``candidate_ids`` short-circuits to ``[]`` (Milvus rejects an empty ``in`` clause).
+        """
+        if not candidate_ids:
+            return []
+        hits = self._client.search(
+            self._collection,
+            data=[query_vector],
+            anns_field="dense",
+            search_params={"metric_type": self._metric},
+            limit=top_n,
+            filter=f"candidate_id in {json.dumps(candidate_ids)}",
+            output_fields=["candidate_id"],
+        )
+        return [(hit["entity"]["candidate_id"], float(hit["distance"])) for hit in hits[0]]
+
+    def search_bm25(
+        self, query_text: str, candidate_ids: list[str], *, top_n: int
+    ) -> list[tuple[str, float]]:
+        """BM25 sparse search over ``skill_text`` (via the ``sparse`` Function), restricted to ids.
+
+        The collection's BM25 ``Function`` tokenizes ``query_text`` at search time (the same path
+        ingestion's analyzer used to fill ``sparse``), so rare hard-skill tokens (``dbt``, ``CKA``)
+        are matched lexically. Returns ``(candidate_id, score)`` best-first, capped at ``top_n``.
+        """
+        if not candidate_ids:
+            return []
+        hits = self._client.search(
+            self._collection,
+            data=[query_text],
+            anns_field="sparse",
+            search_params={"metric_type": "BM25"},
+            limit=top_n,
+            filter=f"candidate_id in {json.dumps(candidate_ids)}",
+            output_fields=["candidate_id"],
+        )
+        return [(hit["entity"]["candidate_id"], float(hit["distance"])) for hit in hits[0]]
+
+    def fetch_embed_texts(self, candidate_ids: list[str]) -> dict[str, str]:
+        """Return ``{candidate_id: embed_text}`` for the rerank stage (b-002 §6.7).
+
+        The cross-encoder scores the role query against each candidate's stored capability passage;
+        rerank fetches those passages here by id. Missing ids are simply absent from the map.
+        """
+        if not candidate_ids:
+            return {}
+        rows = self._client.query(
+            self._collection,
+            filter=f"candidate_id in {json.dumps(candidate_ids)}",
+            output_fields=["candidate_id", "embed_text"],
+        )
+        return {row["candidate_id"]: row["embed_text"] for row in rows}
+
     def _row(self, record: CandidateIndexRecord) -> dict[str, object]:
         """Map a record to a Milvus row — ``sparse`` is omitted (BM25 Function fills it)."""
         return {
