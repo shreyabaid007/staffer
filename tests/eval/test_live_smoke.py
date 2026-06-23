@@ -54,6 +54,53 @@ class TestLiveSmoke:
             assert a.narrative
 
 
+class TestLivePiiBoundary:
+    def test_real_boundary_scores_planted_name_candidate(self, golden_cases, tmp_path) -> None:
+        """R-12: the full production PII path (vault + pii_context + PseudonymisedLM), live LLM.
+
+        Plant a de-anonymised name into a candidate's gold free-text + register its identity in a
+        FileVault, then score through the real ``_pii_aware_score_predictor`` wrapper. A surviving
+        known-PII string would trip ``assert_no_leak`` (PIILeakError) inside PseudonymisedLM before
+        the provider call; a well-formed shortlist is evidence the boundary held end-to-end.
+        """
+        from dsm.cli.commands import _pii_aware_score_predictor, run_match
+        from dsm.config import load_config
+        from dsm.match.score import make_score_predictor
+        from dsm.pii.pseudonymised_lm import PseudonymisedLM
+        from dsm.pii.vault import FileVault
+
+        config = load_config()
+        case = golden_cases[0]
+        planted_name, planted_email = "Priyanka Venkatesan", "planted@acme.example"
+
+        # Plant into a candidate that passes all gates + the exact hard-skill filter (so it is
+        # actually scored): ROLE-01[1] = Karan (FreeNow, Chennai, kotlin). [0] = Aarav is gated.
+        target = case.candidates[1]
+        target_named = target.model_copy(
+            update={
+                "profile_summary": f"{target.profile_summary or ''} Mentored by {planted_name}."
+            }
+        )
+        vault = FileVault(tmp_path / "vault.json")
+        vault.put_identity(target.email, planted_name, planted_email)  # email == candidate_id
+        candidates = [case.candidates[0], target_named, *case.candidates[2:]]
+
+        base = make_score_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
+        result = run_match(
+            candidates,
+            case.scorecard,
+            score_predict=_pii_aware_score_predictor(base, vault),
+            config=config,
+        )
+        assert isinstance(result, ShortlistResult)
+        assert len(result.ranked_assessments) > 0
+        # The planted candidate was scored, not silently dropped — evidence the redaction succeeded
+        # (a surviving known-PII string would have tripped assert_no_leak → skip). The outbound
+        # guarantee (name never reaches the provider) is asserted deterministically offline (T-6);
+        # the de-anonymised OUTPUT may legitimately carry identity for the authorised reader.
+        assert any(a.candidate.email == target.email for a in result.ranked_assessments)
+
+
 class TestCassetteDriftGuard:
     def test_live_responses_match_committed_cassettes(self, golden_cases) -> None:
         """Re-record into a temp dir and diff against committed cassettes.
