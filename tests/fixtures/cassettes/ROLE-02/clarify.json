@@ -6,7 +6,7 @@
     "model_version": "openrouter/anthropic/claude-sonnet-4-6"
   },
   "response": {
-    "hard_depth_skills": [{"name": "react", "depth": "HARD"}],
+    "hard_depth_skills": [{"name": "react", "depth": "hard"}],
     "desired_skills": [],
     "clarification_notes": "React developer for Chennai co-located team."
   }

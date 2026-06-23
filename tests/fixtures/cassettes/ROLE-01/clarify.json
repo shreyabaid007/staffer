@@ -6,8 +6,8 @@
     "model_version": "openrouter/anthropic/claude-sonnet-4-6"
   },
   "response": {
-    "hard_depth_skills": [{"name": "kotlin", "depth": "HARD"}],
-    "desired_skills": [{"name": "java", "depth": "DESIRED"}],
+    "hard_depth_skills": [{"name": "kotlin", "depth": "hard"}],
+    "desired_skills": [{"name": "java", "depth": "desired"}],
     "clarification_notes": "Kotlin developer for Chennai team; Java as a bonus."
   }
 }
