@@ -298,7 +298,10 @@ class NoMatchResult(BaseModel, frozen=True):
 
     role_id: str
     reason: str  # high-level: "no candidates passed location gate"
-    near_misses: list[NearMiss]  # top 3 closest
+    near_misses: list[NearMiss]  # AD-097: clears hard skills, one negotiable gate away (top 3)
+    # AD-098: the skill-axis counterpart — cleared both gates, only a hard skill or two short
+    # (top 3, fewest gaps first). Disjoint from near_misses; default keeps existing ctors valid.
+    closest_on_skills: list[NearMiss] = Field(default_factory=list)
     exclusion_log: ExclusionLog
 
 
