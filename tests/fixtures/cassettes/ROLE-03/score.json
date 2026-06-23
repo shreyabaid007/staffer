@@ -1,0 +1,9 @@
+{
+  "key": {
+    "case_id": "ROLE-03",
+    "signature": "score",
+    "prompt_hash": "7a2fdda1082619ad",
+    "model_version": "openrouter/anthropic/claude-sonnet-4-6"
+  },
+  "responses": {}
+}
