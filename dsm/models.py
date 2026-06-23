@@ -288,6 +288,9 @@ class NearMiss(BaseModel, frozen=True):
     name: str
     reason: str  # why they didn't qualify
     gap_summary: str  # "free 2 weeks late" or "wrong city"
+    # AD-096: LLM "why consider once the gap is resolved"; set only for the shown top-3, None
+    # otherwise (beyond the cap, or on predictor error). Optional → existing constructions valid.
+    selection_rationale: str | None = None
 
 
 class NoMatchResult(BaseModel, frozen=True):
