@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -2701,19 +2701,6 @@ wheels = [
 ]
 
 [[package]]
-name = "promptfoo"
-version = "0.1.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "posthog" },
-    { name = "pyyaml" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/92/40b0b68d7576fccfd65a32f83001b6c8db672f1cc1938199f6c2e99d2eb4/promptfoo-0.1.4.tar.gz", hash = "sha256:c1a91c3fdc82a8c7ea9b7dd38b38c90dbc55ec501c1101158740db7101d618cc", size = 17385, upload-time = "2026-04-06T06:03:53.805Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/54/dd88dab13e85dd1e007d5d517c6bf6f8a1bbdb393a077c7268e51e0fb135/promptfoo-0.1.4-py3-none-any.whl", hash = "sha256:db4274c4bd5066dbaf252ea0903b80f8b8d53e04e7f68405b31a38a9f76ae965", size = 17647, upload-time = "2026-04-06T06:03:52.308Z" },
-]
-
-[[package]]
 name = "propcache"
 version = "0.5.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4026,7 +4013,6 @@ dependencies = [
 dev = [
     { name = "deepeval" },
     { name = "import-linter" },
-    { name = "promptfoo" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "ruff" },
@@ -4043,7 +4029,6 @@ requires-dist = [
     { name = "modal" },
     { name = "presidio-analyzer" },
     { name = "presidio-anonymizer" },
-    { name = "promptfoo", marker = "extra == 'dev'" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pymilvus" },
     { name = "pyright", marker = "extra == 'dev'" },
