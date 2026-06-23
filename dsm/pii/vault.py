@@ -132,21 +132,41 @@ class FileVault:
         self._store: dict[str, list[str]] = self._load()
 
     def _load(self) -> dict[str, list[str]]:
-        """Read the store from disk; a missing/unreadable file is an empty store, never a crash."""
+        """Read the store from disk; a missing/unreadable file is an empty store, never a crash.
+
+        Each entry must be a ``[name, email]`` pair of **strings**; malformed entries are dropped
+        (not coerced via ``str()``, which would fabricate junk identifiers that then mis-redact).
+        """
         if not self._path.exists():
             return {}
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, ValueError):
             return {}
-        return {str(k): [str(v[0]), str(v[1])] for k, v in raw.items() if len(v) == 2}
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            str(k): [v[0], v[1]]
+            for k, v in raw.items()
+            if isinstance(v, list)
+            and len(v) == 2
+            and isinstance(v[0], str)
+            and isinstance(v[1], str)
+        }
 
     def _flush(self) -> None:
-        """Persist the full store (POC scale); creates the gitignored parent dir on first write."""
+        """Persist the full store **atomically**: write a temp file then ``os.replace``.
+
+        A bare ``write_text`` is non-atomic — a crash mid-write would leave a truncated JSON file
+        that loads as empty, silently degrading every later query to NER-only (under-redaction).
+        The temp-file + atomic-rename keeps the store either fully old or fully new.
+        """
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
+        tmp = self._path.with_name(self._path.name + ".tmp")
+        tmp.write_text(
             json.dumps(self._store, ensure_ascii=False, sort_keys=True), encoding="utf-8"
         )
+        os.replace(tmp, self._path)
 
     def put_identity(self, candidate_id: str, name: str, email: str) -> tuple[str, str]:
         """Upsert ``(name, email)`` for the id and flush; return ``(name_ref, email_ref)``."""

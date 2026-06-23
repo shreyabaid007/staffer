@@ -52,6 +52,8 @@ def _dedupe_known(known_pii: list[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
     for raw in known_pii:
+        if not isinstance(raw, str):  # defensive: a non-str entry must not crash a redaction
+            continue
         s = raw.strip()
         if s and s.lower() not in seen:
             seen.add(s.lower())
@@ -84,7 +86,10 @@ class Redactor:
         self._known = _dedupe_known(known_pii)  # longest-first, deduped
         self._ner: NerFn = ner or _default_ner
         self._mapping: dict[str, str] = {}  # placeholder → original
-        self._reverse: dict[str, str] = {}  # original.lower() → placeholder (cross-fragment reuse)
+        # NER reuse keyed by the **exact** surface (case-sensitive), so a span recurring with its
+        # original casing reuses its placeholder AND de-anonymisation restores it verbatim. "John"
+        # and "JOHN" get distinct placeholders — both redacted (no leak), each restored exactly.
+        self._ner_seen: dict[str, str] = {}  # exact surface → placeholder (cross-fragment reuse)
         self._ner_counter = 0
 
     @property
@@ -105,34 +110,36 @@ class Redactor:
                 placeholder = _placeholder(_KNOWN_PREFIX, i)
                 redacted = pattern.sub(placeholder, redacted)
                 self._mapping[placeholder] = identifier
-                self._reverse[identifier.lower()] = placeholder
         return redacted
 
     def _apply_ner(self, text: str) -> str:
-        """NER residual pass (mockable seam); reuses placeholders for spans seen in prior frags."""
+        """NER residual pass (mockable seam); reuses placeholders for spans seen in prior frags.
+
+        Runs on the **known-redacted** text, so it never re-sees a known identifier. Dedup +
+        reuse are case-sensitive (exact surface) for verbatim round-trips.
+        """
         surfaces: list[str] = []
         seen: set[str] = set()
         for span_text, _entity_type in self._ner(text):
             s = span_text.strip()
-            low = s.lower()
-            if s and low not in seen:
-                seen.add(low)
+            if s and s not in seen:
+                seen.add(s)
                 surfaces.append(s)
         # Assign placeholders to genuinely new surfaces (longest-first → stable indices).
         new_surfaces = sorted(
-            (s for s in surfaces if s.lower() not in self._reverse),
-            key=lambda x: (-len(x), x.lower()),
+            (s for s in surfaces if s not in self._ner_seen),
+            key=lambda x: (-len(x), x),
         )
         for span in new_surfaces:
             placeholder = _placeholder(_NER_PREFIX, self._ner_counter)
             self._ner_counter += 1
             self._mapping[placeholder] = span
-            self._reverse[span.lower()] = placeholder
+            self._ner_seen[span] = placeholder
         # Apply replacements (longest-first) for every detected surface present in this fragment.
         redacted = text
-        for span in sorted(surfaces, key=lambda x: (-len(x), x.lower())):
+        for span in sorted(surfaces, key=lambda x: (-len(x), x)):
             if span in redacted:
-                redacted = redacted.replace(span, self._reverse[span.lower()])
+                redacted = redacted.replace(span, self._ner_seen[span])
         return redacted
 
 
@@ -170,10 +177,20 @@ def redact_fragments(
 
 
 def deanonymize(text: str, mapping: dict[str, str]) -> str:
-    """Restore originals into structured output by replacing each placeholder token."""
+    """Restore originals into structured output by replacing each placeholder token.
+
+    Iterates to a fixpoint (bounded by the mapping size) so that a mapped value which itself
+    contains a placeholder — e.g. an NER span that straddled an already-redacted known identifier,
+    ``mapping = {"[[NER_0]]": "[[PII_0]] Smith", "[[PII_0]]": "Aarav"}`` — is fully resolved
+    regardless of insertion order. Placeholders never self-reference, so the loop always converges.
+    """
     restored = text
-    for placeholder, original in mapping.items():
-        restored = restored.replace(placeholder, original)
+    for _ in range(len(mapping) + 1):
+        before = restored
+        for placeholder, original in mapping.items():
+            restored = restored.replace(placeholder, original)
+        if restored == before:
+            break
     return restored
 
 

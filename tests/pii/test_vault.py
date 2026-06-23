@@ -133,6 +133,40 @@ def test_file_vault_does_not_echo_pii_in_refs(tmp_path: Path) -> None:
     assert "priya" not in name_ref.lower()
 
 
+# ── c-003 review hardening (adversarial review fixes) ────────────────────────────────────────
+
+
+def test_file_vault_drops_malformed_entries_without_coercion(tmp_path: Path) -> None:
+    """Review[3]: a non-[str,str] entry is dropped, never str()-coerced into a junk identifier."""
+    import json
+
+    path = tmp_path / "vault.json"
+    path.write_text(
+        json.dumps(
+            {
+                "cid:good": ["Priya Nair", "priya@acme.example"],
+                "cid:nested": [["Priya"], "priya@acme.example"],  # malformed
+                "cid:short": ["only-one"],  # malformed
+            }
+        ),
+        encoding="utf-8",
+    )
+    vault = FileVault(path)
+    assert vault.get_identity("cid:good") == ("Priya Nair", "priya@acme.example")
+    assert vault.get_identity("cid:nested") is None  # not coerced to "['Priya']"
+    assert vault.get_identity("cid:short") is None
+
+
+def test_file_vault_flush_is_atomic_no_temp_left(tmp_path: Path) -> None:
+    """Review[4]: a successful flush leaves no .tmp artifact and a readable store."""
+    path = tmp_path / "vault.json"
+    vault = FileVault(path)
+    cid = candidate_id("aarav@acme.example")
+    vault.put_identity(cid, "Aarav Sharma", "aarav@acme.example")
+    assert not (tmp_path / "vault.json.tmp").exists()
+    assert FileVault(path).get_identity(cid) == ("Aarav Sharma", "aarav@acme.example")
+
+
 # Sanity: the suite-wide fixed key is present (set in tests/conftest.py).
 def test_suite_key_is_set() -> None:
     assert os.environ.get("DSM_CANDIDATE_ID_KEY")

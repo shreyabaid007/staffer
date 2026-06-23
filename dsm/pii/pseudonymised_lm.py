@@ -49,8 +49,11 @@ def pii_context(known_pii: list[str]) -> Iterator[None]:
     Set by the caller that knows *which* candidate a call concerns (the CLI score-predictor
     wrapper, AD-097), so ``PseudonymisedLM`` can run the deterministic redact-first pass without
     the known list being threaded through ``dsm.match`` as a function argument.
+
+    Non-string entries are dropped defensively — a stray ``None``/int must never crash the
+    downstream ``leak_scan`` (which calls ``.strip()``); a non-string is not a redactable id.
     """
-    token = _KNOWN_PII.set(list(known_pii))
+    token = _KNOWN_PII.set([p for p in known_pii if isinstance(p, str)])
     try:
         yield
     finally:

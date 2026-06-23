@@ -149,3 +149,38 @@ def test_redactor_class_exposes_running_mapping() -> None:
     out2 = r.redact("Still Aarav Sharma.")
     assert "Aarav Sharma" not in out1 + out2
     assert list(r.mapping.values()) == ["Aarav Sharma"]
+
+
+# ── c-003 review hardening (adversarial review fixes) ────────────────────────────────────────
+
+
+def test_ner_mixed_casing_redacts_both_and_round_trips_exactly() -> None:
+    """Review[2]: distinct casings each get a placeholder; de-anon restores each verbatim."""
+
+    def fake_ner(text: str) -> list[NerSpan]:
+        return [(s, "PERSON") for s in ("John", "JOHN") if s in text]
+
+    redacted, mapping = redact_fragments(
+        ["Worked with John.", "JOHN is skilled."], known_pii=[], ner=fake_ner
+    )
+    joined = " ".join(redacted)
+    assert "John" not in joined and "JOHN" not in joined  # both casings redacted (no leak)
+    # Exact verbatim round-trip per fragment (no casing drift).
+    assert [deanonymize(f, mapping) for f in redacted] == ["Worked with John.", "JOHN is skilled."]
+
+
+def test_deanonymize_resolves_nested_placeholder_value() -> None:
+    """Review[6]: a mapped value containing another placeholder is fully restored, any order."""
+    mapping = {"[[NER_0]]": "[[PII_0]] Smith", "[[PII_0]]": "Aarav"}
+    assert deanonymize("Reviewed by [[NER_0]].", mapping) == "Reviewed by Aarav Smith."
+
+
+def test_dedupe_known_skips_non_str_entries() -> None:
+    """Review[5]: a non-str entry in known_pii is dropped, not crashed on."""
+    result = redact(
+        "Aarav Sharma here.",
+        known_pii=["Aarav Sharma", None, 123],  # type: ignore[list-item]
+        ner=lambda _t: [],
+    )
+    assert "Aarav Sharma" not in result.text
+    assert list(result.mapping.values()) == ["Aarav Sharma"]
