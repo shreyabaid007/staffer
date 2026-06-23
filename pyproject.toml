@@ -79,6 +79,15 @@ source_modules = ["dsm.match", "dsm.index"]
 forbidden_modules = ["dsm.ingest"]
 ignore_imports = ["dsm.index.build -> dsm.ingest.models", "dsm.index.indexer -> dsm.ingest.models", "dsm.index.text_builder -> dsm.ingest.models"]
 
+# AD-097: the query-time PII boundary is wired at the CLI composition root (the score predictor is
+# wrapped with vault lookup + pii_context there), so dsm.match stays free of any dsm.pii import —
+# the pure pipeline never threads PII. dsm.cli does the wiring (it already owns PseudonymisedLM).
+[[tool.importlinter.contracts]]
+name = "Match must not depend on PII (query-time PII wiring lives at the CLI)"
+type = "forbidden"
+source_modules = ["dsm.match"]
+forbidden_modules = ["dsm.pii"]
+
 [tool.pytest.ini_options]
 markers = [
     "eval_offline: deterministic eval (cassette LM, no network, no keys) — Tier 1/2 (AD-094)",
