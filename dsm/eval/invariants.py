@@ -1,9 +1,9 @@
-"""Six code-based invariant evaluators for the query-time pipeline (c-002, AD-093 Tier 1).
+"""Six code-based invariant evaluators for the query-time pipeline (c-002, AD-095 Tier 1).
 
 Each function takes a pipeline result + context and returns an ``InvariantResult``.
 Pure, importable, no test-framework imports. Reuses ``dsm.pii.leakscan`` for no-PII-leak.
 
-No LLM judge — these are objective properties of the output (AD-093).
+No LLM judge — these are objective properties of the output (AD-095).
 """
 
 from __future__ import annotations

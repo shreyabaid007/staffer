@@ -1,4 +1,4 @@
-"""Golden cases + cassette LM for deterministic eval (c-002, AD-093 Tier 1/2).
+"""Golden cases + cassette LM for deterministic eval (c-002, AD-095 Tier 1/2).
 
 Each ``GoldenCase`` binds a seed role fixture to cassette responses + expected
 outcomes. The ``CassetteLM`` replays recorded ``clarify``/``score`` responses
@@ -35,7 +35,7 @@ _CASSETTE_ROOT = Path(__file__).resolve().parent.parent.parent / "tests" / "fixt
 
 @dataclass(frozen=True)
 class CassetteKey:
-    """Identifies a recorded LLM response for replay (AD-093)."""
+    """Identifies a recorded LLM response for replay (AD-095)."""
 
     case_id: str
     signature: str
@@ -143,7 +143,7 @@ class SeamCapture:
 
 
 class CassetteLM:
-    """Replays recorded clarify/score responses for a golden case (AD-093).
+    """Replays recorded clarify/score responses for a golden case (AD-095).
 
     Not a single object — produces two separate callables matching the existing
     seams. Keyed by ``(case_id, signature)``. If a call doesn't match a recorded

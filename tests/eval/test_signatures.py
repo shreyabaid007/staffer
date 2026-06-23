@@ -1,4 +1,4 @@
-"""Tier-2 signature regression — pin clarify/score DSPy signature outputs (AD-093).
+"""Tier-2 signature regression — pin clarify/score DSPy signature outputs (AD-095).
 
 Every test is ``eval_offline``: cassette-backed, no network, no keys.
 Validates well-formedness of cassette responses against the typed contracts.

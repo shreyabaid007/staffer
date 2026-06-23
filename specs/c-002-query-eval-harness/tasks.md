@@ -5,21 +5,21 @@
 
 ---
 
-## T-000-ADR — Ratify AD-093/094 (GATE — stop for human sign-off)
+## T-000-ADR — Ratify AD-095/094 (GATE — stop for human sign-off)
 
-- Append AD-093 (eval harness architecture: code-based-first + promptfoo resolution) and
-  AD-094 (`make check` vs `make check-all` split with exact marker/collection rules) to
-  `docs/decision.md`. Next IDs start at AD-093 (verified: `decision.md` ends at AD-092).
+- Append AD-095 (eval harness architecture: code-based-first + promptfoo resolution) and
+  AD-096 (`make check` vs `make check-all` split with exact marker/collection rules) to
+  `docs/decision.md`. Next IDs start at AD-095 (verified: `decision.md` ends at AD-092).
 - Register pytest markers `eval_offline` and `eval_live` in `pyproject.toml`
   `[tool.pytest.ini_options]`.
-- Drop `promptfoo` from `pyproject.toml` dev dependencies (AD-093 option a). Keep
+- Drop `promptfoo` from `pyproject.toml` dev dependencies (AD-095 option a). Keep
   `deepeval` available.
 - Update `docs/tech.md` §Eval to reflect the three-tier model (drop "Promptfoo
   (signature-level)"; describe Tier 1/2/3).
 - `make check` GREEN.
 - **STOP — human sign-off before proceeding.**
 
-**AC:** AD-093/094 in `decision.md`; markers registered; `promptfoo` removed; `tech.md`
+**AC:** AD-095/094 in `decision.md`; markers registered; `promptfoo` removed; `tech.md`
 updated; `make check` green.
 
 ---
@@ -160,7 +160,7 @@ a deliberately-failing fixture; guard test fires; `make check` collects Tier-1.
 - `make check` GREEN; `make eval` no longer exits 1.
 
 **AC:** R-13. `make eval` runs; `make check` includes Tier-1 only (not Tier-2);
-`make check-all` is the gate. Marker collection matches AD-094.
+`make check-all` is the gate. Marker collection matches AD-096.
 
 ---
 
@@ -182,7 +182,7 @@ a deliberately-failing fixture; guard test fires; `make check` collects Tier-1.
 - Replace the "not configured" placeholder in `dsm/eval/README.md` with the tier model +
   how to run (`make check` for Tier-1, `make eval` for all, `make eval-record` to
   regenerate cassettes).
-- Verify `docs/decision.md` carries AD-093/094 (done in T-000).
+- Verify `docs/decision.md` carries AD-095/094 (done in T-000).
 - `make check` GREEN.
 
 **AC:** R-18 (partial). README updated.

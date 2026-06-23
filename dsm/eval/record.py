@@ -1,4 +1,4 @@
-"""Cassette recorder: re-record golden-case LLM responses for eval (AD-093).
+"""Cassette recorder: re-record golden-case LLM responses for eval (AD-095).
 
 Run via ``make eval-record`` or ``uv run python -m dsm.eval.record``.
 Calls the live clarify + score predictors over each golden case and writes

@@ -22,7 +22,7 @@
 
 ## ADRs to ratify (T-000-ADR gate — stop for sign-off)
 
-### AD-093 — Eval harness architecture: code-based-first + promptfoo resolution
+### AD-095 — Eval harness architecture: code-based-first + promptfoo resolution
 
 **Decision (a) — recommended:** Drop the `promptfoo` PyPI placeholder (0.1.4, a 17 KB
 stub — not the real tool which is npm). Run signature regression as pytest cases (DeepEval
@@ -45,7 +45,7 @@ live smoke (Tier 3)". Drop `promptfoo` from `pyproject.toml`. Keep `deepeval` av
 but the Tier 1/2 evaluators are plain functions + pytest — no DeepEval dependency in the
 hot path.
 
-### AD-094 — `make check` vs `make check-all` eval split
+### AD-096 — `make check` vs `make check-all` eval split
 
 **Marker scheme** (registered in `pyproject.toml [tool.pytest.ini_options] markers`):
 
@@ -399,7 +399,7 @@ eval-tier1:
 check-all: check eval
 ```
 
-**Collection logic (matches AD-094 exactly):**
+**Collection logic (matches AD-096 exactly):**
 - `make test` runs all unit tests, **excluding** `tests/eval/` entirely.
 - `make eval-tier1` runs **only** `tests/eval/test_invariants.py` (Tier-1 invariant evals,
   `eval_offline`). This is a separate target so `make check` includes Tier-1 without
@@ -422,7 +422,7 @@ markers = [
 ]
 ```
 
-Drop `promptfoo` from dev dependencies (per AD-093 option a).
+Drop `promptfoo` from dev dependencies (per AD-095 option a).
 
 ---
 

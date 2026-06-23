@@ -166,7 +166,7 @@ registered in `pyproject.toml` (`[tool.pytest.ini_options] markers`) without war
 
 ## R-17 · promptfoo packaging resolved
 
-**WHEN** AD-093 is ratified, the `promptfoo` PyPI placeholder (0.1.4) **SHALL** be resolved
+**WHEN** AD-095 is ratified, the `promptfoo` PyPI placeholder (0.1.4) **SHALL** be resolved
 per the decision: if option (a) (recommended — drop PyPI dep, pytest-only), it is removed
 from `pyproject.toml` and `docs/tech.md` §Eval is updated. `docs/tech.md` §Eval reflects
 the three-tier model.
@@ -174,5 +174,5 @@ the three-tier model.
 ## R-18 · docs updated
 
 **WHEN** the slice is complete, `docs/progress.C.md` **SHALL** be updated via `/handoff`,
-`docs/decision.md` **SHALL** carry AD-093/094, and `dsm/eval/README.md` **SHALL** describe
+`docs/decision.md` **SHALL** carry AD-095/094, and `dsm/eval/README.md` **SHALL** describe
 the tier model + how to run.

@@ -1,4 +1,4 @@
-"""Tier-3 live smoke + cassette drift guard (AD-093).
+"""Tier-3 live smoke + cassette drift guard (AD-095).
 
 Every test is ``eval_live``: needs real API keys (OpenRouter + Modal).
 Skips cleanly without keys — never red on key-less CI.

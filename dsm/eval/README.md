@@ -1,4 +1,4 @@
-# Eval suite (AD-093 / AD-094)
+# Eval suite (AD-095 / AD-096)
 
 Three-tier pytest harness proving the 9-step query pipeline keeps its product invariants.
 

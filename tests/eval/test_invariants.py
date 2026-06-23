@@ -1,4 +1,4 @@
-"""Tier-1 invariant evaluators — golden cases + deliberately-failing fixtures (AD-093).
+"""Tier-1 invariant evaluators — golden cases + deliberately-failing fixtures (AD-095).
 
 Every test is ``eval_offline``: deterministic, cassette-backed, no network, no keys.
 Runs under ``make check`` via the ``eval-tier1`` target.

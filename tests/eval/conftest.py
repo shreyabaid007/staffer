@@ -1,4 +1,4 @@
-"""Eval-suite conftest: live-provider guard for ``eval_offline`` tests (R-12, AD-094).
+"""Eval-suite conftest: live-provider guard for ``eval_offline`` tests (R-12, AD-096).
 
 Patches the live LM constructor and Modal embed client to raise in offline evals,
 ensuring cassette-backed tests never accidentally hit the network.
