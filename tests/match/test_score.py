@@ -7,7 +7,13 @@ LLM-error skip. No live network — the predictor is injected.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import date
+from types import SimpleNamespace
+from typing import cast
+
+import dspy
+import pytest
 
 from dsm.match.freshness import FreshnessVerdict
 from dsm.match.models import ScoreExtraction
@@ -23,6 +29,7 @@ from dsm.models import (
     FlagType,
     FreeNow,
     Location,
+    NearMiss,
     ProficiencyLevel,
     RollingOff,
     Skill,
@@ -244,3 +251,66 @@ class TestLLMError:
             raise RuntimeError("LM down")
 
         assert score_candidate(_candidate(), _scorecard(), predict=_boom, config=_CONFIG) is None
+
+
+class TestNearMissRationale:
+    """AD-096: the near-miss rationale seam + PII-free predictor."""
+
+    def test_explain_sets_rationale(self) -> None:
+        from dsm.match.score import explain_near_misses
+
+        near = NearMiss(
+            candidate_email="cid:1", name="cid:1", reason="availability_mismatch", gap_summary="g"
+        )
+        out = explain_near_misses(
+            [near],
+            {"cid:1": _candidate(skills=["java"])},
+            _scorecard(hard=["java"]),
+            lambda sc, cand, gap: f"strong {cand.skills[0].name}",
+        )
+        assert out[0].selection_rationale == "strong java"
+
+    def test_explain_skips_on_error(self) -> None:
+        from dsm.match.score import explain_near_misses
+
+        def _boom(sc: TargetProfileScorecard, cand: Candidate, gap: str) -> str:
+            raise RuntimeError("LM down")
+
+        near = NearMiss(candidate_email="cid:1", name="cid:1", reason="x", gap_summary="g")
+        out = explain_near_misses([near], {"cid:1": _candidate()}, _scorecard(), _boom)
+        assert out[0].selection_rationale is None
+
+    def test_predictor_sends_no_pii_to_the_lm(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """FR-10-AC-1: only skills/feedback/role/gap reach the LM — never name/email."""
+        from dsm.match import score
+
+        captured: dict[str, object] = {}
+
+        def _fake_predict(_sig: object):
+            def _call(**kwargs: object) -> SimpleNamespace:
+                captured.update(kwargs)
+                return SimpleNamespace(rationale="ok")
+
+            return _call
+
+        monkeypatch.setattr(score.dspy, "Predict", _fake_predict)
+        monkeypatch.setattr(score.dspy, "context", lambda **_kw: contextlib.nullcontext())
+
+        predict = score.make_near_miss_rationale_predictor(cast("dspy.LM", object()))
+        candidate = Candidate(
+            email="secret@corp.com",
+            name="Jane Secret",
+            location=Location(city="Pune"),
+            availability=FreeNow(),
+            skills=[Skill(name="java", proficiency=ProficiencyLevel.ADVANCED)],
+            feedback=FeedbackSignals(),
+            source=CandidateSource.BEACH,
+        )
+        assert (
+            predict(_scorecard(hard=["java"]), candidate, "available 1 day after deadline") == "ok"
+        )
+
+        blob = repr(captured)
+        assert "Jane Secret" not in blob
+        assert "secret@corp.com" not in blob
+        assert "candidate_skills" in captured and "gap" in captured
