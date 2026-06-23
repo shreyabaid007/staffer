@@ -573,7 +573,7 @@ def ingest(
     )
     from dsm.ingest.merge import merge_run
     from dsm.ingest.models import FeedbackExtraction, ProfileSummaryExtraction
-    from dsm.ingest.reconcile import freshness_guard, reconcile, tombstone
+    from dsm.ingest.reconcile import freshness_guard, reconcile, revive, tombstone
     from dsm.pii.leakscan import PIILeakError
     from dsm.pii.vault import InMemoryVault
     from dsm.pii.vault import candidate_id as derive_cid
@@ -636,21 +636,66 @@ def ingest(
         model_version=config["models"]["reasoning_llm"],
     )
 
+    # Reconcile against the FULL current supply roster — every candidate_id present in the supply
+    # CSVs as they exist now (LANDED *or* SKIPPED this run), not just the files re-landed this run.
+    # The candidate universe is the supply sheets (AD-013); landing's content-hash skip is a
+    # blob-write optimisation and must not shrink the snapshot reconcile diffs against — otherwise
+    # editing one supply file tombstones every candidate whose (unchanged) file was SKIPPED at
+    # landing (AD-093). Re-parsing the supply blobs is deterministic + LLM-free, so it is cheap.
+    current_ids: set[str] = {g.candidate_id for g in gold}  # defensive: never tombstone what we
+    for entry in entries:  # just wrote this run
+        if (
+            entry.source_type not in _SUPPLY_TYPES
+            or entry.raw_bytes_hash is None
+            or entry.status not in (LandingStatus.LANDED, LandingStatus.SKIPPED)
+        ):
+            continue
+        assert entry.source_type is not None  # narrowed by the _SUPPLY_TYPES check above
+        for supply_rec in parse_blob(
+            blobs.get(entry.raw_bytes_hash),
+            entry.source_type,
+            entry.raw_bytes_hash,
+            run_id=rid,
+        ):
+            email = _bronze_cell(supply_rec.raw, "Email")
+            if email:
+                current_ids.add(derive_cid(email))
+
     typer.echo("\n── Gold ──")
-    if not gold:
-        # No candidates processed this run — an idempotent re-run (all files SKIPPED at landing) or
-        # a run that landed nothing. This is NOT a current snapshot, so we must NOT tombstone prior
-        # gold (that would flag every consultant as departed). Replay-from-bronze + an enrichment
-        # cache (§11) are deferred, so a no-data run is a no-op for gold: leave it untouched.
-        typer.echo("  no candidates processed this run — gold left unchanged (no reconcile)")
+    if not current_ids:
+        # No supply roster at all this run — a run that landed nothing or has no supply files. This
+        # is NOT a current snapshot, so we must NOT tombstone prior gold (that would flag every
+        # consultant as departed). Leave it untouched.
+        typer.echo("  no supply roster this run — gold left unchanged (no reconcile)")
         typer.echo("  (re-run is idempotent; to rebuild gold, re-land changed inputs)")
         if parse_errors or silver_errors:
             raise typer.Exit(1)
         typer.echo("")
         return
 
+    landed_ids = {g.candidate_id for g in gold}
     prior_ids = list_gold_ids(gold_dir)
-    rec = reconcile({g.candidate_id for g in gold}, prior_ids)
+    rec = reconcile(current_ids, prior_ids)
+    # Revive: a candidate live in the current supply roster whose on-disk gold is tombstoned but
+    # whose supply file was SKIPPED at landing (byte-identical to a prior version) is never
+    # re-merged above. Flip them back to live — the tombstone preserved their content — so
+    # re-adding a removed row revives them even when landing dedups the file (AD-094).
+    revivable = [
+        cid
+        for cid in current_ids - landed_ids
+        if (prior := read_gold(cid, gold_dir)) is not None and prior.is_tombstoned
+    ]
+
+    if not gold and not rec.tombstoned_ids and not revivable:
+        # Pure idempotent re-run: every supply file SKIPPED, roster == prior, nobody departed or
+        # revived. Nothing changed — leave gold untouched.
+        typer.echo("  no changes this run — gold left unchanged")
+        typer.echo("  (re-run is idempotent; to rebuild gold, re-land changed inputs)")
+        if parse_errors or silver_errors:
+            raise typer.Exit(1)
+        typer.echo("")
+        return
+
     for g in gold:
         write_gold(g, gold_dir)
     for cid in rec.tombstoned_ids:
@@ -658,6 +703,10 @@ def ingest(
         if prior is not None:
             write_gold(tombstone(prior), gold_dir)
             log_tombstone(run_id=rid, candidate_id=cid)
+    for cid in revivable:
+        prior = read_gold(cid, gold_dir)
+        if prior is not None:
+            write_gold(revive(prior), gold_dir)
     latest_as_of = max((g.valid_as_of for g in gold if g.valid_as_of), default=None)
     fresh_warnings = freshness_guard(
         latest_as_of,
@@ -673,6 +722,7 @@ def ingest(
     typer.echo(f"  citation-verify failures: {quality.citation_verify_failures}")
     typer.echo(f"  leak-scan hits: {quality.leak_blocks}")
     typer.echo(f"  tombstones  : {quality.tombstones}")
+    typer.echo(f"  revived     : {len(revivable)}")
     for warning in fresh_warnings:
         typer.echo(f"  freshness   : {warning}")
     for g in gold:  # PII-safe per-entity line: candidate_id token + structured fields only

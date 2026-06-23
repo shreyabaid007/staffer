@@ -58,3 +58,14 @@ def tombstone(candidate: GoldCandidate) -> GoldCandidate:
     """
     flipped = candidate.model_copy(update={"is_tombstoned": True, "gold_hash": ""})
     return flipped.model_copy(update={"gold_hash": gold_hash(flipped)})
+
+
+def revive(candidate: GoldCandidate) -> GoldCandidate:
+    """Flip a tombstoned entity back to live with a refreshed ``gold_hash`` (RC-1 inverse, AD-094).
+
+    Re-adding a previously-departed consultant to a supply snapshot revives them. The tombstone
+    preserved the entity's content (only the flag flipped), so restoring it is a clean flip-back;
+    the hash changes so the index re-processes it. Symmetric with ``tombstone``.
+    """
+    flipped = candidate.model_copy(update={"is_tombstoned": False, "gold_hash": ""})
+    return flipped.model_copy(update={"gold_hash": gold_hash(flipped)})
