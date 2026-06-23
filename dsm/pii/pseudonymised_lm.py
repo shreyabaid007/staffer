@@ -1,10 +1,10 @@
-"""PseudonymisedLM — the ONLY authorised path to an LLM provider (AD-010, AD-097).
+"""PseudonymisedLM — the ONLY authorised path to an LLM provider (AD-010, AD-101).
 
 The real outbound PII boundary for **query-time** LLM calls (ingest ``enrich`` runs the same
 ``redact → leak-scan → de-anonymise`` cycle itself, around its own injected predictor). The wrapper
 only ever sees a formatted ``prompt`` / chat ``messages``, so the candidate's *known* identifiers
 are supplied out-of-band via :func:`pii_context` — a ``contextvars.ContextVar`` the caller (the CLI
-composition root, per AD-097) sets around the call after resolving identity from the vault.
+composition root, per AD-101) sets around the call after resolving identity from the vault.
 
 Per call, when a known-PII context is active:
 
@@ -47,7 +47,7 @@ def pii_context(known_pii: list[str]) -> Iterator[None]:
     """Scope a known-PII list to the enclosed LLM call(s); restored on exit (incl. on exception).
 
     Set by the caller that knows *which* candidate a call concerns (the CLI score-predictor
-    wrapper, AD-097), so ``PseudonymisedLM`` can run the deterministic redact-first pass without
+    wrapper, AD-101), so ``PseudonymisedLM`` can run the deterministic redact-first pass without
     the known list being threaded through ``dsm.match`` as a function argument.
 
     Non-string entries are dropped defensively — a stray ``None``/int must never crash the

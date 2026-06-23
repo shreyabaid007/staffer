@@ -359,7 +359,7 @@ def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma:
 def _pii_aware_score_predictor(base: ScorePredictor, vault: Vault) -> ScorePredictor:
     """Wrap the score predictor so each candidate's known identity is redacted before the LLM call.
 
-    AD-097: the serving ``Candidate`` carries **de-anonymised** gold free-text (``feedback`` /
+    AD-101: the serving ``Candidate`` carries **de-anonymised** gold free-text (``feedback`` /
     ``profile_summary``), so before scoring we resolve that candidate's name/email from the vault
     (keyed by ``candidate_id``, which ``Candidate.email`` carries — AD-091) and enter
     :func:`pii_context`, so ``PseudonymisedLM`` strips them deterministically (+ NER residual) and
@@ -446,7 +446,7 @@ def _match_role(
     # clarify reads role text only (no candidate PII, §7) → predictor left unwrapped, pass-through.
     scorecard = clarify_role(role, predict=_build_clarify_predictor(config))
     # score sees the candidate's de-anonymised gold free-text → wrap the predictor so each call
-    # runs under pii_context from the vault (AD-097). Read path mirrors the ingest write.
+    # runs under pii_context from the vault (AD-101). Read path mirrors the ingest write.
     from dsm.pii.vault import FileVault
 
     vault = FileVault(vault_path or gold_dir.parent / "identity" / "vault.json")
@@ -749,8 +749,8 @@ def ingest(
     from dsm.pii.vault import candidate_id as derive_cid
 
     config = load_config()
-    # Persistent identity vault (AD-098): ingest WRITES here; a later `dsm match` process READS it
-    # to drive the query-time deterministic redact pass (AD-097). Defaults alongside gold under the
+    # Persistent identity vault (AD-102): ingest WRITES here; a later `dsm match` process READS it
+    # to drive the query-time deterministic redact pass (AD-101). Defaults alongside gold under the
     # same (gitignored) data root, so it follows --gold-dir in tests + prod.
     vault = FileVault(vault_path or gold_dir.parent / "identity" / "vault.json")
     identities: dict[str, tuple[str, str]] = {}

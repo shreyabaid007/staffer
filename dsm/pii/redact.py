@@ -69,7 +69,7 @@ class Redactor:
     content). Redacting each fragment with an independent :func:`redact` would assign clashing
     ``NER_j`` indices (fragment 2's ``NER_0`` ≠ fragment 1's), so a unified response
     de-anonymisation would be ambiguous. ``Redactor`` shares the mapping so the **same surface form
-    yields the same placeholder everywhere in the call** (AD-097 / R-09):
+    yields the same placeholder everywhere in the call** (AD-101 / R-09):
 
     - **Known-PII placeholders are index-stable by construction:** ``PII_i`` is keyed to position
       ``i`` in the longest-first-sorted ``known_pii`` list, independent of which fragment it is in.

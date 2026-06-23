@@ -1,4 +1,4 @@
-"""Tests for the real PseudonymisedLM boundary (c-003 T-002; AD-097). R-01/02/03/04/12.
+"""Tests for the real PseudonymisedLM boundary (c-003 T-002; AD-101). R-01/02/03/04/12.
 
 No live network: the wrapped provider call (``dspy.LM.__call__``) is monkeypatched to a fake that
 captures what it received and returns a canned response; NER is an injected fake. The boundary

@@ -73,12 +73,12 @@ def candidate_id(email: str) -> str:
 
 
 class Vault(Protocol):
-    """Identity store keyed by ``candidate_id`` (AD-068/AD-098).
+    """Identity store keyed by ``candidate_id`` (AD-068/AD-102).
 
     Maps a ``candidate_id`` to opaque references for the consultant's name and email, and back
     again. The fully hardened implementation (encryption at rest, retention limits, purge-by-id)
-    is Lane C's to land later; AD-098 adds the minimal **persistent** store + read path that the
-    query-time deterministic redact pass needs (AD-097).
+    is Lane C's to land later; AD-102 adds the minimal **persistent** store + read path that the
+    query-time deterministic redact pass needs (AD-101).
     """
 
     def put_identity(self, candidate_id: str, name: str, email: str) -> tuple[str, str]:
@@ -86,9 +86,9 @@ class Vault(Protocol):
         ...
 
     def get_identity(self, candidate_id: str) -> tuple[str, str] | None:
-        """Return ``(name, email)`` for a ``candidate_id``, or ``None`` if unknown (AD-098).
+        """Return ``(name, email)`` for a ``candidate_id``, or ``None`` if unknown (AD-102).
 
-        The query-time PII boundary (AD-097) reads this to obtain the candidate's *known*
+        The query-time PII boundary (AD-101) reads this to obtain the candidate's *known*
         identifiers for the deterministic redact-first pass + leak-scan. ``None`` (a missing id)
         is a normal, non-fatal outcome → an empty known-PII list → NER-only redaction.
         """
@@ -114,14 +114,14 @@ class InMemoryVault:
 
 
 class FileVault:
-    """Persistent, file-backed ``Vault`` keyed by ``candidate_id`` (AD-098).
+    """Persistent, file-backed ``Vault`` keyed by ``candidate_id`` (AD-102).
 
     Ingest **writes** identities here (from the supply row name/email it already redacts with);
     a later, separate ``dsm match`` process **reads** them back to drive the query-time
-    deterministic redact pass (AD-097). Backed by a single JSON file at ``path`` which **must be
+    deterministic redact pass (AD-101). Backed by a single JSON file at ``path`` which **must be
     gitignored** (the project ignores ``data/identity/``).
 
-    PLAINTEXT this slice — a deliberate, signed-off limitation (AD-098). **TODO(AD-068):** encrypt
+    PLAINTEXT this slice — a deliberate, signed-off limitation (AD-102). **TODO(AD-068):** encrypt
     at rest, add retention limits, and support purge-by-``candidate_id``. This store only persists
     at-rest what already lived in-process during ingest; it does not touch the *outbound* guarantee
     (redact-first + leak-scan), and identities never reach a provider unredacted.

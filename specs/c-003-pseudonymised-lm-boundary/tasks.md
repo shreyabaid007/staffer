@@ -5,19 +5,19 @@
 
 ---
 
-## T-000-ADR — Ratify AD-097/098 (GATE — stop for human sign-off)
+## T-000-ADR — Ratify AD-101/098 (GATE — stop for human sign-off)
 
-- Append **AD-097** (real PseudonymisedLM query-time boundary: call-context `known_pii`,
+- Append **AD-101** (real PseudonymisedLM query-time boundary: call-context `known_pii`,
   redact-first + NER + leak-scan over prompt+messages, de-anonymise response, unset-context
-  pass-through, CLI-level wiring keeps `dsm.match` pii-free) and **AD-098** (minimal persistent
+  pass-through, CLI-level wiring keeps `dsm.match` pii-free) and **AD-102** (minimal persistent
   `FileVault` + `get_identity`; plaintext now, encryption/retention/purge deferred to AD-068) to
-  `docs/decision.md`. Next IDs start at **AD-097** (verified: `decision.md` ends at AD-096).
+  `docs/decision.md`. Next IDs start at **AD-101** (verified: `decision.md` ends at AD-096).
 - Update `docs/tech.md` §PII: boundary is live; identity in a persistent (gitignored) vault;
   encryption still deferred.
 - `make check` GREEN (docs-only).
 - **STOP — human sign-off before proceeding.**
 
-**AC:** R-13. AD-097/098 in `decision.md`; `tech.md` §PII synced; `make check` green.
+**AC:** R-13. AD-101/098 in `decision.md`; `tech.md` §PII synced; `make check` green.
 
 ---
 
@@ -55,7 +55,7 @@
 
 - Add `get_identity(candidate_id) -> tuple[str,str] | None` to the `Vault` Protocol.
 - Implement `FileVault` (JSON file at a given path; upsert + flush on `put_identity`; `get_identity`
-  returns `None` for a missing id). Docstring states plaintext + deferred encryption (AD-098).
+  returns `None` for a missing id). Docstring states plaintext + deferred encryption (AD-102).
 - Keep `InMemoryVault`; add `get_identity` to it too.
 - Tests: put→get round-trip; **cross-instance** (new `FileVault` same path reads prior writes);
   missing id → `None`; blank inputs handled.

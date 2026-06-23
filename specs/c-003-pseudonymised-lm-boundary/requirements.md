@@ -2,7 +2,7 @@
 
 > EARS-form acceptance criteria. Each references a product invariant (`product.md` §Product
 > invariants), the PII golden rule (`CLAUDE.md` golden rule 3), and the relevant ADR
-> (AD-010/068/069 + the new AD-097/098). Machine-verifiable where possible.
+> (AD-010/068/069 + the new AD-101/098). Machine-verifiable where possible.
 >
 > **Slice scope (confirmed with human):** make `pii/PseudonymisedLM` a *real* anonymise →
 > leak-scan → call → de-anonymise boundary, backed by a *minimal persistent vault* read at
@@ -121,8 +121,8 @@ the real path end-to-end; it **SHALL** skip cleanly without keys.
 
 ## R-13 · Docs + decisions updated
 
-**WHEN** the slice is complete, `docs/decision.md` **SHALL** carry **AD-097** (real
-PseudonymisedLM query-time boundary) and **AD-098** (minimal persistent vault + `get_identity`),
+**WHEN** the slice is complete, `docs/decision.md` **SHALL** carry **AD-101** (real
+PseudonymisedLM query-time boundary) and **AD-102** (minimal persistent vault + `get_identity`),
 `docs/tech.md` §PII **SHALL** reflect the live boundary + persistent vault (encryption still
 deferred), and `docs/progress.C.md` **SHALL** be updated via `/handoff`. The shared index is
 refreshed only at merge to `main` (`/handoff-index`).

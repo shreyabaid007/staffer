@@ -54,7 +54,7 @@ and nothing persists identity across the ingest→query process boundary today).
 > consistent with the codebase (bronze/silver/gold/raw are all CLI options, not config) and keeps
 > tests hermetic for free — overriding `--gold-dir` to a tmp dir moves the vault with it. Config
 > carries only the behavioural `pii.ner_enabled` toggle, not the path.
-| `docs/decision.md` | AD-097, AD-098 | R-13 |
+| `docs/decision.md` | AD-101, AD-102 | R-13 |
 | `docs/tech.md` | §PII reflects live boundary + persistent vault | R-13 |
 
 **Unchanged on purpose:** `dsm/match/*` (stays `dsm.pii`-free — wiring is at the CLI); gold schema
@@ -177,7 +177,7 @@ which is exactly the vault key — no raw identity is needed by `dsm.match` to d
   is identity (cid→name/email), not the per-call placeholder map. Neither is ever logged
   (`tech.md`). Leak-scan/PIILeakError report counts, not values.
 - `FileVault` plaintext is a **known, signed-off limitation** (R-08): it lives gitignored under
-  `data/identity/`, and AD-098 records encryption/retention/purge as deferred to the AD-068
+  `data/identity/`, and AD-102 records encryption/retention/purge as deferred to the AD-068
   hardening slice. This does not weaken the *outbound* guarantee (redact-first + leak-scan); it
   only stores at-rest identity that previously lived in-process during ingest.
 - `dsm.match` stays import-clean of `dsm.pii` (R-11): the only new coupling is at the CLI
@@ -205,12 +205,12 @@ de-anonymised quote so `evidence-cited` still passes after restore).
 
 ## 8. ADRs to ratify (T-000-ADR — STOP for sign-off)
 
-- **AD-097 — Real PseudonymisedLM query-time boundary.** Call-context `known_pii` via a
+- **AD-101 — Real PseudonymisedLM query-time boundary.** Call-context `known_pii` via a
   `ContextVar` (`pii_context`); redact-first (vault-backed deterministic strip) + NER residual +
   outbound leak-scan over both `prompt` and `messages`; de-anonymise the response; **unset
   context = pass-through** (clarify, §7). Wiring lives at the CLI composition root so `dsm.match`
   stays `dsm.pii`-free. Closes the query/score leak; satisfies AD-010/069 at query time.
-- **AD-098 — Minimal persistent `FileVault` + `get_identity` read path.** Ingest persists
+- **AD-102 — Minimal persistent `FileVault` + `get_identity` read path.** Ingest persists
   cid→(name,email) to a gitignored plaintext JSON store; query reads it for redaction only.
   Adds `get_identity` to the `Vault` Protocol. **Encryption, retention limits, and purge-by-id
   are deferred to the AD-068 hardening slice** (recorded so it isn't re-litigated). Output stays

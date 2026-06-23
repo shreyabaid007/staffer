@@ -153,7 +153,7 @@ def evidence_cited(result: ShortlistResult) -> InvariantResult:
 
 
 # ---------------------------------------------------------------------------
-# 4. no-PII-leak (real anonymiser — AD-097)
+# 4. no-PII-leak (real anonymiser — AD-101)
 # ---------------------------------------------------------------------------
 
 
@@ -165,7 +165,7 @@ def no_pii_leak(
 ) -> InvariantResult:
     """No raw name/email reaches the provider seam inputs or output narratives.
 
-    Exercises the **real** anonymiser (AD-097): ``PseudonymisedLM`` now redacts (deterministic
+    Exercises the **real** anonymiser (AD-101): ``PseudonymisedLM`` now redacts (deterministic
     vault-backed strip — load-bearing — + NER residual) and leak-scans every outbound fragment
     before the provider sees it, so ``seam_inputs`` captured **after** redaction must be free of
     every ``known_pii`` string. The deterministic strip is the guarantee; NER is best-effort.

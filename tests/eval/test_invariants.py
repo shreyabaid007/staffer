@@ -247,7 +247,7 @@ class TestNoPiiLeak:
 
 @pytest.mark.eval_offline
 class TestNoPiiLeakRealAnonymiser:
-    """The real anonymiser (AD-097) strips a planted name before the provider sees it.
+    """The real anonymiser (AD-101) strips a planted name before the provider sees it.
 
     Unlike the cassette golden cases (which bypass PseudonymisedLM), this drives the actual
     PseudonymisedLM redaction path — candidate gold free-text carries a de-anonymised name, and

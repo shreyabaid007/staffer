@@ -1,4 +1,4 @@
-"""Query-time PII wiring at the CLI composition root (c-003 T-005; AD-097). R-05/R-11.
+"""Query-time PII wiring at the CLI composition root (c-003 T-005; AD-101). R-05/R-11.
 
 The score predictor is wrapped so each candidate's known identity (resolved from the vault by
 ``candidate_id`` = ``Candidate.email``) is active in :func:`pii_context` for the LLM call. These

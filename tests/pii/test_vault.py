@@ -1,6 +1,6 @@
 """Tests for identity tokenization + vault (a-002 T-001; AD-067/AD-068/AD-076).
 
-c-003 (T-003) adds ``get_identity`` to the Vault protocol + a persistent ``FileVault`` (AD-098):
+c-003 (T-003) adds ``get_identity`` to the Vault protocol + a persistent ``FileVault`` (AD-102):
 ingest writes, a later query process reads, to drive the query-time deterministic redact pass.
 """
 
@@ -85,7 +85,7 @@ def test_in_memory_vault_get_identity_round_trips() -> None:
     assert vault.get_identity("cid:unknown") is None
 
 
-# ── c-003 T-003: persistent FileVault (AD-098) ───────────────────────────────────────────────
+# ── c-003 T-003: persistent FileVault (AD-102) ───────────────────────────────────────────────
 
 
 def test_file_vault_put_then_get_round_trips(tmp_path: Path) -> None:
