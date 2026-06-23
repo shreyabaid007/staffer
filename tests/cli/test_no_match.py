@@ -13,10 +13,12 @@ from dsm.config import load_config
 from dsm.match.gates import filter_candidates
 from dsm.match.models import ScoreExtraction
 from dsm.models import (
+    AvailabilityState,
     Candidate,
     CandidateSource,
     ExclusionReason,
     FeedbackSignals,
+    FreeNow,
     Location,
     NoMatchResult,
     ProficiencyLevel,
@@ -57,13 +59,17 @@ def _cand(
     proficiency: ProficiencyLevel = ProficiencyLevel.ADVANCED,
     city: str = "Mumbai",
     free: date = _ONE_DAY_LATE,
+    free_now: bool = False,
 ) -> Candidate:
-    """A RollingOff candidate one day late, with an optional single skill (default java)."""
+    """A RollingOff candidate one day late (or FreeNow if ``free_now``), one optional skill."""
+    availability: AvailabilityState = (
+        FreeNow() if free_now else RollingOff(expected_date=free, confidence="high")
+    )
     return Candidate(
         email=email,
         name=email.split("@")[0].title(),
         location=Location(city=city),
-        availability=RollingOff(expected_date=free, confidence="high"),
+        availability=availability,
         skills=[Skill(name=skill, proficiency=proficiency)] if skill else [],
         feedback=FeedbackSignals(),
         source=CandidateSource.ROLLING_OFF,
@@ -126,19 +132,11 @@ def test_o_nm_4_gap_summaries_recomputed_and_human_readable() -> None:
     near_misses = build_near_misses(candidates, scorecard, exclusion_log)
     summaries = {nm.candidate_email: nm.gap_summary for nm in near_misses}
 
-    # AD-095: every ROLE-03 candidate holds java (the sole hard skill), so each pre-filter miss
-    # reports it clears hard skills — the availability misses are genuinely actionable.
-    assert (
-        summaries["sanjay@example.com"] == "available 1 day after deadline; clears all hard skills"
-    )
-    assert (
-        summaries["meera@example.com"]
-        == "available 31 days after deadline; clears all hard skills"
-    )
-    assert (
-        summaries["arjun@example.com"]
-        == "in Pune, not in onsite set for Mumbai; clears all hard skills"
-    )
+    # Every ROLE-03 candidate holds java (the sole hard skill), so all four are near-misses with
+    # plain negotiable-gap wording (AD-097: skill-clearers only; no skill suffix).
+    assert summaries["sanjay@example.com"] == "available 1 day after deadline"
+    assert summaries["meera@example.com"] == "available 31 days after deadline"
+    assert summaries["arjun@example.com"] == "in Pune, not in onsite set for Mumbai"
 
 
 def test_o_nm_1_rank_not_called_when_pool_is_empty(
@@ -164,10 +162,7 @@ def test_o_nm_5_no_match_result_renders_to_json() -> None:
     assert payload["reason"]
     assert len(payload["near_misses"]) == 3
     assert payload["near_misses"][0]["candidate_email"] == "sanjay@example.com"
-    assert (
-        payload["near_misses"][0]["gap_summary"]
-        == "available 1 day after deadline; clears all hard skills"
-    )
+    assert payload["near_misses"][0]["gap_summary"] == "available 1 day after deadline"
 
 
 def test_empty_candidate_list_produces_no_match_with_no_near_misses() -> None:
@@ -179,54 +174,51 @@ def test_empty_candidate_list_produces_no_match_with_no_near_misses() -> None:
     assert result.exclusion_log.exclusions == []
 
 
-# --- AD-095: hard-skill verdict on pre-skill-filter near-misses --------------------------------
+# --- AD-097: a near-miss must clear the hard skills (skill-failers are excluded) ---------------
 
 
-def _gaps(candidates: list[Candidate], scorecard: TargetProfileScorecard) -> dict[str, str]:
+def _near(candidates: list[Candidate], scorecard: TargetProfileScorecard) -> dict[str, str]:
+    """email → gap_summary for the near-misses (skill-failers are absent under AD-097)."""
     _, log = filter_candidates(candidates, scorecard)
     return {
         nm.candidate_email: nm.gap_summary for nm in build_near_misses(candidates, scorecard, log)
     }
 
 
-def test_ad095_availability_miss_with_skill_gap_reports_missing_skill() -> None:
-    """FR-1-AC-3: an availability miss also lacking a hard skill says so (shift won't help)."""
+def test_ad097_availability_miss_with_skill_gap_is_excluded() -> None:
+    """A date miss that also lacks a hard skill is NOT a near-miss — a shift wouldn't qualify."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
-    gaps = _gaps([_cand("nokia@example.com", skill="python")], scorecard)
-    assert (
-        gaps["nokia@example.com"]
-        == "available 1 day after deadline; also missing 1 hard skill: java"
-    )
-    assert "clears all hard skills" not in gaps["nokia@example.com"]
+    near = _near([_cand("nokia@example.com", skill="python")], scorecard)
+    assert near == {}  # excluded — fixing the date alone doesn't help
 
 
-def test_ad095_availability_miss_clearing_skills_is_actionable() -> None:
-    """FR-1-AC-2: an availability miss holding the hard skill is flagged as clearing skills."""
+def test_ad097_availability_miss_clearing_skills_is_a_clean_near_miss() -> None:
+    """A date miss that holds the hard skill is a near-miss, with plain wording (no suffix)."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
-    gaps = _gaps([_cand("yes@example.com", skill="java")], scorecard)
-    assert gaps["yes@example.com"] == "available 1 day after deadline; clears all hard skills"
+    near = _near([_cand("yes@example.com", skill="java")], scorecard)
+    assert near == {"yes@example.com": "available 1 day after deadline"}
 
 
-def test_ad095_location_miss_carries_skill_verdict() -> None:
-    """FR-2-AC-1: a location miss appends the same verdict suffix."""
+def test_ad097_location_miss_clearing_skills_is_a_clean_near_miss() -> None:
+    """A location miss holding the hard skill is a near-miss; a skill-failing one is not."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
-    # FreeNow + wrong city → location miss; holds java → clears.
-    cand = _cand("pune@example.com", skill="java", city="Pune")
-    gaps = _gaps([cand], scorecard)
-    assert (
-        gaps["pune@example.com"] == "in Pune, not in onsite set for Mumbai; clears all hard skills"
-    )
+    candidates = [
+        _cand("pune@example.com", skill="java", city="Pune"),  # clears → near-miss
+        _cand("pyhd@example.com", skill="python", city="Pune"),  # misses java → excluded
+    ]
+    near = _near(candidates, scorecard)
+    assert near == {"pune@example.com": "in Pune, not in onsite set for Mumbai"}
 
 
-def test_ad095_empty_hard_skills_reports_cleared() -> None:
-    """FR-5: with no hard requirement, every pre-filter miss reports it clears hard skills."""
+def test_ad097_empty_hard_skills_keeps_every_gate_miss() -> None:
+    """With no hard requirement, everyone clears → all negotiable-gate misses are near-misses."""
     scorecard = _java_scorecard([])
-    gaps = _gaps([_cand("any@example.com", skill="python")], scorecard)
-    assert gaps["any@example.com"] == "available 1 day after deadline; clears all hard skills"
+    near = _near([_cand("any@example.com", skill="python")], scorecard)
+    assert near == {"any@example.com": "available 1 day after deadline"}
 
 
-def test_ad095_below_proficiency_floor_counts_as_gap() -> None:
-    """Below-floor edge: holds the skill but below min_proficiency → not 'clears'."""
+def test_ad097_below_proficiency_floor_is_excluded() -> None:
+    """Below-floor edge: holds the skill but below min_proficiency → not a near-miss."""
     scorecard = _java_scorecard(
         [
             SkillRequirement(
@@ -235,24 +227,22 @@ def test_ad095_below_proficiency_floor_counts_as_gap() -> None:
         ]
     )
     cand = _cand("junior@example.com", skill="java", proficiency=ProficiencyLevel.BEGINNER)
-    gaps = _gaps([cand], scorecard)
-    assert "clears all hard skills" not in gaps["junior@example.com"]
-    assert "below required proficiency" in gaps["junior@example.com"]
+    assert _near([cand], scorecard) == {}
 
 
-def test_ad095_skill_clearing_availability_miss_ranks_first() -> None:
-    """FR-6-AC-1: at equal overshoot, the skill-clearing avail miss ranks above one with a gap."""
+def test_ad097_pure_hard_skill_miss_is_not_a_near_miss() -> None:
+    """A candidate in the right place + available, missing only a hard skill, is excluded too."""
     scorecard = _java_scorecard([SkillRequirement(name="java", depth=SkillDepth.HARD)])
-    candidates = [
-        _cand("gap@example.com", skill="python"),  # same overshoot, but misses java
-        _cand("clear@example.com", skill="java"),  # clears
-    ]
-    _, log = filter_candidates(candidates, scorecard)
-    order = [nm.candidate_email for nm in build_near_misses(candidates, scorecard, log)]
-    assert order == ["clear@example.com", "gap@example.com"]
+    # FreeNow + right city → clears both gates; lacks java → HARD_SKILL_MISMATCH.
+    cand = _cand("freenow@example.com", skill="python", city="Mumbai", free_now=True)
+    result = run_match([cand], scorecard, score_predict=_predict, config=_CONFIG)
+    assert isinstance(result, NoMatchResult)
+    assert result.near_misses == []  # not a near-miss …
+    assert [e.candidate_email for e in result.exclusion_log.exclusions] == ["freenow@example.com"]
+    assert result.exclusion_log.exclusions[0].reason is ExclusionReason.HARD_SKILL_MISMATCH
 
 
-def test_ad095_build_near_misses_is_deterministic() -> None:
+def test_ad097_build_near_misses_is_deterministic() -> None:
     """Determinism: same input → identical near-misses (set + order + gap_summary)."""
     candidates, scorecard = role_03()
     _, log = filter_candidates(candidates, scorecard)

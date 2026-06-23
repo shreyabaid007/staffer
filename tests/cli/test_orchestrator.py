@@ -102,9 +102,10 @@ class TestRunMatch:
         )
         assert isinstance(result, NoMatchResult)
         assert "hard-skill" in result.reason.lower()
-        nm = result.near_misses[0]
-        assert nm.candidate_email == "cid:a"
-        assert "kotlin" in nm.gap_summary  # hard-skill gap recomputed (AD-088)
+        # AD-097: a hard-skill failure is not a near-miss (no negotiable fix), but it is still
+        # recorded in the exclusion log (the transparency layer).
+        assert result.near_misses == []
+        assert [e.candidate_email for e in result.exclusion_log.exclusions] == ["cid:a"]
 
     def test_freshness_warn_flags_every_assessment(self) -> None:
         verdict = FreshnessVerdict(action="warn", staleness_days=5, message="stale-but-usable")

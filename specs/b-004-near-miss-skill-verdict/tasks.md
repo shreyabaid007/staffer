@@ -4,6 +4,12 @@
 > sign-off on this spec before T-001. **T-000 ratifies AD-096, a frozen-contract amendment
 > (AD-060) — it needs explicit team sign-off at the gate.**
 
+> **Post-sign-off rework (AD-097).** After Part 1 landed, the labelling approach (AD-095) was
+> replaced by **filtering**: skill-failers are excluded from near-misses, not annotated. AD-097
+> supersedes AD-095 (and AD-088's hard-skill near-misses). Part 1's tasks below describe the
+> original labelling; the shipped behaviour is the AD-097 filter (one follow-up commit reworked
+> `build_near_misses` + tests; decision.md carries AD-097).
+
 ## T-000 — ADRs
 
 - [ ] **T-000-ADR** — Append **AD-095** (skill verdict; no model change) and **AD-096**

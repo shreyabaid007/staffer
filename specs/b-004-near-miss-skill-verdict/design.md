@@ -9,12 +9,12 @@
 
 | File | Change | Part |
 |------|--------|------|
-| `dsm/cli/commands.py` | `build_near_misses` — render hard-skill verdict + availability sub-ordering | 1 |
+| `dsm/cli/commands.py` | `build_near_misses` — keep only availability/location misses that clear hard skills (AD-097); plain gap wording; AD-063b ordering | 1 |
 | `dsm/models.py` | Add `NearMiss.selection_rationale: str \| None = None` (additive, optional) | 2 |
 | `dsm/match/score.py` *(or new `dsm/match/near_miss.py`)* | `NearMissRationalePredictor` type alias + `make_near_miss_rationale_predictor(lm)` (DSPy `Signature` over `PseudonymisedLM`) + `explain_near_miss(...)` applier (skip-on-error) | 2 |
 | `dsm/cli/commands.py` | `run_match` / `_no_match` — accept + thread the rationale predictor; generate rationale for the capped ≤3 near-misses; `_match_role` builds the live predictor at the CLI edge | 2 |
 | `config/prompts/*` + `config/default.yaml` | New `near_miss_rationale` prompt (loaded via `load_prompt`) | 2 |
-| `docs/decision.md` | Append **AD-095**, **AD-096** (T-000) | — |
+| `docs/decision.md` | Append **AD-095/AD-096** (T-000); **AD-097** supersedes AD-095/AD-088 | — |
 | `tests/cli/test_no_match.py` | New cases (FR-1, FR-2, FR-5, FR-6, FR-9, FR-10) | 1+2 |
 
 No change to: `dsm/match/gates.py`, `dsm/index/retrieve.py`, the exact filter, scoring math,
@@ -49,10 +49,10 @@ Query-time, no-match path only (`run_match` → `_no_match` → `build_near_miss
 Python (no I/O, no LLM). Part 2 makes ≤3 LLM calls through `PseudonymisedLM` after the cap, only
 when a no-match occurs.
 
-## Algorithm — Part 1: skill verdict (revised `build_near_misses`)
+## Algorithm — Part 1: clear-hard-skills filter (revised `build_near_misses`, AD-097)
 
-`build_near_misses(candidates, scorecard, exclusion_log)` already holds everything it needs:
-the candidate objects (`by_email`) and `scorecard.hard_depth_skills`.
+`build_near_misses(candidates, scorecard, exclusion_log)` already holds everything it needs: the
+candidate objects (`by_email`) and `scorecard.hard_depth_skills`.
 
 1. **Compute the skill verdict once, for the pre-skill-filter near-miss candidates.** Collect the
    `Candidate` objects behind every `AVAILABILITY_MISMATCH` / `LOCATION_MISMATCH` exclusion and run
@@ -74,41 +74,27 @@ the candidate objects (`by_email`) and `scorecard.hard_depth_skills`.
    ```
 
    `clears_skills` membership is the single source of truth for "would clear hard skills" — it
-   honours the proficiency floor and no-adjacency rule exactly (FR-3-AC-1). The dropped-exclusions
-   half of the tuple is discarded (we only need the boolean per candidate). When
-   `hard_depth_skills` is empty, `exact_hard_skill_filter` passes everyone, so every candidate is
-   in `clears_skills` (FR-5).
+   honours the proficiency floor and no-adjacency rule exactly (FR-3-AC-1). When `hard_depth_skills`
+   is empty, the filter passes everyone, so every gate miss clears (FR-5).
 
-2. **Render the verdict into `gap_summary`.** Per exclusion:
-   - `AVAILABILITY_MISMATCH`: keep the existing `"available {overshoot} day(s) after deadline"`
-     prefix, then append:
-     - cleared → `"; clears all hard skills"`
-     - gap → `"; also missing {n} hard skill(s): {names}"`
-   - `LOCATION_MISMATCH`: keep `"in {city}, not in onsite set for {role_city}"`, then append the
-     same `"; clears all hard skills"` / `"; also missing …"` suffix.
-   - `HARD_SKILL_MISMATCH`: **unchanged** (FR-7).
+2. **Keep only clearers; emit plain gap wording.** Per exclusion:
+   - If `candidate.email not in clears_skills` → **skip** (not a near-miss; AD-097). This drops both
+     the "double miss" (gate + skill gap) and the below-floor case.
+   - `AVAILABILITY_MISMATCH` (clearer): `gap_summary = "available {overshoot} day(s) after
+     deadline"`; `sort_key = (0, overshoot, email)`.
+   - `LOCATION_MISMATCH` (clearer): `gap_summary = "in {city}, not in onsite set for {role_city}"`;
+     `sort_key = (1, 0, email)`.
+   - `HARD_SKILL_MISMATCH`: **skip** — never a near-miss (FR-7). (These candidates aren't in
+     `clears_skills` either, since the filter only ran on gate misses, so the membership check
+     already excludes them; the branch is explicit for clarity.)
 
-   The missing-skill **names** are recomputed structurally (membership against
-   `scorecard.hard_depth_skills`), exactly as the existing `HARD_SKILL_MISMATCH` branch already
-   does (`held = {s.name for s in candidate.skills}` → sorted missing). `Exclusion.detail` is never
-   read (FR-4). Edge note: a candidate present-but-below-floor is in the "gap" bucket via
-   `clears_skills` yet contributes no *missing-by-membership* name; render `"; also missing hard
-   skills (below required proficiency)"` (n via the floor check) — or, simplest and still honest,
-   fall back to the count from `clears_skills` and the membership names, labelling proficiency
-   shortfalls generically. (See "Below-floor edge".)
+   `Exclusion.detail` is never read (FR-4). No skill suffix — every surfaced near-miss clears skills
+   by construction, so the verdict is implicit.
 
-3. **Ordering** — widen every sort key to a uniform 4-tuple
-   `(type_rank, sub_rank, metric, candidate_email)`:
-
-   | Near-miss | sort key | rationale |
-   |-----------|----------|-----------|
-   | availability, clears skills | `(0, 0, overshoot, email)` | actionable — shift date → eligible |
-   | availability, skill gap     | `(0, 1, overshoot, email)` | date shift alone insufficient (FR-6-AC-1) |
-   | location                    | `(1, 0, 0, email)`        | structural (AD-063b); skill text informational |
-   | hard-skill                  | `(2, 0, missing_count, email)` | AD-088, unchanged |
-
-   Cross-type order (availability < location < hard-skill) and the top-3 cap are unchanged
-   (FR-6-AC-2). Sorting a 4-tuple is still a plain `ranked.sort(key=…)`.
+3. **Ordering (AD-063b, unchanged).** Three-tuple `(type_rank, metric, candidate_email)`:
+   availability `(0, overshoot, email)` then location `(1, 0, email)`; plain `ranked.sort(...)`.
+   The top-3 cap (AD-063d) is applied by the caller. No skill-based sub-rank (the AD-095 4-tuple is
+   reverted) — there are no skill-gap near-misses left to demote.
 
 ## Algorithm — Part 2: selection rationale (LLM, top-3 only)
 
@@ -158,55 +144,50 @@ today. The rationale is applied **after** the AD-063d cap, so we only ever pay f
 
 - **FreeNow** candidates never produce an `AVAILABILITY_MISMATCH` (the gate always passes them),
   so they never reach the availability branch — no special-casing needed.
-- **Empty `hard_depth_skills`** → everyone clears (FR-5); both availability and location near
-  misses read `"… ; clears all hard skills"`. (Arguably noise when there is no hard requirement;
-  acceptable and honest. If undesirable, omit the suffix when `hard_depth_skills` is empty — call
-  it out at review.)
+- **Empty `hard_depth_skills`** → everyone clears (FR-5); all availability/location misses are
+  near-misses with plain gap wording. Correct: with no hard requirement, the only gaps are the
+  negotiable ones.
 - **Below-floor edge** — `exact_hard_skill_filter` drops a candidate who holds the skill but below
-  `min_proficiency`. `clears_skills` reflects this correctly (they're in the gap bucket), but the
-  membership-only name recompute won't list that skill. Keep the verdict honest: count from the
-  authoritative filter; if names can't be fully enumerated by membership, use the generic
-  "below required proficiency" phrasing. Covered by an eval case.
-- **Location near-miss with no role city** — existing wording uses `"required city"` fallback;
-  the appended skill suffix is independent of city and unaffected.
+  `min_proficiency`; they are not in `clears_skills`, so AD-097 **excludes** them from near-misses
+  (a below-floor skill is still a non-negotiable gap). Covered by an eval case.
+- **Pure hard-skill miss** — a candidate who cleared location + availability but lacks a hard skill
+  has reason `HARD_SKILL_MISMATCH`; not in `clears_skills` (the filter only ran on gate misses) →
+  excluded from near-misses, recorded in the `exclusion_log`. A no-match where *everyone* fails
+  skills → empty near-misses (correct; `reason` + log explain it).
+- **Location near-miss with no role city** — wording uses the `"required city"` fallback;
+  unaffected.
 - **Exclusion without a matching candidate** — already skipped defensively (`by_email.get` →
   `continue`); the pre-filter collection uses the same guard.
 
 ## Reuse / no-duplication
 
-`build_near_misses` already imports `exact_hard_skill_filter` and `EligiblePool` is already a
-public model — no new import surface beyond `EligiblePool` (and it may already be imported).
-The verdict is computed by the **same** function the real pipeline uses, so the no-match
-explanation cannot drift from the gate (Golden rule: one source of truth). No private symbol in
-`retrieve.py` is touched, so `dsm/index` is unchanged (FR-8).
+`build_near_misses` already imports `exact_hard_skill_filter`; `EligiblePool` was added to the
+imports. The verdict is computed by the **same** function the real pipeline uses, so the near-miss
+set cannot drift from the gate (Golden rule: one source of truth). No private symbol in
+`retrieve.py` is touched, so `dsm/index` is unchanged.
 
-## Eval / test cases to add (`tests/cli/test_no_match.py`)
+## Eval / test cases (`tests/cli/test_no_match.py`, `tests/cli/test_orchestrator.py`)
 
-1. **FR-1-AC-2** — availability miss, candidate holds all hard skills → `gap_summary` contains
-   `"clears all hard skills"`.
-2. **FR-1-AC-3** — availability miss, candidate missing a hard skill → `gap_summary` contains
-   `"also missing"` + the skill name; **not** `"clears all hard skills"`.
-3. **FR-2-AC-1** — location miss carries the same verdict suffix.
-4. **FR-5** — empty `hard_depth_skills` → availability miss reads `"clears all hard skills"`.
-5. **FR-6-AC-1** — two availability misses, equal overshoot, one clears / one has a gap → the
-   skill-clearing one is ordered first.
-6. **FR-6-AC-2 / FR-7** — cross-type order (availability < location < hard-skill) and the existing
-   `test_no_match` ordering assertions still pass; top-3 cap unchanged.
-7. **Below-floor** — candidate holds a hard skill below `min_proficiency` → counted as a gap, not
-   "clears all hard skills".
-8. **Determinism** — same input → identical near-miss **set + ordering + `gap_summary`** (re-run
-   equality on the deterministic fields), mirroring the existing invariant. `selection_rationale`
-   is excluded from the equality (LLM prose, like the shortlist narrative).
-9. **FR-9-AC-2** — with a fake predictor that records its calls, a no-match with >3 near-misses
-   invokes the predictor exactly 3 times (only the shown ones get a rationale).
+1. **FR-1-AC-2** — availability miss, holds all hard skills → near-miss with plain
+   `"available N day(s) after deadline"` (no suffix).
+2. **FR-1-AC-3** — availability miss, missing a hard skill → **absent** from near-misses.
+3. **FR-2-AC-1** — location miss that clears is a near-miss; one that fails skills is absent.
+4. **FR-5** — empty `hard_depth_skills` → the gate miss is a near-miss.
+5. **FR-7** — pure `HARD_SKILL_MISMATCH` (cleared both gates, lacks a skill) → empty near-misses,
+   candidate still in the `exclusion_log` (`test_orchestrator.py`).
+6. **FR-6 / regression** — ROLE-03 (all hold java) still yields ordered `[sanjay, meera, arjun]`
+   with plain wording; cross-type order + top-3 cap unchanged.
+7. **Below-floor** — holds a hard skill below `min_proficiency` → **absent** from near-misses.
+8. **Determinism** — same input → identical near-miss list (re-run equality). `selection_rationale`
+   is LLM prose, scoped out of the determinism guarantee (like the shortlist narrative).
+9. **FR-9-AC-2** — fake recording predictor: a no-match with >3 near-misses invokes it exactly 3×.
 10. **FR-9-AC-4** — a predictor that raises → those near-misses returned with
     `selection_rationale=None`; the no-match still succeeds.
-11. **FR-10** — the fake predictor asserts its inputs contain no `name`/`email` (only skills,
-    feedback, gap); confirms the rationale path is PII-free by construction.
+11. **FR-10** — the predictor-builder unit test (`tests/match/test_score.py`) asserts the LM sees
+    only skills/feedback/role/gap — never `name`/`email` (PII-free by construction).
 
-## ADRs (appended to `docs/decision.md` at T-000)
+## ADRs (in `docs/decision.md`)
 
-**AD-095** (skill verdict; no frozen-contract change) and **AD-096** (`NearMiss.selection_rationale`
-field + LLM seam; AD-060 amendment, requires sign-off) as stated in `requirements.md`. Both cite
-`specs/b-004-near-miss-skill-verdict/`. AD-095 refines AD-063b ordering + AD-088 actionability;
-AD-096 parallels AD-092 (a prior additive frozen-enum amendment ratified mid-slice).
+**AD-095** (skill verdict — *superseded by AD-097*), **AD-096** (`NearMiss.selection_rationale`
+field + LLM seam; AD-060 amendment), and **AD-097** (a near-miss must clear hard skills; supersedes
+AD-095 + AD-088's near-miss inclusion). All cite `specs/b-004-near-miss-skill-verdict/`.
