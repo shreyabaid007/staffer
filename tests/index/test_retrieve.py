@@ -6,7 +6,7 @@ Deterministic, LLM-free.
 
 from __future__ import annotations
 
-from dsm.index.retrieve import exact_hard_skill_filter
+from dsm.index.retrieve import exact_hard_skill_filter, hard_skill_gap
 from dsm.models import (
     Candidate,
     CandidateSource,
@@ -140,3 +140,18 @@ def test_multiple_hard_skills_all_required() -> None:
     fails, excl = exact_hard_skill_filter(_pool(cand), [_hard("kotlin"), _hard("aws")])
     assert fails.candidates == []
     assert "aws" in excl[0].detail
+
+
+def test_hard_skill_gap_structured_missing_and_below_floor() -> None:
+    """AD-100: hard_skill_gap returns structured missing + below-floor; None when fully cleared."""
+    cand = _candidate(
+        "g@x.com",
+        [("kotlin", ProficiencyLevel.INTERMEDIATE), ("kafka", ProficiencyLevel.ADVANCED)],
+    )
+    gap = hard_skill_gap(cand, [_hard("kotlin", ProficiencyLevel.EXPERT), _hard("aws")])
+    assert gap is not None
+    assert gap.missing == ["aws"]
+    assert gap.below_floor == ["kotlin (intermediate < expert)"]
+    assert gap.count == 2
+    # Holding every hard skill at/above floor → no gap.
+    assert hard_skill_gap(cand, [_hard("kafka")]) is None

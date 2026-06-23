@@ -13,16 +13,27 @@ from dsm.cli.store import GoldCandidateStore
 from dsm.config import load_config
 from dsm.index.embed_client import EmbedClient
 from dsm.index.milvus_store import MilvusIndexStore
-from dsm.index.retrieve import exact_hard_skill_filter, hybrid_recall, rerank
+from dsm.index.retrieve import (
+    exact_hard_skill_filter,
+    hard_skill_gap,
+    hybrid_recall,
+    rerank,
+)
 from dsm.index.text_builder import build_role_query_passage
 from dsm.match.clarify import clarify_role
 from dsm.match.demand import parse_demand
 from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict, check_freshness
 from dsm.match.gates import effective_free_date, filter_candidates
 from dsm.match.rank import rank_assessments
-from dsm.match.score import ScorePredictor, score_candidate
+from dsm.match.score import (
+    NearMissRationalePredictor,
+    ScorePredictor,
+    explain_near_misses,
+    score_candidate,
+)
 from dsm.models import (
     Candidate,
+    EligiblePool,
     Exclusion,
     ExclusionLog,
     ExclusionReason,
@@ -45,18 +56,29 @@ def build_near_misses(
     scorecard: TargetProfileScorecard,
     exclusion_log: ExclusionLog,
 ) -> list[NearMiss]:
-    """Build ordered near-misses from structured data (AD-063b/c; AD-088).
+    """Build ordered near-misses from structured data (AD-063b/c; AD-099).
 
-    Gaps are recomputed from the ``Candidate`` + ``TargetProfileScorecard`` objects — the
-    human-readable ``Exclusion.detail`` is never parsed (O-NM-4). Ordering: **availability**
-    misses first (actionable; smallest overshoot in days), then the structural misses —
-    **location** (AD-086), then **hard-skill** (AD-088; fewest missing hard skills first) — each
-    tie-broken by ``candidate_email``. The full ordered list is returned; the orchestrator applies
-    the top-3 cap (AD-063d).
+    A near-miss is a candidate **one fixable decision** from qualifying: it fails only a negotiable
+    gate (availability or location) **and** clears the non-negotiable hard skills (AD-099). A
+    candidate missing a hard skill is *not* a near-miss — hard skills are exact-match with no
+    adjacency (AD-033/072), so no date or location change rescues them; they stay fully recorded in
+    the ``exclusion_log`` (the transparency layer), just not surfaced here. This **supersedes
+    AD-088** (which listed hard-skill misses as near-misses) and **AD-097** (which instead labelled
+    the skill gap in ``gap_summary``).
+
+    Candidates excluded by a gate were never skill-checked (the exact filter runs only on gate
+    survivors), so the availability/location misses are re-run through ``exact_hard_skill_filter``
+    (no adjacency AD-033, proficiency floor AD-072 — so the verdict can't drift from the real gate)
+    and only those that clear are kept. Gaps are recomputed from the ``Candidate`` +
+    ``TargetProfileScorecard`` objects — ``Exclusion.detail`` is never parsed (O-NM-4).
+
+    Ordering (AD-063b): **availability** misses first (smallest overshoot in days), then
+    **location** misses; each tie-broken by ``candidate_email``. The full ordered list is returned;
+    the orchestrator applies the top-3 cap (AD-063d).
 
     Args:
-        candidates: the original candidate set (to look up name/location/availability).
-        scorecard: the clarified role (provides the availability deadline).
+        candidates: the original candidate set (to look up name/location/availability/skills).
+        scorecard: the clarified role (provides the availability deadline + hard skills).
         exclusion_log: the gate exclusions to turn into near-misses.
 
     Returns:
@@ -65,11 +87,31 @@ def build_near_misses(
     deadline = scorecard.start_date + timedelta(days=scorecard.availability_window_days)
     by_email = {candidate.email: candidate for candidate in candidates}
 
+    # Which availability/location misses also clear the hard skills (AD-099)? They were dropped by
+    # a gate before the exact filter ran, so re-run the real filter and keep only the clearers as
+    # near-misses — the rest are not "one decision away" and belong only in the exclusion log.
+    pre_filter = [
+        by_email[exclusion.candidate_email]
+        for exclusion in exclusion_log.exclusions
+        if exclusion.reason
+        in (ExclusionReason.AVAILABILITY_MISMATCH, ExclusionReason.LOCATION_MISMATCH)
+        and exclusion.candidate_email in by_email
+    ]
+    cleared_pool, _ = exact_hard_skill_filter(
+        EligiblePool(candidates=pre_filter, scorecard_id=scorecard.role_id),
+        scorecard.hard_depth_skills,
+    )
+    clears_skills = {candidate.email for candidate in cleared_pool.candidates}
+
     ranked: list[tuple[tuple[int, int, str], NearMiss]] = []
     for exclusion in exclusion_log.exclusions:
         candidate = by_email.get(exclusion.candidate_email)
         if candidate is None:
             continue  # exclusion without a matching candidate — skip defensively
+        # AD-099: only availability/location misses that clear hard skills are near-misses;
+        # hard-skill misses (and gate misses that also fail skills) are not.
+        if candidate.email not in clears_skills:
+            continue
 
         if exclusion.reason is ExclusionReason.AVAILABILITY_MISMATCH:
             free_date = effective_free_date(candidate.availability)
@@ -77,14 +119,7 @@ def build_near_misses(
             day_word = "day" if overshoot == 1 else "days"
             gap_summary = f"available {overshoot} {day_word} after deadline"
             sort_key = (0, overshoot, candidate.email)
-        elif exclusion.reason is ExclusionReason.HARD_SKILL_MISMATCH:
-            held = {skill.name for skill in candidate.skills}
-            missing = sorted(h.name for h in scorecard.hard_depth_skills if h.name not in held)
-            count = len(missing)
-            skill_word = "skill" if count == 1 else "skills"
-            gap_summary = f"missing {count} hard {skill_word}: {', '.join(missing)}"
-            sort_key = (2, count, candidate.email)  # structural, below availability + location
-        else:  # LOCATION_MISMATCH
+        else:  # LOCATION_MISMATCH (HARD_SKILL_MISMATCH never reaches here — excluded above)
             cand_city = candidate.location.city or "no base city"
             role_city = scorecard.location.city or "required city"
             gap_summary = f"in {cand_city}, not in onsite set for {role_city}"
@@ -119,17 +154,81 @@ def _config_snapshot(config: dict[str, Any], freshness: FreshnessVerdict | None)
     }
 
 
+def build_closest_on_skills(
+    candidates: list[Candidate],
+    scorecard: TargetProfileScorecard,
+    exclusion_log: ExclusionLog,
+) -> list[NearMiss]:
+    """Build the 'closest on skills' list (AD-100) — the skill-axis mirror of near-misses.
+
+    Candidates whose exclusion reason is ``HARD_SKILL_MISMATCH`` cleared **both** gates (the exact
+    filter runs only on gate survivors) and failed only on hard skills. Surface them ranked by
+    fewest hard-skill gaps (missing + below-floor) first, then ``candidate_email``. The gap comes
+    from the shared ``hard_skill_gap`` helper — the same logic the real filter uses (AD-072/033, no
+    adjacency) — so this can't drift; ``Exclusion.detail`` is never parsed (AD-063c). Returns the
+    full ordered list (caller caps + rationale-annotates). Disjoint from ``build_near_misses`` by
+    construction (each candidate carries exactly one exclusion reason).
+    """
+    by_email = {candidate.email: candidate for candidate in candidates}
+    ranked: list[tuple[tuple[int, str], NearMiss]] = []
+    for exclusion in exclusion_log.exclusions:
+        if exclusion.reason is not ExclusionReason.HARD_SKILL_MISMATCH:
+            continue
+        candidate = by_email.get(exclusion.candidate_email)
+        if candidate is None:
+            continue  # exclusion without a matching candidate — skip defensively
+        gap = hard_skill_gap(candidate, scorecard.hard_depth_skills)
+        if gap is None:
+            continue  # defensive — a HARD_SKILL_MISMATCH always has a gap
+        parts: list[str] = []
+        if gap.missing:
+            skill_word = "skill" if len(gap.missing) == 1 else "skills"
+            parts.append(f"missing {len(gap.missing)} hard {skill_word}: {', '.join(gap.missing)}")
+        if gap.below_floor:
+            parts.append("below required proficiency: " + ", ".join(gap.below_floor))
+        ranked.append(
+            (
+                (gap.count, candidate.email),  # fewest gaps first, then email (AD-100)
+                NearMiss(
+                    candidate_email=candidate.email,
+                    name=candidate.name,
+                    reason=exclusion.reason.value,
+                    gap_summary="; ".join(parts),
+                ),
+            )
+        )
+
+    ranked.sort(key=lambda item: item[0])
+    return [near_miss for _, near_miss in ranked]
+
+
 def _no_match(
     scorecard: TargetProfileScorecard,
     candidates: list[Candidate],
     exclusions: list[Exclusion],
     reason: str,
+    near_miss_predict: NearMissRationalePredictor | None = None,
 ) -> NoMatchResult:
-    """Assemble a ``NoMatchResult`` with ordered, top-3-capped near-misses (AD-063b/c/d)."""
+    """Assemble a ``NoMatchResult``: top-3 near-misses + closest-on-skills (AD-063/097/098).
+
+    ``near_misses`` (AD-099): clears hard skills, one negotiable gate away. ``closest_on_skills``
+    (AD-100): cleared both gates, only a hard skill short. When a rationale predictor is injected,
+    attach an LLM ``selection_rationale`` (AD-098) to the shown ≤3 of **each** list — after the
+    cap, so we never explain entries beyond the top-3.
+    """
     log = ExclusionLog(exclusions=exclusions)
-    near_misses = build_near_misses(candidates, scorecard, log)
+    near = build_near_misses(candidates, scorecard, log)[:3]
+    closest = build_closest_on_skills(candidates, scorecard, log)[:3]
+    if near_miss_predict is not None:
+        by_email = {candidate.email: candidate for candidate in candidates}
+        near = explain_near_misses(near, by_email, scorecard, near_miss_predict)
+        closest = explain_near_misses(closest, by_email, scorecard, near_miss_predict)
     return NoMatchResult(
-        role_id=scorecard.role_id, reason=reason, near_misses=near_misses[:3], exclusion_log=log
+        role_id=scorecard.role_id,
+        reason=reason,
+        near_misses=near,
+        closest_on_skills=closest,
+        exclusion_log=log,
     )
 
 
@@ -166,6 +265,7 @@ def run_match(
     score_predict: ScorePredictor,
     config: dict[str, Any],
     freshness: FreshnessVerdict | None = None,
+    near_miss_predict: NearMissRationalePredictor | None = None,
 ) -> ShortlistResult | NoMatchResult:
     """The query-time spine (§4/§10): gate → exact filter → recall → rerank → score → rank.
 
@@ -184,6 +284,8 @@ def run_match(
         score_predict: the injected LLM score seam (§6.8).
         config: runtime config (weights, ranking.top_k, index.recall/rerank, adjacency_map).
         freshness: the run's verdict; a ``warn`` is threaded into scoring to flag every assessment.
+        near_miss_predict: optional LLM seam for the no-match path — attaches a
+            ``selection_rationale`` to the shown near-misses (AD-098); ``None`` leaves them bare.
 
     Returns:
         A ``ShortlistResult`` (≥1 scored candidate) or a ``NoMatchResult`` (empty post-gate pool).
@@ -195,6 +297,7 @@ def run_match(
             candidates,
             gate_exclusions.exclusions,
             "No candidates passed the eligibility gates.",
+            near_miss_predict,
         )
 
     filtered_pool, hard_exclusions = exact_hard_skill_filter(
@@ -203,7 +306,11 @@ def run_match(
     all_exclusions = gate_exclusions.exclusions + hard_exclusions
     if not filtered_pool.candidates:
         return _no_match(
-            scorecard, candidates, all_exclusions, "No candidates cleared the hard-skill filter."
+            scorecard,
+            candidates,
+            all_exclusions,
+            "No candidates cleared the hard-skill filter.",
+            near_miss_predict,
         )
 
     ordered = _retrieve_and_rerank(
@@ -242,6 +349,18 @@ def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma:
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
     return make_score_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
+
+
+def _build_near_miss_rationale_predictor(  # pragma: no cover - exercised only live
+    config: dict[str, Any],
+) -> NearMissRationalePredictor:
+    """Build the live near-miss rationale predictor over PseudonymisedLM (live; tests patch)."""
+    from dsm.match.score import make_near_miss_rationale_predictor
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    return make_near_miss_rationale_predictor(
+        PseudonymisedLM(model=config["models"]["reasoning_llm"])
+    )
 
 
 def _build_query_store(
@@ -306,6 +425,7 @@ def _match_role(
         score_predict=_build_score_predictor(config),
         config=config,
         freshness=verdict if verdict is not None and verdict.action == WARN else None,
+        near_miss_predict=_build_near_miss_rationale_predictor(config),
     )
 
 
@@ -326,8 +446,22 @@ def _lineage(result: ShortlistResult | NoMatchResult) -> dict[str, Any]:
             "reason": result.reason,
             "exclusions": _exclusion_lines(result),
             "near_misses": [
-                {"candidate": nm.candidate_email, "reason": nm.reason, "gap": nm.gap_summary}
+                {
+                    "candidate": nm.candidate_email,
+                    "reason": nm.reason,
+                    "gap": nm.gap_summary,
+                    "rationale": nm.selection_rationale,
+                }
                 for nm in result.near_misses
+            ],
+            "closest_on_skills": [
+                {
+                    "candidate": nm.candidate_email,
+                    "reason": nm.reason,
+                    "gap": nm.gap_summary,
+                    "rationale": nm.selection_rationale,
+                }
+                for nm in result.closest_on_skills
             ],
         }
 
