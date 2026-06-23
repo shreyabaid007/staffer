@@ -74,7 +74,7 @@ def test_explain_shortlist_lineage(
     lineage = json.loads(capsys.readouterr().out)
     assert lineage["outcome"] == "shortlist"
     assert lineage["role_id"] == "ROLE-Q1"
-    assert lineage["recall_mode"] == "exhaustive"  # recall OFF by default (AD-089)
+    assert lineage["recall_mode"] == "hybrid"  # recall ON by default (config enabled: true)
     assert lineage["total_eligible"] == 1
     assert "config_snapshot" in lineage
     [line] = lineage["shortlist"]

@@ -19,7 +19,7 @@ The LLM is bounded to typed pre/post steps (clarify, score). Retrieval is determ
 - **PII:** Presidio + spaCy `en_core_web_lg` + deterministic redact-first + outbound leak-scan, **local on the orchestrator**; encrypted identity vault (name/email ↔ `candidate_id`, AD-068/AD-069).
 - **Vector store:** Milvus Lite (embedded), hybrid dense + BM25 + RRF.
 - **Ingestion storage:** content-addressed **bronze/silver/gold** layers (local FS → object storage), JSONL→SQLite manifest, content+version derivation cache (AD-066).
-- **Eval:** Promptfoo (signature-level) + DeepEval (end-to-end + invariants).
+- **Eval:** Three-tier pytest harness (AD-093): **Tier 1** code-based invariant evaluators (deterministic, cassette LM, `make check`); **Tier 2** signature regression (`clarify`/`score` shape pinning, `make eval`); **Tier 3** live smoke + cassette drift guard (real LLM, key-gated, `make eval`). No LLM judge for objective invariants. Narrative-faithfulness judge deferred (needs labelled validation data).
 - **CLI:** Typer.
 
 ## Hard technical rules

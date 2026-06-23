@@ -1,0 +1,45 @@
+{
+  "key": {
+    "case_id": "ROLE-01",
+    "signature": "score",
+    "prompt_hash": "7a2fdda1082619ad",
+    "model_version": "openrouter/anthropic/claude-sonnet-4-6"
+  },
+  "responses": {
+    "karan@example.com": {
+      "skill_match_score": 0.9,
+      "feedback_score": 0.8,
+      "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+      "evidence": [
+        {"source": "feedback", "text": "Strong Kotlin skills, delivered payment gateway integration on time."},
+        {"source": "profile_pdf", "text": "payments domain experience at fintech startup"}
+      ]
+    },
+    "vivaan@example.com": {
+      "skill_match_score": 0.7,
+      "feedback_score": 0.7,
+      "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+      "evidence": [
+        {"source": "feedback", "text": "Good communicator, picked up Kotlin coroutines quickly."},
+        {"source": "profile_pdf", "text": "microservices architecture"}
+      ]
+    },
+    "rahul@example.com": {
+      "skill_match_score": 0.75,
+      "feedback_score": 0.65,
+      "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+      "evidence": [
+        {"source": "feedback", "text": "Reliable delivery, solid Kotlin fundamentals."},
+        {"source": "profile_pdf", "text": "Kotlin/Spring Boot, banking sector"}
+      ]
+    },
+    "vikram@example.com": {
+      "skill_match_score": 0.5,
+      "feedback_score": 0.3,
+      "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+      "evidence": [
+        {"source": "profile_pdf", "text": "recent bootcamp graduate"}
+      ]
+    }
+  }
+}
