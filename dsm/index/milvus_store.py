@@ -97,7 +97,14 @@ class MilvusIndexStore:
         index_params.add_index(
             field_name="dense", index_type="AUTOINDEX", metric_type=self._metric
         )
-        index_params.add_index(field_name="sparse", index_type="AUTOINDEX", metric_type="BM25")
+        # BM25 sparse MUST be SPARSE_INVERTED_INDEX, not AUTOINDEX: milvus-lite only short-circuits
+        # sparse fields on reload when the index_type is exactly SPARSE_INVERTED_INDEX. With
+        # AUTOINDEX it tries to read the binary-encoded sparse column as a dense FixedSizeList and
+        # fails LoadCollection ("vector column must be FixedSizeList, got binary") in any fresh
+        # process that reopens the persisted db (e.g. dsm match).
+        index_params.add_index(
+            field_name="sparse", index_type="SPARSE_INVERTED_INDEX", metric_type="BM25"
+        )
 
         self._client.create_collection(self._collection, schema=schema, index_params=index_params)
         self._client.load_collection(self._collection)
