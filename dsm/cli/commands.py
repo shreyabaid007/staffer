@@ -564,6 +564,7 @@ def ingest(
     bronze_dir: Annotated[Path, typer.Option("--bronze-dir")] = _BRONZE_DEFAULT,
     silver_dir: Annotated[Path, typer.Option("--silver-dir")] = _SILVER_DEFAULT,
     gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
+    vault_path: Annotated[Path | None, typer.Option("--vault-path")] = None,
     run_id: Annotated[str, typer.Option("--run-id")] = "",
 ) -> None:
     """Land + parse → bronze, normalize → silver, enrich + merge → gold, and print a summary."""
@@ -709,11 +710,14 @@ def ingest(
     from dsm.ingest.models import FeedbackExtraction, ProfileSummaryExtraction
     from dsm.ingest.reconcile import freshness_guard, reconcile, revive, tombstone
     from dsm.pii.leakscan import PIILeakError
-    from dsm.pii.vault import InMemoryVault
+    from dsm.pii.vault import FileVault
     from dsm.pii.vault import candidate_id as derive_cid
 
     config = load_config()
-    vault = InMemoryVault()
+    # Persistent identity vault (AD-098): ingest WRITES here; a later `dsm match` process READS it
+    # to drive the query-time deterministic redact pass (AD-097). Defaults alongside gold under the
+    # same (gitignored) data root, so it follows --gold-dir in tests + prod.
+    vault = FileVault(vault_path or gold_dir.parent / "identity" / "vault.json")
     identities: dict[str, tuple[str, str]] = {}
     known_pii: dict[str, list[str]] = {}
     for br in bronze_supply:

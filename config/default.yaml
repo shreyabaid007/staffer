@@ -73,5 +73,12 @@ index:
   rerank:
     top_k: 10
 
+# PII boundary (c-003, AD-097/098). The persistent identity vault path is a CLI option
+# (`--vault-path`, mirrors `--gold-dir`) and defaults alongside gold at `data/identity/vault.json`
+# (gitignored). `ner_enabled` toggles the Presidio NER residual pass at the outbound boundary; the
+# deterministic vault-backed strip + outbound leak-scan stay the load-bearing guarantee either way.
+pii:
+  ner_enabled: true
+
 logging:
   level: "INFO"

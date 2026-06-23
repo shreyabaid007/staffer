@@ -46,7 +46,14 @@ and nothing persists identity across the ingest→query process boundary today).
 | `dsm/cli/store.py` or `dsm/cli/commands.py` | WIRE: ingest writes identities to `FileVault`; query wraps the score predictor with vault lookup + `pii_context` | R-05/06/07 |
 | `dsm/eval/invariants.py` | TIGHTEN `no_pii_leak` (real-anonymiser assertion + planted-name golden case); update docstring TODO | R-10 |
 | `.gitignore` | ADD the identity store path (`data/identity/`) | R-06 |
-| `config/default.yaml` | ADD `pii.vault_path` (+ optional `pii.ner_enabled`) | R-06/07 |
+| `config/default.yaml` | ADD `pii.ner_enabled` (NER seam toggle) | R-06/07 |
+
+> **Refinement (during impl):** the vault path is a **`--vault-path` CLI option** on
+> `ingest`/`match`/`explain` (mirrors `--gold-dir`), defaulting alongside gold at
+> `<gold_dir>/../identity/vault.json` (→ `data/identity/vault.json` in prod). This is more
+> consistent with the codebase (bronze/silver/gold/raw are all CLI options, not config) and keeps
+> tests hermetic for free — overriding `--gold-dir` to a tmp dir moves the vault with it. Config
+> carries only the behavioural `pii.ner_enabled` toggle, not the path.
 | `docs/decision.md` | AD-097, AD-098 | R-13 |
 | `docs/tech.md` | §PII reflects live boundary + persistent vault | R-13 |
 
