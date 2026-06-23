@@ -1,6 +1,7 @@
-# Requirements — b-004 Near-Miss Skill Verdict + Selection Rationale
+# Requirements — b-004 Near-Miss Skill Verdict + Selection Rationale + Closest-on-Skills
 
-> Slice B-4. Enriches the **no-match near-miss** output in two ways:
+> Slice B-4. Enriches the **no-match** output in three ways (Part 3 folded in post-AD-097; b-004 is
+> unmerged, so it ships as one slice/PR):
 >
 > **Part 1 (deterministic) — hard-skill verdict.** Today a no-match labels an availability
 > near-miss "available 1 day after deadline" — but that candidate failed at the **availability
@@ -20,6 +21,15 @@
 > introduces an injected LLM seam threaded through `run_match` → `_no_match` → near-miss assembly —
 > symmetric to how the shortlist's `CandidateAssessment.narrative` is produced. Chosen over a
 > deterministic strengths summary at the design fork (user decision).
+>
+> **Part 3 — closest-on-skills (AD-098).** Because AD-097 (Part 1) drops skill-failers from
+> near-misses, a no-match where everyone available is a skill short (e.g. ROLE-05) shows *zero*
+> near-misses. Part 3 adds a **separate, disjoint** `NoMatchResult.closest_on_skills` list:
+> candidates who cleared **both** gates and failed **only** the hard-skill filter, ranked by fewest
+> hard skills missing, capped at 3, reusing the Part-2 rationale. It is the mirror of a near-miss
+> (near-miss = clears skills, one gate away; closest-on-skills = clears gates, a skill short) and
+> never pollutes the actionable near-miss list. Additive frozen-contract field (AD-060). See **§
+> Part 3** in `design.md`.
 >
 > Source: `dsm/cli/commands.py::build_near_misses` + the no-match path in `run_match`. Pipeline
 > order: gate `filter_candidates` → `exact_hard_skill_filter`. Settled semantics this slice
@@ -63,7 +73,7 @@ move a date for someone who can't do the job anyway.
   enforced. The verdict SHALL reuse this exact logic, not a looser re-implementation.
 - **AD-060** — `dsm/models.py` is frozen. This slice introduces **no** model change (see NF-3).
 
-## ADRs to ratify at the `T-000-ADR` gate (used: AD-095, AD-096, AD-097)
+## ADRs to ratify at the `T-000-ADR` gate (used: AD-095, AD-096, AD-097, AD-098)
 
 - **AD-095 · Near-misses report their hard-skill verdict** *(superseded by AD-097)* — Originally:
   every pre-skill-filter near-miss labels its hard-skill verdict in `gap_summary` (kept the
@@ -90,6 +100,16 @@ move a date for someone who can't do the job anyway.
   set + order, not the prose (same scoping as the shortlist narrative). Unaffected by AD-097 — it
   annotates whatever near-misses remain. Rejected alternative: deterministic structured strengths
   summary (LLM-free) — simpler and bit-deterministic, but the user chose richer LLM prose.
+
+- **AD-098 · `NoMatchResult.closest_on_skills` (Part 3)** — Add an optional
+  `closest_on_skills: list[NearMiss] = Field(default_factory=list)` to the frozen `NoMatchResult`,
+  carrying candidates who cleared **both** gates and failed only the hard-skill filter
+  (`HARD_SKILL_MISMATCH`), ranked by fewest hard skills missing, capped at 3, each optionally
+  annotated with the AD-096 `selection_rationale`. **Frozen-contract amendment (AD-060)** — additive,
+  optional, defaulted. The structural counterpart to AD-097: together near-misses + closest-on-skills
+  cover "one axis away" (negotiable gate / skill axis). Reuses the `NearMiss` type. Rejected:
+  re-admitting skill-failers to `near_misses` — exactly what AD-097 removed; a separate field keeps
+  the actionable list clean.
 
 - **AD-096 · `NearMiss.selection_rationale` (LLM, top-3 only, via `PseudonymisedLM`)** — Add an
   optional `selection_rationale: str | None = None` field to `NearMiss` carrying a short LLM-written
@@ -191,6 +211,32 @@ move a date for someone who can't do the job anyway.
 - **FR-10-AC-2** — The predictor SHALL be an **injected seam** (a `Callable` type alias, like
   `ScorePredictor`), threaded `run_match` → `_no_match` → assembly, so unit tests inject a fake and
   run with no network (NF-1). The live predictor is built only at the CLI edge.
+
+### FR-11 — Closest-on-skills population (Part 3, AD-098)
+
+- **FR-11-AC-1** — `NoMatchResult.closest_on_skills` SHALL contain exactly the candidates whose
+  exclusion reason is `HARD_SKILL_MISMATCH` (which, by pipeline order, cleared location +
+  availability and failed only the exact hard-skill filter).
+- **FR-11-AC-2** — A candidate that failed a gate SHALL NOT appear here (double-misses stay in the
+  `exclusion_log` only); `near_misses` and `closest_on_skills` SHALL be disjoint.
+
+### FR-12 — Closest-on-skills ordering, gap, rationale
+
+- **FR-12-AC-1** — Entries SHALL be ordered by **fewest hard-skill gaps first** (missing +
+  below-floor count ascending), then `candidate_email`; capped at 3 (AD-063d).
+- **FR-12-AC-2** — `gap_summary` SHALL state the hard-skill gap (e.g. `"missing 1 hard skill:
+  spring boot"`, incl. below-floor shortfalls), derived from structured data — `Exclusion.detail`
+  SHALL NOT be parsed (AD-063c) — and computed by the **same** logic as `exact_hard_skill_filter`
+  (one source of truth, AD-072/033), via a shared helper.
+- **FR-12-AC-3** — Each of the ≤3 shown entries SHALL get a `selection_rationale` via the existing
+  AD-096 seam (`PseudonymisedLM`, capped, error → `None`).
+
+### FR-13 — Closest-on-skills surfaced + bounded
+
+- **FR-13-AC-1** — `closest_on_skills` SHALL serialise in the `NoMatchResult` JSON and appear in the
+  `dsm explain` no-match lineage.
+- **FR-13-AC-2** — WHEN the no-match is gate-only or empty-input (no `HARD_SKILL_MISMATCH`
+  exclusions), `closest_on_skills` SHALL be empty. `build_near_misses` (AD-097) SHALL be unchanged.
 
 ## Non-functional requirements
 

@@ -186,8 +186,59 @@ set cannot drift from the gate (Golden rule: one source of truth). No private sy
 11. **FR-10** — the predictor-builder unit test (`tests/match/test_score.py`) asserts the LM sees
     only skills/feedback/role/gap — never `name`/`email` (PII-free by construction).
 
+## Part 3 — closest-on-skills (AD-098)
+
+The mirror of a near-miss: candidates who cleared **both** gates and failed only the hard-skill
+filter, surfaced in a **separate, disjoint** `NoMatchResult.closest_on_skills` list. Near-misses
+(AD-097) are untouched.
+
+**Modules (additions):**
+
+| File | Change |
+|------|--------|
+| `dsm/models.py` | `NoMatchResult.closest_on_skills: list[NearMiss] = Field(default_factory=list)` |
+| `dsm/index/retrieve.py` | Extract gap computation into a public structured `hard_skill_gap(candidate, hard_skills) -> HardSkillGap \| None`; `_hard_skill_gap` (string) + `exact_hard_skill_filter` reuse it — **no behaviour change** |
+| `dsm/cli/commands.py` | New `build_closest_on_skills(...)`; `_no_match` builds + caps + rationale-annotates both lists; `_lineage` dumps the section |
+
+**Data contract** — reuse `NearMiss` (no new model). New structured gap type:
+
+```python
+class HardSkillGap(BaseModel, frozen=True):
+    missing: list[str]       # hard skills absent by name
+    below_floor: list[str]   # held but below floor, e.g. "java (intermediate < expert)"
+    @property
+    def count(self) -> int: return len(self.missing) + len(self.below_floor)
+```
+
+**Algorithm:**
+
+1. **Shared gap helper (FR-12-AC-2)** — refactor `_hard_skill_gap` so the structured missing /
+   below-floor computation is public (`hard_skill_gap`); the human string and
+   `exact_hard_skill_filter` both call it — identical output, no duplication. (`test_retrieve.py`
+   proves the exclusion `detail` wording is unchanged.)
+2. **`build_closest_on_skills(candidates, scorecard, exclusion_log)`** — for each
+   `HARD_SKILL_MISMATCH` exclusion, build a `NearMiss` with `gap_summary` from `hard_skill_gap`
+   (`"missing N hard skill(s): …"` + `"below required proficiency: …"`), `sort_key = (gap.count,
+   email)`. Non-`HARD_SKILL_MISMATCH` reasons are skipped (FR-11). Returns the full ordered list;
+   caller caps.
+3. **`_no_match`** — build + cap **both** lists to 3; when a predictor is injected, reuse
+   `explain_near_misses` on each shown set (its prompt already covers a hard-skill gap); construct
+   `NoMatchResult(near_misses=…, closest_on_skills=…)`. In the gate-only no-match branch there are
+   no `HARD_SKILL_MISMATCH` exclusions → `closest_on_skills` empty (FR-13-AC-2).
+4. **`_lineage`** — add a `closest_on_skills` block alongside `near_misses`.
+
+**Edge cases:** gate-only/empty no-match → empty (FR-13-AC-2); below-floor → counted in
+`gap.count` + rendered; disjointness holds because each candidate has exactly one exclusion reason
+(near-miss = AVAILABILITY/LOCATION, closest = HARD_SKILL).
+
+**Eval cases (add):** ROLE-05-like skill-short candidates appear in `closest_on_skills` (not
+`near_misses`) with correct wording; ordering by fewest gaps + cap; double-miss in neither list;
+disjointness; rationale on shown ≤3 + skip-on-error; gate-only/empty → empty; below-floor wording;
+`hard_skill_gap` unit test; `test_retrieve.py` detail wording unchanged.
+
 ## ADRs (in `docs/decision.md`)
 
 **AD-095** (skill verdict — *superseded by AD-097*), **AD-096** (`NearMiss.selection_rationale`
-field + LLM seam; AD-060 amendment), and **AD-097** (a near-miss must clear hard skills; supersedes
-AD-095 + AD-088's near-miss inclusion). All cite `specs/b-004-near-miss-skill-verdict/`.
+field + LLM seam; AD-060 amendment), **AD-097** (a near-miss must clear hard skills; supersedes
+AD-095 + AD-088's near-miss inclusion), and **AD-098** (`NoMatchResult.closest_on_skills`; additive
+AD-060 amendment). All cite `specs/b-004-near-miss-skill-verdict/`.

@@ -64,6 +64,28 @@
   `test_no_match` / `test_orchestrator` / `test_explain` assertions still pass.
   → FR-1…FR-10. *Commit:* `test(near-miss): cover skill verdict + rationale (b-004)`.
 
+## Part 3 — closest-on-skills (AD-098)
+
+- [ ] **T-010 — ADR.** Append **AD-098** (`NoMatchResult.closest_on_skills`) to `docs/decision.md`;
+  bump the footer to AD-099. *Commit:* `docs(decision): ratify AD-098 closest-on-skills section`.
+
+- [ ] **T-011 — Shared structured gap helper.** In `dsm/index/retrieve.py`, add `HardSkillGap` +
+  public `hard_skill_gap(...)`; `_hard_skill_gap` (string) + `exact_hard_skill_filter` reuse it (no
+  behaviour change). Add a `hard_skill_gap` unit test; `test_retrieve.py` stays green.
+  → FR-12-AC-2. *Commit:* `refactor(retrieve): extract structured hard_skill_gap helper`.
+
+- [ ] **T-012 — `NoMatchResult.closest_on_skills` field.** Additive, optional, defaulted in
+  `dsm/models.py`. → FR-11 (model), NF-3. *Commit:* `feat(models): add NoMatchResult.closest_on_skills per AD-098`.
+
+- [ ] **T-013 — `build_closest_on_skills` + wiring.** New builder (HARD_SKILL_MISMATCH → ordered
+  `NearMiss` via `hard_skill_gap`); `_no_match` builds + caps + rationale-annotates both lists;
+  `_lineage` dumps the section.
+  → FR-11, FR-12, FR-13. *Commit:* `feat(no-match): surface closest-on-skills with rationale + lineage`.
+
+- [ ] **T-014 — Tests.** Design.md Part 3 eval cases across `tests/cli/test_no_match.py`,
+  `tests/cli/test_orchestrator.py`, `tests/index/test_retrieve.py`; near-miss (AD-097) tests stay
+  green. → FR-11…FR-13. *Commit:* `test(no-match): cover closest-on-skills section`.
+
 - [ ] **T-009 — Verify + handoff.** `make check` green; update `docs/progress.B.md` via `/handoff`.
   → Definition of Done. *Commit:* none (handoff edits the lane file).
 
