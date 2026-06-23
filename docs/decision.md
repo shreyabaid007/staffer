@@ -181,4 +181,10 @@
 
 ---
 
-*Next ADRs start at AD-103.*
+## PII boundary posture (post-c-003)
+
+- **AD-103 · Vault-miss at query time is warn-only, not fail-closed** — Accepted — Follow-on to AD-101/102. When `vault.get_identity(candidate_id)` returns `None` at score time, the known-PII list is empty, so the deterministic strip + `assert_no_leak` have nothing to match on; protection falls back to NER, which itself degrades to a no-op when `en_core_web_lg` is absent. **Decision: keep the current warn-only behaviour** — log `score.vault_miss_reduced_redaction` (PII-safe: `candidate_id` only) and proceed — rather than fail-closed (skip/refuse the candidate). Why: a vault path mismatch or stale/un-built vault would, under fail-closed, silently drop **every** candidate — turning an operational/config error into a confusing total outage, which is worse UX for no real safety gain at POC scale (the data is synthetic; the deterministic gate already blocks *known* leaks when the vault is populated). The residual exposure (empty vault **and** degraded NER → a candidate's de-anonymised gold free-text reaches the provider) is **accepted for now** and tracked: it is subsumed by the AD-084 generic outbound NER/org scan (the real residual-PII hardening) and the AD-068 vault hardening. A startup check that errors when `pii.ner_enabled=true` but the spaCy model is missing was **considered and declined** for this round (revisit with AD-084). Rejected alternative: fail-closed — surfaced as a deliberate posture call so it isn't silently re-litigated. No code change (status quo ratified). See [`dsm/cli/commands.py`](../dsm/cli/commands.py) `_pii_aware_score_predictor`, `docs/progress.C.md`.
+
+---
+
+*Next ADRs start at AD-104.*
