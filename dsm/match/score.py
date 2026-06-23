@@ -39,6 +39,7 @@ from dsm.models import (
     EvidenceCitation,
     Flag,
     FlagType,
+    NearMiss,
     RollingOff,
     TargetProfileScorecard,
 )
@@ -76,6 +77,66 @@ def make_score_predictor(lm: dspy.LM) -> ScorePredictor:
             ).assessment
 
     return _predict
+
+
+# Injected seam for the no-match path: (scorecard, candidate, gap_summary) → rationale (AD-096).
+NearMissRationalePredictor = Callable[[TargetProfileScorecard, Candidate, str], str]
+
+
+class NearMissRationale(dspy.Signature):
+    """Explain why a near-miss is worth considering once its gap is resolved (config/prompts)."""
+
+    role: TargetProfileScorecard = dspy.InputField()
+    candidate_skills: list[str] = dspy.InputField()
+    candidate_feedback: list[str] = dspy.InputField()
+    gap: str = dspy.InputField()
+    rationale: str = dspy.OutputField()
+
+
+def make_near_miss_rationale_predictor(lm: dspy.LM) -> NearMissRationalePredictor:
+    """Build the near-miss rationale predictor over ``PseudonymisedLM`` (CLI only, not tests)."""
+    sig = NearMissRationale.with_instructions(load_prompt("near_miss_rationale"))
+    predictor = dspy.Predict(sig)
+
+    def _predict(scorecard: TargetProfileScorecard, candidate: Candidate, gap: str) -> str:
+        with dspy.context(lm=lm):
+            return predictor(
+                role=scorecard,
+                candidate_skills=[f"{s.name} {s.proficiency.value}" for s in candidate.skills],
+                candidate_feedback=[e.text for e in candidate.feedback.entries],
+                gap=gap,
+            ).rationale
+
+    return _predict
+
+
+def explain_near_misses(
+    near_misses: list[NearMiss],
+    by_email: dict[str, Candidate],
+    scorecard: TargetProfileScorecard,
+    predict: NearMissRationalePredictor,
+) -> list[NearMiss]:
+    """Attach an LLM ``selection_rationale`` to each near-miss (AD-096).
+
+    Only the near-misses passed in are explained — the caller passes the shown top-3, so we never
+    pay for misses beyond the AD-063d cap. PII-free by construction: the predictor sees only the
+    candidate's skills + feedback + the gap, never name/email (Golden rule 3). A predictor failure
+    is logged and leaves ``selection_rationale=None`` — the near-miss is still returned.
+    """
+    explained: list[NearMiss] = []
+    for near_miss in near_misses:
+        candidate = by_email.get(near_miss.candidate_email)
+        if candidate is None:
+            explained.append(near_miss)
+            continue
+        try:
+            rationale = predict(scorecard, candidate, near_miss.gap_summary)
+        except Exception:  # noqa: BLE001 — a rationale failure must never drop the near-miss
+            _log.warning("near_miss_rationale_failed", candidate=near_miss.candidate_email)
+            explained.append(near_miss)
+            continue
+        explained.append(near_miss.model_copy(update={"selection_rationale": rationale}))
+    return explained
 
 
 def _norm(text: str) -> str:
