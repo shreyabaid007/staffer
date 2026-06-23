@@ -20,7 +20,12 @@ from dsm.match.demand import parse_demand
 from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict, check_freshness
 from dsm.match.gates import effective_free_date, filter_candidates
 from dsm.match.rank import rank_assessments
-from dsm.match.score import ScorePredictor, score_candidate
+from dsm.match.score import (
+    NearMissRationalePredictor,
+    ScorePredictor,
+    explain_near_misses,
+    score_candidate,
+)
 from dsm.models import (
     Candidate,
     EligiblePool,
@@ -165,12 +170,20 @@ def _no_match(
     candidates: list[Candidate],
     exclusions: list[Exclusion],
     reason: str,
+    near_miss_predict: NearMissRationalePredictor | None = None,
 ) -> NoMatchResult:
-    """Assemble a ``NoMatchResult`` with ordered, top-3-capped near-misses (AD-063b/c/d)."""
+    """Assemble a ``NoMatchResult`` with ordered, top-3-capped near-misses (AD-063b/c/d).
+
+    When a rationale predictor is injected, attach an LLM ``selection_rationale`` (AD-096) to the
+    shown near-misses **after** the cap — so we never explain misses beyond the top-3.
+    """
     log = ExclusionLog(exclusions=exclusions)
-    near_misses = build_near_misses(candidates, scorecard, log)
+    shown = build_near_misses(candidates, scorecard, log)[:3]
+    if near_miss_predict is not None:
+        by_email = {candidate.email: candidate for candidate in candidates}
+        shown = explain_near_misses(shown, by_email, scorecard, near_miss_predict)
     return NoMatchResult(
-        role_id=scorecard.role_id, reason=reason, near_misses=near_misses[:3], exclusion_log=log
+        role_id=scorecard.role_id, reason=reason, near_misses=shown, exclusion_log=log
     )
 
 
@@ -207,6 +220,7 @@ def run_match(
     score_predict: ScorePredictor,
     config: dict[str, Any],
     freshness: FreshnessVerdict | None = None,
+    near_miss_predict: NearMissRationalePredictor | None = None,
 ) -> ShortlistResult | NoMatchResult:
     """The query-time spine (§4/§10): gate → exact filter → recall → rerank → score → rank.
 
@@ -225,6 +239,8 @@ def run_match(
         score_predict: the injected LLM score seam (§6.8).
         config: runtime config (weights, ranking.top_k, index.recall/rerank, adjacency_map).
         freshness: the run's verdict; a ``warn`` is threaded into scoring to flag every assessment.
+        near_miss_predict: optional LLM seam for the no-match path — attaches a
+            ``selection_rationale`` to the shown near-misses (AD-096); ``None`` leaves them bare.
 
     Returns:
         A ``ShortlistResult`` (≥1 scored candidate) or a ``NoMatchResult`` (empty post-gate pool).
@@ -236,6 +252,7 @@ def run_match(
             candidates,
             gate_exclusions.exclusions,
             "No candidates passed the eligibility gates.",
+            near_miss_predict,
         )
 
     filtered_pool, hard_exclusions = exact_hard_skill_filter(
@@ -244,7 +261,11 @@ def run_match(
     all_exclusions = gate_exclusions.exclusions + hard_exclusions
     if not filtered_pool.candidates:
         return _no_match(
-            scorecard, candidates, all_exclusions, "No candidates cleared the hard-skill filter."
+            scorecard,
+            candidates,
+            all_exclusions,
+            "No candidates cleared the hard-skill filter.",
+            near_miss_predict,
         )
 
     ordered = _retrieve_and_rerank(
@@ -283,6 +304,18 @@ def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma:
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
     return make_score_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
+
+
+def _build_near_miss_rationale_predictor(  # pragma: no cover - exercised only live
+    config: dict[str, Any],
+) -> NearMissRationalePredictor:
+    """Build the live near-miss rationale predictor over PseudonymisedLM (live; tests patch)."""
+    from dsm.match.score import make_near_miss_rationale_predictor
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    return make_near_miss_rationale_predictor(
+        PseudonymisedLM(model=config["models"]["reasoning_llm"])
+    )
 
 
 def _build_query_store(
@@ -347,6 +380,7 @@ def _match_role(
         score_predict=_build_score_predictor(config),
         config=config,
         freshness=verdict if verdict is not None and verdict.action == WARN else None,
+        near_miss_predict=_build_near_miss_rationale_predictor(config),
     )
 
 
