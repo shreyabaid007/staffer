@@ -478,6 +478,76 @@ def _match_role(
     )
 
 
+def render_identities(
+    result: ShortlistResult | NoMatchResult, vault: Vault
+) -> ShortlistResult | NoMatchResult:
+    """Substitute real name/email from the vault into the output — the final render step (AD-107).
+
+    The query pipeline emits **pseudonymised** results: every identity field carries the
+    ``candidate_id`` (AD-091). This is the deferred human-facing render — at the CLI composition
+    root (so ``dsm.match`` never imports ``dsm.pii``), resolve each ``candidate_id`` to its real
+    ``(name, email)`` via the vault and rebuild the frozen output models with ``model_copy``. Covers
+    **all** identity-bearing fields: ranked candidates, both ``NearMiss`` lists, and the full
+    exclusion log. Returns copies; the input is never mutated.
+
+    A vault miss keeps the ``candidate_id`` and logs a PII-safe ``WARNING`` (``candidate_id`` only),
+    never fail-closed — consistent with AD-103. This governs **output** only; the ``no-PII-leak``
+    invariant covers provider inputs + narratives, not these fields (so no invariant relaxes).
+    """
+    cache: dict[str, tuple[str, str] | None] = {}
+
+    def identity(cid: str) -> tuple[str, str] | None:
+        if cid not in cache:
+            value = vault.get_identity(cid)
+            if value is None:
+                _log.warning("render.vault_miss_identity", candidate_id=cid)
+            cache[cid] = value
+        return cache[cid]
+
+    def reveal_candidate(candidate: Candidate) -> Candidate:
+        ident = identity(candidate.email)
+        if ident is None:
+            return candidate
+        name, email = ident
+        return candidate.model_copy(update={"email": email, "name": name})
+
+    def reveal_near_miss(nm: NearMiss) -> NearMiss:
+        ident = identity(nm.candidate_email)
+        if ident is None:
+            return nm
+        name, email = ident
+        return nm.model_copy(update={"candidate_email": email, "name": name})
+
+    def reveal_exclusions(log: ExclusionLog) -> ExclusionLog:
+        revealed: list[Exclusion] = []
+        for exc in log.exclusions:
+            ident = identity(exc.candidate_email)
+            if ident is None:
+                revealed.append(exc)
+            else:
+                _name, email = ident
+                revealed.append(exc.model_copy(update={"candidate_email": email}))
+        return ExclusionLog(exclusions=revealed)
+
+    if isinstance(result, ShortlistResult):
+        return result.model_copy(
+            update={
+                "ranked_assessments": [
+                    a.model_copy(update={"candidate": reveal_candidate(a.candidate)})
+                    for a in result.ranked_assessments
+                ],
+                "exclusion_log": reveal_exclusions(result.exclusion_log),
+            }
+        )
+    return result.model_copy(
+        update={
+            "near_misses": [reveal_near_miss(nm) for nm in result.near_misses],
+            "closest_on_skills": [reveal_near_miss(nm) for nm in result.closest_on_skills],
+            "exclusion_log": reveal_exclusions(result.exclusion_log),
+        }
+    )
+
+
 def _exclusion_lines(result: ShortlistResult | NoMatchResult) -> list[dict[str, str]]:
     """The gate/exact-filter outcomes (who was dropped and why) for the lineage dump."""
     return [
