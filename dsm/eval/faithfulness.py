@@ -24,18 +24,31 @@ logger = logging.getLogger(__name__)
 
 FAITHFULNESS_CRITERIA = """\
 Evaluate whether the narrative assessment of the candidate faithfully represents
-the evidence and candidate data provided. Consider:
-1. Does the narrative make any claims not supported by the cited evidence?
-2. Does the narrative contradict the candidate's skills, feedback, or profile?
-3. Is the characterisation of skill fit consistent with the sub-scores?
+the evidence and candidate data provided.
+
+Score on a 1–10 scale:
+- 9–10: Every claim traces directly to the evidence. Phrasing is proportionate
+  to the source material — no inflation or embellishment.
+- 7–8: All substantive claims are supported. Minor wording choices are slightly
+  generous or vague, but nothing materially misleads.
+- 4–6: Some claims are supported but the narrative noticeably embellishes,
+  exaggerates qualifications, adds plausible-sounding details not in the evidence,
+  or mischaracterises the strength of the feedback.
+- 1–3: The narrative fabricates claims, directly contradicts the evidence, or
+  attributes specific achievements, metrics, or credentials not present in the
+  candidate data.
+
+Evaluate these dimensions:
+1. Does the narrative make claims not supported by the cited evidence? (fabrication)
+2. Does the narrative contradict the candidate's skills, feedback, or profile? (contradiction)
+3. Does the narrative inflate or exaggerate qualifications beyond what the \
+evidence supports? (embellishment)
+4. Is the characterisation of skill fit consistent with the sub-scores? (consistency)
 
 Do NOT evaluate: whether gates are correctly applied (location/availability
 filtering), whether PII is present, whether citations exist as verbatim quotes,
 or whether the candidate should have been excluded — these are checked by
-separate deterministic tests.
-
-Score 1 if the narrative is faithful to the evidence, 0 if it fabricates claims
-or contradicts the candidate data."""
+separate deterministic tests."""
 
 
 @dataclass(frozen=True)
