@@ -491,13 +491,13 @@ def render_identities(
     The query pipeline emits **pseudonymised** results: every identity field carries the
     ``candidate_id`` (AD-091). This is the deferred human-facing render — at the CLI composition
     root (so ``dsm.match`` never imports ``dsm.pii``), resolve each ``candidate_id`` to its real
-    ``(name, email)`` via the vault and rebuild the frozen output models with ``model_copy``. Covers
-    **all** identity-bearing fields: ranked candidates, both ``NearMiss`` lists, and the full
-    exclusion log. Returns copies; the input is never mutated.
+    ``(name, email)`` via the vault and rebuild the frozen output models with ``model_copy``.
+    Covers **all** identity-bearing fields: ranked candidates, both ``NearMiss`` lists, and the
+    full exclusion log. Returns copies; the input is never mutated.
 
-    A vault miss keeps the ``candidate_id`` and logs a PII-safe ``WARNING`` (``candidate_id`` only),
-    never fail-closed — consistent with AD-103. This governs **output** only; the ``no-PII-leak``
-    invariant covers provider inputs + narratives, not these fields (so no invariant relaxes).
+    A vault miss keeps the ``candidate_id`` and logs a PII-safe ``WARNING`` (``candidate_id``
+    only), never fail-closed — consistent with AD-103. This governs **output** only; the
+    ``no-PII-leak`` invariant covers provider inputs + narratives, not these fields (no relax).
     """
     cache: dict[str, tuple[str, str] | None] = {}
 

@@ -181,8 +181,36 @@ def test_match_command_prints_shortlist(
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["role_id"] == "ROLE-Q1"
+    # No vault file on disk → render_identities falls back to the candidate_id (AD-103/AD-107).
     assert [a["candidate"]["email"] for a in payload["ranked_assessments"]] == ["cid:a"]
     assert payload["config_snapshot"]["top_k"] == 5
+
+
+def test_match_command_renders_real_identity_from_vault(
+    tmp_path: Path, wired: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AC-1/AC-7 (full command): a seeded vault de-anonymises name/email in the printed JSON."""
+    from dsm.pii.vault import FileVault
+
+    gold_dir = tmp_path / "gold"
+    write_gold(_gold("cid:a", valid_as_of=date(2026, 6, 10)), gold_dir)
+    csv_path = _write_csv(tmp_path)
+    vault_path = tmp_path / "identity" / "vault.json"
+    FileVault(vault_path).put_identity("cid:a", "Ada Lovelace", "ada@example.com")
+
+    match(
+        role_id="ROLE-Q1",
+        csv_path=csv_path,
+        gold_dir=gold_dir,
+        db_path="",
+        vault_path=vault_path,
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    candidate = payload["ranked_assessments"][0]["candidate"]
+    assert candidate["email"] == "ada@example.com"
+    assert candidate["name"] == "Ada Lovelace"
+    assert "cid:a" not in json.dumps(payload)  # no pseudonym leaks into the human-facing output
 
 
 def test_match_command_role_not_found_exits(tmp_path: Path, wired: None) -> None:

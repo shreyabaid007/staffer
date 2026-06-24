@@ -70,11 +70,15 @@ def _assessment(cid: str) -> CandidateAssessment:
 
 
 def _near_miss(cid: str) -> NearMiss:
-    return NearMiss(candidate_email=cid, name=cid, reason="availability", gap_summary="free 1wk late")
+    return NearMiss(
+        candidate_email=cid, name=cid, reason="availability", gap_summary="free 1wk late"
+    )
 
 
 def _exclusion(cid: str) -> Exclusion:
-    return Exclusion(candidate_email=cid, reason=ExclusionReason.LOCATION_MISMATCH, detail="wrong city")
+    return Exclusion(
+        candidate_email=cid, reason=ExclusionReason.LOCATION_MISMATCH, detail="wrong city"
+    )
 
 
 def test_shortlist_identity_rendered() -> None:
@@ -141,6 +145,7 @@ def test_vault_miss_keeps_candidate_id_and_warns() -> None:
     )
     with capture_logs() as logs:
         rendered = render_identities(result, _vault())
+    assert isinstance(rendered, ShortlistResult)
     assert rendered.ranked_assessments[0].candidate.email == CID_C
     assert rendered.ranked_assessments[0].candidate.name == CID_C
     assert rendered.exclusion_log.exclusions[0].candidate_email == CID_C
@@ -161,6 +166,7 @@ def test_render_does_not_mutate_input() -> None:
         config_snapshot={},
     )
     rendered = render_identities(original, _vault())
+    assert isinstance(rendered, ShortlistResult)
     # input untouched (still pseudonymised) — render returns copies
     assert original.ranked_assessments[0].candidate.email == CID_A
     assert original.exclusion_log.exclusions[0].candidate_email == CID_B
