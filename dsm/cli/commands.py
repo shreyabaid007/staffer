@@ -432,12 +432,16 @@ def _freshness_for(
 
 def _match_role(
     role_id: str, csv_path: Path, gold_dir: Path, db_path: str, vault_path: Path | None = None
-) -> ShortlistResult | NoMatchResult:
+) -> tuple[ShortlistResult | NoMatchResult, Vault]:
     """Drive the full spine for one ``role_id`` (shared by ``match`` + ``explain``).
 
     parse demand → select role → hydrate → freshness guard → clarify → ``run_match``. ``refuse``
     blocks the run (``typer.Exit(1)``); ``warn`` is threaded into scoring. Single role per
     invocation (AD-050). Builds the live deps (LM / embed / store) — monkeypatched in CLI tests.
+
+    Returns the **pseudonymised** pipeline result (identity = ``candidate_id``, AD-091) **and** the
+    vault, so the caller can run :func:`render_identities` at the output edge (AD-107). Keeping the
+    pipeline output pseudonymised leaves the determinism invariant + eval cassettes untouched.
     """
     config = load_config()
     try:
@@ -466,7 +470,7 @@ def _match_role(
     from dsm.pii.vault import FileVault
 
     vault = FileVault(vault_path or gold_dir.parent / "identity" / "vault.json")
-    return run_match(
+    result = run_match(
         candidates,
         scorecard,
         store=_build_query_store(config, db_path),
@@ -476,6 +480,7 @@ def _match_role(
         freshness=verdict if verdict is not None and verdict.action == WARN else None,
         near_miss_predict=_build_near_miss_rationale_predictor(config),
     )
+    return result, vault
 
 
 def render_identities(
@@ -622,9 +627,11 @@ def match(
 
     Runs the full spine: parse demand → freshness guard → clarify → gate → exact filter → recall →
     rerank → score → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment.
-    Single role per invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON.
+    Single role per invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON
+    with **real** candidate name/email rendered from the vault (AD-107).
     """
-    result = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
+    result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
+    result = render_identities(result, vault)
     typer.echo(result.model_dump_json(indent=2))
 
 
@@ -640,8 +647,10 @@ def explain(
     Reads only what ``ShortlistResult`` / ``NoMatchResult`` already carry — freshness verdict,
     gate + exact-filter outcomes, recall mode, sub-scores, citations, ``config_snapshot``
     (shortlist); or the reason + ordered near-misses (no-match). No new persistence layer.
+    Candidate name/email are rendered real from the vault (AD-107) before the lineage is built.
     """
-    result = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
+    result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
+    result = render_identities(result, vault)
     typer.echo(json.dumps(_lineage(result), indent=2))
 
 
