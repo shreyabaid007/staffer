@@ -227,15 +227,54 @@ class TestJudgeValidation:
         error_msg = f" ({len(errors)} judge errors skipped)" if errors else ""
         result = validate_judge(predictions, case_labels)
 
+        import statistics
+
+        score_summary: str
         if true_scores and false_scores:
-            med = true_scores[len(true_scores) // 2]
+            true_med = statistics.median(true_scores)
+            true_avg = statistics.mean(true_scores)
+            false_med = statistics.median(false_scores)
+            false_avg = statistics.mean(false_scores)
+            tp = sum(1 for s in true_scores if s >= best_threshold)
+            tn = sum(1 for s in false_scores if s < best_threshold)
             score_summary = (
-                f"True: min={min(true_scores):.2f} med={med:.2f} "
-                f"max={max(true_scores):.2f} | "
-                f"False: min={min(false_scores):.2f} "
-                f"max={max(false_scores):.2f} | "
+                f"True: min={min(true_scores):.2f} med={true_med:.2f} "
+                f"max={max(true_scores):.2f} avg={true_avg:.2f} | "
+                f"False: min={min(false_scores):.2f} med={false_med:.2f} "
+                f"max={max(false_scores):.2f} avg={false_avg:.2f} | "
                 f"threshold={best_threshold:.2f}"
             )
+            import warnings
+
+            sep = "=" * 60
+            report = (
+                f"\n{sep}\n"
+                f"  Faithfulness Judge — Validation Report\n"
+                f"{sep}\n"
+                f"  TPR:  {result.tpr:.2f}  "
+                f"({tp}/{len(true_scores)} faithful correctly"
+                f" identified)\n"
+                f"  TNR:  {result.tnr:.2f}  "
+                f"({tn}/{len(false_scores)} unfaithful correctly"
+                f" caught)\n"
+                f"  Threshold: {best_threshold:.2f}\n"
+                f"  Status:    "
+                f"{'ADOPTED' if result.adopted else 'NOT ADOPTED'}"
+                f"{error_msg}\n"
+                f"{'-' * 60}\n"
+                f"  Faithful (n={len(true_scores)}):   "
+                f"min={min(true_scores):.2f}  "
+                f"median={true_med:.2f}  "
+                f"max={max(true_scores):.2f}  "
+                f"avg={true_avg:.2f}\n"
+                f"  Unfaithful (n={len(false_scores)}): "
+                f"min={min(false_scores):.2f}  "
+                f"median={false_med:.2f}  "
+                f"max={max(false_scores):.2f}  "
+                f"avg={false_avg:.2f}\n"
+                f"{sep}"
+            )
+            warnings.warn(report, stacklevel=1)
         else:
             score_summary = "Insufficient data"
 

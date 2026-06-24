@@ -3,7 +3,7 @@
     "labeller": "machine-draft, human-signed-off (shreya.baid@equalexperts.com)",
     "label_date": "2026-06-23",
     "review_status": "signed_off",
-    "notes": "Signed off 2026-06-23. 53 faithful + 5 adversarial labels. CID mappings verified by HMAC. Cassette narratives for faithful, crafted adversarials for false."
+    "notes": "Signed off 2026-06-23, extended 2026-06-24. 80 faithful + 15 adversarial labels. CID mappings verified by HMAC. Evidence-grounded narratives for faithful, graduated adversarials (5 blatant + 10 subtle) for false."
   },
   "cases": [
     {
@@ -30,22 +30,22 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -72,17 +72,17 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Experienced React developer with component library expertise.",
+          "narrative": "With 4 years of React and TypeScript experience, this candidate has directly relevant frontend skills. Feedback confirms delivery of a reusable React component library, demonstrating hands-on component architecture capability.",
           "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "narrative": "This candidate brings 3 years of React and Next.js experience building e-commerce frontends. Feedback notes delivery of a React migration ahead of schedule, indicating strong execution and ecosystem familiarity.",
           "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
-          "narrative": "Senior React and Vue.js developer with design system specialisation.",
+          "narrative": "A senior frontend developer with 5 years across React and Vue.js, specialising in design systems. Feedback highlights excellent React architecture skills, indicating capability in structuring scalable frontend codebases.",
           "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         }
@@ -128,27 +128,27 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:32b729086c27b75208ad24f7891c3964ebfce5359cd7a9fc5c26e4bdd7040ead": {
-          "narrative": "Experienced senior Kotlin/JVM developer with 6 years of deep platform experience.",
+          "narrative": "A senior developer with 6 years of Kotlin and JVM platform experience, bringing substantial depth in the target technology stack.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 6 years Kotlin/JVM, senior developer.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -178,22 +178,22 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -222,7 +222,7 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -255,27 +255,27 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Experienced React developer with component library expertise.",
+          "narrative": "With 4 years of React and TypeScript experience, this candidate has directly relevant frontend skills. Feedback confirms delivery of a reusable React component library, demonstrating hands-on component architecture capability.",
           "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "narrative": "This candidate brings 3 years of React and Next.js experience building e-commerce frontends. Feedback notes delivery of a React migration ahead of schedule, indicating strong execution and ecosystem familiarity.",
           "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:6a3cdfbf9e717e51839efa3c923594c73c7066428818afb01e3efb7aa0248373": {
-          "narrative": "React developer with 3 years of dashboard application experience.",
+          "narrative": "With 3 years of React experience focused on dashboard applications, this candidate brings targeted frontend skills relevant to data-centric interfaces.",
           "candidate_context": "Skills: react (advanced). Profile: 3 years React, dashboard applications.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:e177dc3c7f6111477156ba7d935c7be97735d532cb15e42665d4716f9b0cfb97": {
-          "narrative": "React Native developer with 2 years of mobile development experience.",
+          "narrative": "This candidate has 2 years of React Native experience in mobile development. While the focus has been mobile rather than web React, the shared React foundations are relevant.",
           "candidate_context": "Skills: react (advanced). Profile: 2 years React Native, mobile development.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
-          "narrative": "Senior React and Vue.js developer with design system specialisation.",
+          "narrative": "A senior frontend developer with 5 years across React and Vue.js, specialising in design systems. Feedback highlights excellent React architecture skills, indicating capability in structuring scalable frontend codebases.",
           "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         }
@@ -299,12 +299,12 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Experienced React developer with component library expertise.",
+          "narrative": "With 4 years of React and TypeScript experience, this candidate has directly relevant frontend skills. Feedback confirms delivery of a reusable React component library, demonstrating hands-on component architecture capability.",
           "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "narrative": "This candidate brings 3 years of React and Next.js experience building e-commerce frontends. Feedback notes delivery of a React migration ahead of schedule, indicating strong execution and ecosystem familiarity.",
           "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         }
@@ -325,7 +325,7 @@
       },
       "narrative_fixtures": {
         "cid:4225c096cfd87edad5163d2bb554546cf639cff972d12667284c57ded1306aa5": {
-          "narrative": "Experienced Java/Spring Boot developer with 6 years of microservices expertise.",
+          "narrative": "A Java developer with 6 years of Spring Boot and microservices experience, bringing depth in distributed system patterns and service-oriented development.",
           "candidate_context": "Skills: java (advanced). Profile: 6 years Java/Spring Boot, microservices.",
           "role_context": "Java developer role, Mumbai co-location, hard skill: java"
         }
@@ -349,12 +349,12 @@
       },
       "narrative_fixtures": {
         "cid:7fafcab39008708cfa7f7c2edb7f73c57dbb978de20884da7027d6aae99db544": {
-          "narrative": "Java backend developer with 4 years of solid development experience.",
+          "narrative": "With 4 years of Java backend development experience, this candidate offers a solid foundation in server-side Java aligned with the role requirements.",
           "candidate_context": "Skills: java (advanced). Profile: 4 years Java backend development.",
           "role_context": "Java developer role, Mumbai co-location, hard skill: java"
         },
         "cid:b7990379085873865e7b180e66896f49805dd0206df689322227fa9db09e1e7d": {
-          "narrative": "Java enterprise developer with 3 years of application development.",
+          "narrative": "This candidate has 3 years of experience developing Java enterprise applications, with familiarity in frameworks and patterns common in large-scale business systems.",
           "candidate_context": "Skills: java (advanced). Profile: 3 years Java enterprise applications.",
           "role_context": "Java developer role, Mumbai co-location, hard skill: java"
         }
@@ -384,22 +384,22 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -429,22 +429,22 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -482,22 +482,22 @@
       },
       "narrative_fixtures": {
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -540,17 +540,17 @@
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -580,12 +580,12 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
@@ -595,7 +595,7 @@
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -625,7 +625,7 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Strong Kotlin developer with payments domain experience and proven delivery track record.",
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
@@ -635,12 +635,12 @@
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         }
@@ -667,12 +667,12 @@
       },
       "narrative_fixtures": {
         "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
-          "narrative": "Experienced React developer with component library expertise.",
+          "narrative": "With 4 years of React and TypeScript experience, this candidate has directly relevant frontend skills. Feedback confirms delivery of a reusable React component library, demonstrating hands-on component architecture capability.",
           "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "React developer with e-commerce frontend experience and strong delivery record.",
+          "narrative": "This candidate brings 3 years of React and Next.js experience building e-commerce frontends. Feedback notes delivery of a React migration ahead of schedule, indicating strong execution and ecosystem familiarity.",
           "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
           "role_context": "React developer role, Chennai co-location, hard skill: react"
         },
@@ -712,19 +712,445 @@
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
-          "narrative": "Reliable Kotlin developer with banking background and solid fundamentals.",
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
-          "narrative": "Solid Kotlin backend engineer with microservices experience and good communication.",
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
         },
         "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
-          "narrative": "Junior Kotlin developer, recent bootcamp graduate with limited track record.",
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
           "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
           "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-exaggeration-karan",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial (subtle): Karan's narrative exaggerates experience duration, fabricates architecture work, and inflates feedback tone",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": false,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "With nearly a decade of deep Kotlin expertise and a proven record of independently architecting payment processing systems, this candidate stands out as a strong technical leader. Feedback consistently rates their delivery as exceptional across complex financial integrations.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-tone-inflation-rahul",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial (subtle): Rahul's narrative inflates 'solid fundamentals' to 'mastery' and 'reliable' to 'exceptional'",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": false,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "An outstanding Kotlin engineer who has demonstrated mastery across banking platform systems. Feedback describes exceptional delivery standards and deep technical expertise that positions them as a natural technical lead for enterprise projects.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-domain-hallucination-vivaan",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial (subtle): Vivaan's narrative adds healthcare and fintech domains plus regulatory compliance work not in evidence",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": false,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "A Kotlin backend engineer with 3 years of experience spanning microservices in healthcare and financial services domains. Feedback notes good communication and experience delivering solutions for regulatory compliance requirements.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-experience-inflation-vikram",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial (subtle): Vikram's narrative inflates 2 years to 'several years', fabricates delivery track record and project breadth",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": false
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "A motivated Kotlin developer who has built a solid delivery track record across several years of professional experience. Despite the breadth of projects they have worked on, they maintain strong hands-on coding skills and practical problem-solving abilities.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-metric-fabrication-vivaan2",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial (subtle): Vivaan's narrative inserts a fabricated 35% performance metric alongside otherwise supported claims",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": false,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "A backend engineer with 3 years of Kotlin experience who improved API response times by 35% through coroutine optimisation in a microservices environment. Feedback notes strong communication skills and quick technical adaptation.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-subtle-addition-karan2",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial (subtle): Karan's narrative adds 'mentoring abilities' and 'technical leadership' not present in evidence",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": false,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Karan's 5 years of Kotlin and Android development, combined with strong mentoring abilities and payments domain expertise, make them a well-rounded candidate. Feedback highlights on-time delivery and technical leadership in payment gateway projects.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "A recent bootcamp graduate with 2 years of Kotlin experience. The limited professional track record means less evidence of delivery in production settings, though foundational Kotlin skills are present at an advanced level.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-01-omission-spin-vikram2",
+      "role_fixture": "ROLE-01",
+      "description": "Faithfulness adversarial (subtle): Vikram's narrative claims 'consistently positive feedback' when no feedback exists in evidence",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52",
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": true,
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": false
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "Karan brings 5 years of Kotlin and Android development experience, with payments domain exposure from a fintech startup. Feedback notes strong Kotlin skills and on-time delivery of a payment gateway integration, indicating reliable execution in domain-relevant work.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 5 years Kotlin/Android development, payments domain experience at fintech startup. Feedback: Strong Kotlin skills, delivered payment gateway integration on time.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "With 4 years of Kotlin and Spring Boot experience in the banking sector, this candidate brings relevant backend experience. Feedback describes reliable delivery and solid Kotlin fundamentals, pointing to consistent execution in enterprise environments.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 4 years Kotlin/Spring Boot, banking sector. Feedback: Reliable delivery, solid Kotlin fundamentals.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:848413d11712f8bb032456b13866072bf0d1daf1ef29d6b35b994ca9af518c52": {
+          "narrative": "This candidate has 3 years of Kotlin backend development with microservices architecture experience. Feedback highlights good communication skills and quick adoption of Kotlin coroutines, indicating adaptability and collaborative working style.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 3 years Kotlin backend, microservices architecture. Feedback: Good communicator, picked up Kotlin coroutines quickly.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        },
+        "cid:6cdd06d5cec000af3f8f09313a77cf7bfbce319445d7bdd98d619eb3c1fdcbe5": {
+          "narrative": "A Kotlin developer with an advanced skill rating and 2 years of professional experience. Their consistently positive feedback from engagement leads and absence of any delivery concerns make them a low-risk addition to the team.",
+          "candidate_context": "Skills: kotlin (advanced). Profile: 2 years Kotlin, recent bootcamp graduate.",
+          "role_context": "Kotlin developer role, Chennai co-location, hard skill: kotlin, desired skill: java"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-plausible-inference-priya",
+      "role_fixture": "ROLE-02",
+      "description": "Faithfulness adversarial (subtle): Priya's narrative infers mentoring and multi-team impact not present in evidence",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": false
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "With 4 years of React and TypeScript experience, this candidate has directly relevant frontend skills. Feedback confirms delivery of a reusable React component library, demonstrating hands-on component architecture capability.",
+          "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "This candidate brings 3 years of React and Next.js experience building e-commerce frontends. Feedback notes delivery of a React migration ahead of schedule, indicating strong execution and ecosystem familiarity.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
+          "narrative": "A senior React specialist who has mentored junior developers and established design system best practices across multiple teams. Feedback describes architectural thinking that extends well beyond typical senior individual contributor scope.",
+          "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-credential-addition-karan",
+      "role_fixture": "ROLE-02",
+      "description": "Faithfulness adversarial (subtle): Karan's narrative adds cloud certification and cross-team collaboration not in evidence",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": false,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": true,
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "With 4 years of React and TypeScript experience plus cloud certification credentials, this candidate combines frontend depth with infrastructure awareness. Feedback confirms delivery of a reusable component library and cross-team collaboration.",
+          "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "This candidate brings 3 years of React and Next.js experience building e-commerce frontends. Feedback notes delivery of a React migration ahead of schedule, indicating strong execution and ecosystem familiarity.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
+          "narrative": "A senior frontend developer with 5 years across React and Vue.js, specialising in design systems. Feedback highlights excellent React architecture skills, indicating capability in structuring scalable frontend codebases.",
+          "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        }
+      }
+    },
+    {
+      "case_id": "GS-ROLE-02-skill-conflation-rahul",
+      "role_fixture": "ROLE-02",
+      "description": "Faithfulness adversarial (subtle): Rahul's narrative inflates frontend-only evidence to 'full-stack' with fabricated Node.js backend claims",
+      "expected_shortlist": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "expected_relevant_set": [
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522",
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572",
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c"
+      ],
+      "faithfulness_labels": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": true,
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": false,
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": true
+      },
+      "narrative_fixtures": {
+        "cid:60e7faf052a3012869ddb7d87f9873502ba14b184c1a1df735fc79a19e6fd522": {
+          "narrative": "With 4 years of React and TypeScript experience, this candidate has directly relevant frontend skills. Feedback confirms delivery of a reusable React component library, demonstrating hands-on component architecture capability.",
+          "candidate_context": "Skills: react (advanced). Profile: 4 years React/TypeScript, component library development. Feedback: Built reusable React component library.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:3b0a8688b96e7f60e24245d30a75db66d3d8f91a196e29ba83576b1b03ecd572": {
+          "narrative": "A full-stack developer with 3 years of experience building end-to-end e-commerce platforms using React, Next.js, and Node.js. Feedback confirms ahead-of-schedule delivery on complex full-stack migration projects.",
+          "candidate_context": "Skills: react (advanced). Profile: 3 years React/Next.js, e-commerce frontends. Feedback: Delivered React migration ahead of schedule.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
+        },
+        "cid:4dc8b4548d3af28e1cc77e023526a34576caf24358c16acffec8dd1bad74aa6c": {
+          "narrative": "A senior frontend developer with 5 years across React and Vue.js, specialising in design systems. Feedback highlights excellent React architecture skills, indicating capability in structuring scalable frontend codebases.",
+          "candidate_context": "Skills: react (advanced). Profile: 5 years React/Vue.js, design system specialist. Feedback: Excellent React architecture skills.",
+          "role_context": "React developer role, Chennai co-location, hard skill: react"
         }
       }
     }
