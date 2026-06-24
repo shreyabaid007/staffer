@@ -202,4 +202,13 @@
 
 ---
 
-*Next ADRs start at AD-107.*
+## Human-readable output (b-003)
+
+> Ratified as part of B-3 (`specs/b-003-human-readable-shortlist/`). No frozen-contract amendment
+> (no model field added — only output *values* change). Closes the deferred half of AD-091/AD-102.
+
+- **AD-107 · Final human-facing identity de-anonymisation at the CLI output edge** — Accepted — The query pipeline (`dsm.match`) keeps emitting **pseudonymised** results (identity field = `candidate_id`, AD-091); a new render step `render_identities(result, vault)` in [`dsm/cli/commands.py`](../dsm/cli/commands.py) (the composition root that already owns the `FileVault`) substitutes the real `(name, email)` from the vault into **every** identity-bearing output field — `ranked_assessments[].candidate.email`/`.name`, both `NearMiss` lists' `candidate_email`/`name`, and every `Exclusion.candidate_email` (decision: de-anon *everything incl. the exclusion log*). Applied by the `match`/`explain` commands **after** `run_match` returns and **before** serialisation; output JSON *structure* is unchanged, only identity *values* change (decision: *JSON with real identity*, not a new formatted view). Frozen output models are rebuilt via `model_copy(update=...)`. **Vault-miss → keep the `candidate_id` + PII-safe `WARNING` (`render.vault_miss_identity`, `candidate_id` only), never fail-closed — consistent with AD-103.** Why this holds the PII boundary: (1) de-anon lives **only** at the CLI, so `dsm.match` gains no `dsm.pii` import and the `match ⊥ PII` contract (AD-101) stays green; (2) the `no-PII-leak` invariant requires **no relaxation** — by design it governs *provider seam inputs + LLM narratives*, not output identity fields (`dsm/eval/invariants.py::no_pii_leak`: "Final human-facing output legitimately carries identity for the authorised reader"); (3) `run_match`/`_match_role` keep returning pseudonymised results, so the determinism invariant + eval cassettes are untouched. **No new storage** — identity already lives in `data/identity/vault.json` (the `FileVault`, AD-102), written by `dsm ingest`; this is simply a *second reader* of it. **Storage caveat (raised + accepted at spec review):** the vault is **plaintext today** (signed-off POC limitation, AD-102) and surfacing real identities in output raises their *visible* exposure; at-rest encryption / retention / purge-by-id stays **out of scope** here and remains **AD-068**'s to land — recorded so the trade-off is conscious, not silent drift. Rejected: a formatted/tabular terminal view (deferred — JSON-with-identity chosen); de-anonymising inside `dsm.match` (would break the import boundary). See `specs/b-003-human-readable-shortlist/`.
+
+---
+
+*Next ADRs start at AD-108.*
