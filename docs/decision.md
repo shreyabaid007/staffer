@@ -211,4 +211,10 @@
 
 ---
 
-*Next ADRs start at AD-108.*
+## Runtime / environment
+
+- **AD-108 · Set `KMP_DUPLICATE_LIB_OK=TRUE` at the CLI entrypoint (macOS duplicate-OpenMP workaround)** — Accepted — `dsm/cli/main.py` sets `os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")` as its **first statement**, before any import. **The crash it fixes:** three pip wheels each statically bundle a *different* `libomp.dylib` — `faiss-cpu` (via `milvus-lite`, the vector index), plus `torch` and `scikit-learn` (via the spaCy/Presidio NER stack the PII boundary uses). Any `dsm match` that produces a **shortlist** loads both the index (faiss) **and**, at the scoring stage, the NER stack (torch) into one process; the second OpenMP runtime to initialise calls `abort()` (`OMP: Error #15`, exit 134). No-match roles short-circuit before scoring, so they never co-load and never crashed — which is why the failure looked role-dependent (it tracks shortlist-vs-no-match, not role id). **Why this approach:** the var must be set before the OpenMP-linked libs load (OpenMP reads it at library-init), so the entrypoint — ahead of its own imports — is the correct, reliable place; being committed, it covers every subcommand (`match`/`explain`/`ingest`/`index`) and every machine + CI, unlike a per-developer shell `export`. `setdefault` lets an explicit `KMP_DUPLICATE_LIB_OK=FALSE` still win (to surface conflicts while debugging). **Risk accepted:** OpenMP warns this *can* "silently produce incorrect results", but that failure mode requires colliding nested parallel regions; this workload is single-pass CPU inference over synthetic POC data, so the practical risk is negligible. The only true fix (one centralised `libomp`) means moving the toolchain to conda-forge — rejected as far too heavy for a POC and contrary to the committed `uv`/pip choice (`docs/tech.md`). Rejected alternatives: per-developer shell `export` (not shared/reproducible — fails teammates + CI); a project `.env` (`uv run` doesn't auto-load it); dropping faiss or the NER stack (each is load-bearing — the index resp. the PII boundary). Lives at the composition root, so `dsm.match`/`dsm.pii` are untouched. See `docs/tech.md` § Stack, `dsm/cli/main.py`.
+
+---
+
+*Next ADRs start at AD-109.*

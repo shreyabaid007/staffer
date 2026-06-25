@@ -9,7 +9,7 @@ A local Python orchestrator running **structured RAG**: clarify (LLM) → **dete
 The LLM is bounded to typed pre/post steps (clarify, score). Retrieval is deterministic. **No agent loops.** Reason: explainability, reproducibility, tractable evals, predictable cost. Do not introduce agentic retrieval without an ADR.
 
 ## Stack (pinned — no new deps without an ADR)
-- **Runtime:** Python 3.12, `uv` (deps + lockfile), `mise` (tool versions). Reproducible by construction.
+- **Runtime:** Python 3.12, `uv` (deps + lockfile), `mise` (tool versions). Reproducible by construction. **macOS OpenMP note:** `faiss-cpu` (via Milvus Lite) and the PII NER stack (`torch`/`scikit-learn` via spaCy/Presidio) each bundle their own `libomp.dylib`; a `dsm match` that reaches scoring loads both and the duplicate OpenMP runtime aborts the process (`OMP: Error #15`). The CLI entrypoint sets `KMP_DUPLICATE_LIB_OK=TRUE` via `os.environ.setdefault` **before** any import to tolerate this (AD-108). Safe for this CPU/synthetic-data POC; the true fix (single centralised `libomp` via conda-forge) is out of scope.
 - **Data / validation:** Pydantic v2 — every boundary is a typed model.
 - **Parsing:** Docling (resumes: PDF + free-form); CSV supply snapshots parsed deterministically — **never an LLM** (AD-065).
 - **LLM orchestration:** DSPy — every LLM call is a typed `Signature`. **No raw prompt strings to the provider.**
