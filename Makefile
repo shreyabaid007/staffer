@@ -1,6 +1,12 @@
-.PHONY: check check-all lint format typecheck test eval eval-tier1 eval-record imports smoke docker docker-dev
+.PHONY: check check-all lint format typecheck test eval eval-tier1 eval-record imports docs-check smoke docker docker-dev
 
 check: format lint typecheck test eval-tier1 imports
+
+# Cross-document invariants (decision-log integrity, no dangling ADR refs, steering docs vs
+# config). Runs inside `make check` automatically via the `test` target; this is the explicit
+# entrypoint for running just the doc checks.
+docs-check:
+	uv run pytest tests/docs -v
 
 check-all: check eval
 
