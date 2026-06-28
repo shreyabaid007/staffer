@@ -1,0 +1,2674 @@
+{
+  "Candidate": {
+    "$defs": {
+      "CandidateSource": {
+        "description": "Supply-sheet tab the candidate comes from.",
+        "enum": [
+          "beach",
+          "rolling_off",
+          "new_joiner"
+        ],
+        "title": "CandidateSource",
+        "type": "string"
+      },
+      "FeedbackEntry": {
+        "description": "A single piece of feedback from a named source.",
+        "properties": {
+          "retention_flag": {
+            "default": false,
+            "title": "Retention Flag",
+            "type": "boolean"
+          },
+          "sentiment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "positive",
+                  "neutral",
+                  "negative"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sentiment"
+          },
+          "source": {
+            "$ref": "#/$defs/FeedbackSource"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "FeedbackEntry",
+        "type": "object"
+      },
+      "FeedbackSignals": {
+        "description": "Aggregated feedback for a candidate (AD-031: EE and client weighted equally).",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/$defs/FeedbackEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "title": "FeedbackSignals",
+        "type": "object"
+      },
+      "FeedbackSource": {
+        "description": "Origin of a feedback entry.",
+        "enum": [
+          "internal_ee",
+          "client"
+        ],
+        "title": "FeedbackSource",
+        "type": "string"
+      },
+      "FreeNow": {
+        "description": "Availability variant: candidate is immediately available.",
+        "properties": {
+          "type": {
+            "const": "free_now",
+            "default": "free_now",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "FreeNow",
+        "type": "object"
+      },
+      "Location": {
+        "description": "Geographic location and remote/onsite eligibility (AD-086).\n\nThe overloaded ``remote_eligible`` boolean is split into two orthogonal facets:\n``remote_within_country`` (\"works remote from a home base\") and ``onsite_cities``\n(cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``\nnever clears an onsite (co-location) gate \u2014 only a city match or onsite-city membership does.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "City"
+          },
+          "country": {
+            "default": "India",
+            "title": "Country",
+            "type": "string"
+          },
+          "onsite_cities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Onsite Cities",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "remote_within_country": {
+            "default": false,
+            "title": "Remote Within Country",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          }
+        },
+        "title": "Location",
+        "type": "object"
+      },
+      "NewJoiner": {
+        "description": "Availability variant: candidate is a new joiner.",
+        "properties": {
+          "join_date": {
+            "format": "date",
+            "title": "Join Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "new_joiner",
+            "default": "new_joiner",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "join_date"
+        ],
+        "title": "NewJoiner",
+        "type": "object"
+      },
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      },
+      "RollingOff": {
+        "description": "Availability variant: candidate is rolling off a project.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "expected_date": {
+            "format": "date",
+            "title": "Expected Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "rolling_off",
+            "default": "rolling_off",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_date",
+          "confidence"
+        ],
+        "title": "RollingOff",
+        "type": "object"
+      },
+      "Skill": {
+        "description": "A candidate skill with proficiency level.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proficiency": {
+            "$ref": "#/$defs/ProficiencyLevel"
+          }
+        },
+        "required": [
+          "name",
+          "proficiency"
+        ],
+        "title": "Skill",
+        "type": "object"
+      }
+    },
+    "description": "A person from the supply sheets.",
+    "properties": {
+      "availability": {
+        "discriminator": {
+          "mapping": {
+            "free_now": "#/$defs/FreeNow",
+            "new_joiner": "#/$defs/NewJoiner",
+            "rolling_off": "#/$defs/RollingOff"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/FreeNow"
+          },
+          {
+            "$ref": "#/$defs/RollingOff"
+          },
+          {
+            "$ref": "#/$defs/NewJoiner"
+          }
+        ],
+        "title": "Availability"
+      },
+      "email": {
+        "title": "Email",
+        "type": "string"
+      },
+      "feedback": {
+        "$ref": "#/$defs/FeedbackSignals"
+      },
+      "location": {
+        "$ref": "#/$defs/Location"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "profile_summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Profile Summary"
+      },
+      "skills": {
+        "items": {
+          "$ref": "#/$defs/Skill"
+        },
+        "title": "Skills",
+        "type": "array"
+      },
+      "source": {
+        "$ref": "#/$defs/CandidateSource"
+      },
+      "years_experience": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Years Experience"
+      }
+    },
+    "required": [
+      "email",
+      "name",
+      "location",
+      "availability",
+      "skills",
+      "feedback",
+      "source"
+    ],
+    "title": "Candidate",
+    "type": "object"
+  },
+  "CandidateAssessment": {
+    "$defs": {
+      "Candidate": {
+        "description": "A person from the supply sheets.",
+        "properties": {
+          "availability": {
+            "discriminator": {
+              "mapping": {
+                "free_now": "#/$defs/FreeNow",
+                "new_joiner": "#/$defs/NewJoiner",
+                "rolling_off": "#/$defs/RollingOff"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/FreeNow"
+              },
+              {
+                "$ref": "#/$defs/RollingOff"
+              },
+              {
+                "$ref": "#/$defs/NewJoiner"
+              }
+            ],
+            "title": "Availability"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "feedback": {
+            "$ref": "#/$defs/FeedbackSignals"
+          },
+          "location": {
+            "$ref": "#/$defs/Location"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile Summary"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/$defs/Skill"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/$defs/CandidateSource"
+          },
+          "years_experience": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Years Experience"
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "location",
+          "availability",
+          "skills",
+          "feedback",
+          "source"
+        ],
+        "title": "Candidate",
+        "type": "object"
+      },
+      "CandidateSource": {
+        "description": "Supply-sheet tab the candidate comes from.",
+        "enum": [
+          "beach",
+          "rolling_off",
+          "new_joiner"
+        ],
+        "title": "CandidateSource",
+        "type": "string"
+      },
+      "EvidenceCitation": {
+        "description": "Links a claim to its verbatim source (AD-040; AD-073).\n\n``text`` is the AD-073 **verified verbatim quote** \u2014 a span confirmed to exist in the source\nbefore the claim is accepted. ``source_hash``/``locator`` add optional lineage-to-source\n(which bronze blob + where inside it) for the enrich/gold stage; both default to ``None`` so\nexisting citations (gates/score/rank) are unaffected (AD-077, backwards-compatible).",
+        "properties": {
+          "locator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Locator"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "source": {
+            "$ref": "#/$defs/EvidenceSource"
+          },
+          "source_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Hash"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "EvidenceCitation",
+        "type": "object"
+      },
+      "EvidenceSource": {
+        "description": "Where an evidence citation came from.",
+        "enum": [
+          "supply_sheet",
+          "profile_pdf",
+          "feedback"
+        ],
+        "title": "EvidenceSource",
+        "type": "string"
+      },
+      "FeedbackEntry": {
+        "description": "A single piece of feedback from a named source.",
+        "properties": {
+          "retention_flag": {
+            "default": false,
+            "title": "Retention Flag",
+            "type": "boolean"
+          },
+          "sentiment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "positive",
+                  "neutral",
+                  "negative"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sentiment"
+          },
+          "source": {
+            "$ref": "#/$defs/FeedbackSource"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "FeedbackEntry",
+        "type": "object"
+      },
+      "FeedbackSignals": {
+        "description": "Aggregated feedback for a candidate (AD-031: EE and client weighted equally).",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/$defs/FeedbackEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "title": "FeedbackSignals",
+        "type": "object"
+      },
+      "FeedbackSource": {
+        "description": "Origin of a feedback entry.",
+        "enum": [
+          "internal_ee",
+          "client"
+        ],
+        "title": "FeedbackSource",
+        "type": "string"
+      },
+      "Flag": {
+        "description": "A trade-off or warning to surface in the shortlist.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/$defs/FlagType"
+          }
+        },
+        "required": [
+          "type",
+          "message"
+        ],
+        "title": "Flag",
+        "type": "object"
+      },
+      "FlagType": {
+        "description": "Trade-off or warning surfaced in the candidate assessment.",
+        "enum": [
+          "unverified_skills",
+          "adjacency_used",
+          "roll_off_uncertain",
+          "retention_risk",
+          "freshness_warning"
+        ],
+        "title": "FlagType",
+        "type": "string"
+      },
+      "FreeNow": {
+        "description": "Availability variant: candidate is immediately available.",
+        "properties": {
+          "type": {
+            "const": "free_now",
+            "default": "free_now",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "FreeNow",
+        "type": "object"
+      },
+      "Location": {
+        "description": "Geographic location and remote/onsite eligibility (AD-086).\n\nThe overloaded ``remote_eligible`` boolean is split into two orthogonal facets:\n``remote_within_country`` (\"works remote from a home base\") and ``onsite_cities``\n(cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``\nnever clears an onsite (co-location) gate \u2014 only a city match or onsite-city membership does.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "City"
+          },
+          "country": {
+            "default": "India",
+            "title": "Country",
+            "type": "string"
+          },
+          "onsite_cities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Onsite Cities",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "remote_within_country": {
+            "default": false,
+            "title": "Remote Within Country",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          }
+        },
+        "title": "Location",
+        "type": "object"
+      },
+      "NewJoiner": {
+        "description": "Availability variant: candidate is a new joiner.",
+        "properties": {
+          "join_date": {
+            "format": "date",
+            "title": "Join Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "new_joiner",
+            "default": "new_joiner",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "join_date"
+        ],
+        "title": "NewJoiner",
+        "type": "object"
+      },
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      },
+      "RollingOff": {
+        "description": "Availability variant: candidate is rolling off a project.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "expected_date": {
+            "format": "date",
+            "title": "Expected Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "rolling_off",
+            "default": "rolling_off",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_date",
+          "confidence"
+        ],
+        "title": "RollingOff",
+        "type": "object"
+      },
+      "Skill": {
+        "description": "A candidate skill with proficiency level.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proficiency": {
+            "$ref": "#/$defs/ProficiencyLevel"
+          }
+        },
+        "required": [
+          "name",
+          "proficiency"
+        ],
+        "title": "Skill",
+        "type": "object"
+      }
+    },
+    "description": "Scored candidate with LLM-generated reasoning.",
+    "properties": {
+      "candidate": {
+        "$ref": "#/$defs/Candidate"
+      },
+      "combined_score": {
+        "title": "Combined Score",
+        "type": "number"
+      },
+      "desired_skill_coverage": {
+        "title": "Desired Skill Coverage",
+        "type": "number"
+      },
+      "evidence": {
+        "items": {
+          "$ref": "#/$defs/EvidenceCitation"
+        },
+        "title": "Evidence",
+        "type": "array"
+      },
+      "feedback_score": {
+        "title": "Feedback Score",
+        "type": "number"
+      },
+      "flags": {
+        "items": {
+          "$ref": "#/$defs/Flag"
+        },
+        "title": "Flags",
+        "type": "array"
+      },
+      "hard_skill_coverage": {
+        "title": "Hard Skill Coverage",
+        "type": "number"
+      },
+      "narrative": {
+        "title": "Narrative",
+        "type": "string"
+      },
+      "skill_match_score": {
+        "title": "Skill Match Score",
+        "type": "number"
+      }
+    },
+    "required": [
+      "candidate",
+      "skill_match_score",
+      "feedback_score",
+      "combined_score",
+      "flags",
+      "evidence",
+      "narrative",
+      "hard_skill_coverage",
+      "desired_skill_coverage"
+    ],
+    "title": "CandidateAssessment",
+    "type": "object"
+  },
+  "CandidateSource": {
+    "enum": [
+      "beach",
+      "rolling_off",
+      "new_joiner"
+    ]
+  },
+  "EligiblePool": {
+    "$defs": {
+      "Candidate": {
+        "description": "A person from the supply sheets.",
+        "properties": {
+          "availability": {
+            "discriminator": {
+              "mapping": {
+                "free_now": "#/$defs/FreeNow",
+                "new_joiner": "#/$defs/NewJoiner",
+                "rolling_off": "#/$defs/RollingOff"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/FreeNow"
+              },
+              {
+                "$ref": "#/$defs/RollingOff"
+              },
+              {
+                "$ref": "#/$defs/NewJoiner"
+              }
+            ],
+            "title": "Availability"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "feedback": {
+            "$ref": "#/$defs/FeedbackSignals"
+          },
+          "location": {
+            "$ref": "#/$defs/Location"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile Summary"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/$defs/Skill"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/$defs/CandidateSource"
+          },
+          "years_experience": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Years Experience"
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "location",
+          "availability",
+          "skills",
+          "feedback",
+          "source"
+        ],
+        "title": "Candidate",
+        "type": "object"
+      },
+      "CandidateSource": {
+        "description": "Supply-sheet tab the candidate comes from.",
+        "enum": [
+          "beach",
+          "rolling_off",
+          "new_joiner"
+        ],
+        "title": "CandidateSource",
+        "type": "string"
+      },
+      "FeedbackEntry": {
+        "description": "A single piece of feedback from a named source.",
+        "properties": {
+          "retention_flag": {
+            "default": false,
+            "title": "Retention Flag",
+            "type": "boolean"
+          },
+          "sentiment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "positive",
+                  "neutral",
+                  "negative"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sentiment"
+          },
+          "source": {
+            "$ref": "#/$defs/FeedbackSource"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "FeedbackEntry",
+        "type": "object"
+      },
+      "FeedbackSignals": {
+        "description": "Aggregated feedback for a candidate (AD-031: EE and client weighted equally).",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/$defs/FeedbackEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "title": "FeedbackSignals",
+        "type": "object"
+      },
+      "FeedbackSource": {
+        "description": "Origin of a feedback entry.",
+        "enum": [
+          "internal_ee",
+          "client"
+        ],
+        "title": "FeedbackSource",
+        "type": "string"
+      },
+      "FreeNow": {
+        "description": "Availability variant: candidate is immediately available.",
+        "properties": {
+          "type": {
+            "const": "free_now",
+            "default": "free_now",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "FreeNow",
+        "type": "object"
+      },
+      "Location": {
+        "description": "Geographic location and remote/onsite eligibility (AD-086).\n\nThe overloaded ``remote_eligible`` boolean is split into two orthogonal facets:\n``remote_within_country`` (\"works remote from a home base\") and ``onsite_cities``\n(cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``\nnever clears an onsite (co-location) gate \u2014 only a city match or onsite-city membership does.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "City"
+          },
+          "country": {
+            "default": "India",
+            "title": "Country",
+            "type": "string"
+          },
+          "onsite_cities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Onsite Cities",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "remote_within_country": {
+            "default": false,
+            "title": "Remote Within Country",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          }
+        },
+        "title": "Location",
+        "type": "object"
+      },
+      "NewJoiner": {
+        "description": "Availability variant: candidate is a new joiner.",
+        "properties": {
+          "join_date": {
+            "format": "date",
+            "title": "Join Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "new_joiner",
+            "default": "new_joiner",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "join_date"
+        ],
+        "title": "NewJoiner",
+        "type": "object"
+      },
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      },
+      "RollingOff": {
+        "description": "Availability variant: candidate is rolling off a project.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "expected_date": {
+            "format": "date",
+            "title": "Expected Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "rolling_off",
+            "default": "rolling_off",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_date",
+          "confidence"
+        ],
+        "title": "RollingOff",
+        "type": "object"
+      },
+      "Skill": {
+        "description": "A candidate skill with proficiency level.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proficiency": {
+            "$ref": "#/$defs/ProficiencyLevel"
+          }
+        },
+        "required": [
+          "name",
+          "proficiency"
+        ],
+        "title": "Skill",
+        "type": "object"
+      }
+    },
+    "description": "Candidates that passed all gates.",
+    "properties": {
+      "candidates": {
+        "items": {
+          "$ref": "#/$defs/Candidate"
+        },
+        "title": "Candidates",
+        "type": "array"
+      },
+      "scorecard_id": {
+        "title": "Scorecard Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "candidates",
+      "scorecard_id"
+    ],
+    "title": "EligiblePool",
+    "type": "object"
+  },
+  "EvidenceCitation": {
+    "$defs": {
+      "EvidenceSource": {
+        "description": "Where an evidence citation came from.",
+        "enum": [
+          "supply_sheet",
+          "profile_pdf",
+          "feedback"
+        ],
+        "title": "EvidenceSource",
+        "type": "string"
+      }
+    },
+    "description": "Links a claim to its verbatim source (AD-040; AD-073).\n\n``text`` is the AD-073 **verified verbatim quote** \u2014 a span confirmed to exist in the source\nbefore the claim is accepted. ``source_hash``/``locator`` add optional lineage-to-source\n(which bronze blob + where inside it) for the enrich/gold stage; both default to ``None`` so\nexisting citations (gates/score/rank) are unaffected (AD-077, backwards-compatible).",
+    "properties": {
+      "locator": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Locator"
+      },
+      "metadata": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "title": "Metadata",
+        "type": "object"
+      },
+      "source": {
+        "$ref": "#/$defs/EvidenceSource"
+      },
+      "source_hash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Hash"
+      },
+      "text": {
+        "title": "Text",
+        "type": "string"
+      }
+    },
+    "required": [
+      "source",
+      "text"
+    ],
+    "title": "EvidenceCitation",
+    "type": "object"
+  },
+  "EvidenceSource": {
+    "enum": [
+      "supply_sheet",
+      "profile_pdf",
+      "feedback"
+    ]
+  },
+  "Exclusion": {
+    "$defs": {
+      "ExclusionReason": {
+        "description": "Why a candidate was excluded by the deterministic gate (AD-002).",
+        "enum": [
+          "location_mismatch",
+          "availability_mismatch",
+          "hard_skill_mismatch"
+        ],
+        "title": "ExclusionReason",
+        "type": "string"
+      }
+    },
+    "description": "A single gate exclusion record.",
+    "properties": {
+      "candidate_email": {
+        "title": "Candidate Email",
+        "type": "string"
+      },
+      "detail": {
+        "title": "Detail",
+        "type": "string"
+      },
+      "reason": {
+        "$ref": "#/$defs/ExclusionReason"
+      }
+    },
+    "required": [
+      "candidate_email",
+      "reason",
+      "detail"
+    ],
+    "title": "Exclusion",
+    "type": "object"
+  },
+  "ExclusionLog": {
+    "$defs": {
+      "Exclusion": {
+        "description": "A single gate exclusion record.",
+        "properties": {
+          "candidate_email": {
+            "title": "Candidate Email",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/$defs/ExclusionReason"
+          }
+        },
+        "required": [
+          "candidate_email",
+          "reason",
+          "detail"
+        ],
+        "title": "Exclusion",
+        "type": "object"
+      },
+      "ExclusionReason": {
+        "description": "Why a candidate was excluded by the deterministic gate (AD-002).",
+        "enum": [
+          "location_mismatch",
+          "availability_mismatch",
+          "hard_skill_mismatch"
+        ],
+        "title": "ExclusionReason",
+        "type": "string"
+      }
+    },
+    "description": "All candidates excluded by the deterministic gate.",
+    "properties": {
+      "exclusions": {
+        "items": {
+          "$ref": "#/$defs/Exclusion"
+        },
+        "title": "Exclusions",
+        "type": "array"
+      }
+    },
+    "required": [
+      "exclusions"
+    ],
+    "title": "ExclusionLog",
+    "type": "object"
+  },
+  "ExclusionReason": {
+    "enum": [
+      "location_mismatch",
+      "availability_mismatch",
+      "hard_skill_mismatch"
+    ]
+  },
+  "FeedbackEntry": {
+    "$defs": {
+      "FeedbackSource": {
+        "description": "Origin of a feedback entry.",
+        "enum": [
+          "internal_ee",
+          "client"
+        ],
+        "title": "FeedbackSource",
+        "type": "string"
+      }
+    },
+    "description": "A single piece of feedback from a named source.",
+    "properties": {
+      "retention_flag": {
+        "default": false,
+        "title": "Retention Flag",
+        "type": "boolean"
+      },
+      "sentiment": {
+        "anyOf": [
+          {
+            "enum": [
+              "positive",
+              "neutral",
+              "negative"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Sentiment"
+      },
+      "source": {
+        "$ref": "#/$defs/FeedbackSource"
+      },
+      "text": {
+        "title": "Text",
+        "type": "string"
+      }
+    },
+    "required": [
+      "source",
+      "text"
+    ],
+    "title": "FeedbackEntry",
+    "type": "object"
+  },
+  "FeedbackSignals": {
+    "$defs": {
+      "FeedbackEntry": {
+        "description": "A single piece of feedback from a named source.",
+        "properties": {
+          "retention_flag": {
+            "default": false,
+            "title": "Retention Flag",
+            "type": "boolean"
+          },
+          "sentiment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "positive",
+                  "neutral",
+                  "negative"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sentiment"
+          },
+          "source": {
+            "$ref": "#/$defs/FeedbackSource"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "FeedbackEntry",
+        "type": "object"
+      },
+      "FeedbackSource": {
+        "description": "Origin of a feedback entry.",
+        "enum": [
+          "internal_ee",
+          "client"
+        ],
+        "title": "FeedbackSource",
+        "type": "string"
+      }
+    },
+    "description": "Aggregated feedback for a candidate (AD-031: EE and client weighted equally).",
+    "properties": {
+      "entries": {
+        "items": {
+          "$ref": "#/$defs/FeedbackEntry"
+        },
+        "title": "Entries",
+        "type": "array"
+      }
+    },
+    "title": "FeedbackSignals",
+    "type": "object"
+  },
+  "FeedbackSource": {
+    "enum": [
+      "internal_ee",
+      "client"
+    ]
+  },
+  "Flag": {
+    "$defs": {
+      "FlagType": {
+        "description": "Trade-off or warning surfaced in the candidate assessment.",
+        "enum": [
+          "unverified_skills",
+          "adjacency_used",
+          "roll_off_uncertain",
+          "retention_risk",
+          "freshness_warning"
+        ],
+        "title": "FlagType",
+        "type": "string"
+      }
+    },
+    "description": "A trade-off or warning to surface in the shortlist.",
+    "properties": {
+      "message": {
+        "title": "Message",
+        "type": "string"
+      },
+      "type": {
+        "$ref": "#/$defs/FlagType"
+      }
+    },
+    "required": [
+      "type",
+      "message"
+    ],
+    "title": "Flag",
+    "type": "object"
+  },
+  "FlagType": {
+    "enum": [
+      "unverified_skills",
+      "adjacency_used",
+      "roll_off_uncertain",
+      "retention_risk",
+      "freshness_warning"
+    ]
+  },
+  "FreeNow": {
+    "description": "Availability variant: candidate is immediately available.",
+    "properties": {
+      "type": {
+        "const": "free_now",
+        "default": "free_now",
+        "title": "Type",
+        "type": "string"
+      }
+    },
+    "title": "FreeNow",
+    "type": "object"
+  },
+  "Grade": {
+    "enum": [
+      "senior_consultant",
+      "lead_consultant",
+      "principal_consultant"
+    ]
+  },
+  "Location": {
+    "description": "Geographic location and remote/onsite eligibility (AD-086).\n\nThe overloaded ``remote_eligible`` boolean is split into two orthogonal facets:\n``remote_within_country`` (\"works remote from a home base\") and ``onsite_cities``\n(cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``\nnever clears an onsite (co-location) gate \u2014 only a city match or onsite-city membership does.",
+    "properties": {
+      "city": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "City"
+      },
+      "country": {
+        "default": "India",
+        "title": "Country",
+        "type": "string"
+      },
+      "onsite_cities": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Onsite Cities",
+        "type": "array",
+        "uniqueItems": true
+      },
+      "remote_within_country": {
+        "default": false,
+        "title": "Remote Within Country",
+        "type": "boolean"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "State"
+      }
+    },
+    "title": "Location",
+    "type": "object"
+  },
+  "NearMiss": {
+    "description": "A candidate that almost qualified.",
+    "properties": {
+      "candidate_email": {
+        "title": "Candidate Email",
+        "type": "string"
+      },
+      "gap_summary": {
+        "title": "Gap Summary",
+        "type": "string"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "reason": {
+        "title": "Reason",
+        "type": "string"
+      },
+      "selection_rationale": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Selection Rationale"
+      }
+    },
+    "required": [
+      "candidate_email",
+      "name",
+      "reason",
+      "gap_summary"
+    ],
+    "title": "NearMiss",
+    "type": "object"
+  },
+  "NewJoiner": {
+    "description": "Availability variant: candidate is a new joiner.",
+    "properties": {
+      "join_date": {
+        "format": "date",
+        "title": "Join Date",
+        "type": "string"
+      },
+      "type": {
+        "const": "new_joiner",
+        "default": "new_joiner",
+        "title": "Type",
+        "type": "string"
+      }
+    },
+    "required": [
+      "join_date"
+    ],
+    "title": "NewJoiner",
+    "type": "object"
+  },
+  "NoMatchResult": {
+    "$defs": {
+      "Exclusion": {
+        "description": "A single gate exclusion record.",
+        "properties": {
+          "candidate_email": {
+            "title": "Candidate Email",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/$defs/ExclusionReason"
+          }
+        },
+        "required": [
+          "candidate_email",
+          "reason",
+          "detail"
+        ],
+        "title": "Exclusion",
+        "type": "object"
+      },
+      "ExclusionLog": {
+        "description": "All candidates excluded by the deterministic gate.",
+        "properties": {
+          "exclusions": {
+            "items": {
+              "$ref": "#/$defs/Exclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "exclusions"
+        ],
+        "title": "ExclusionLog",
+        "type": "object"
+      },
+      "ExclusionReason": {
+        "description": "Why a candidate was excluded by the deterministic gate (AD-002).",
+        "enum": [
+          "location_mismatch",
+          "availability_mismatch",
+          "hard_skill_mismatch"
+        ],
+        "title": "ExclusionReason",
+        "type": "string"
+      },
+      "NearMiss": {
+        "description": "A candidate that almost qualified.",
+        "properties": {
+          "candidate_email": {
+            "title": "Candidate Email",
+            "type": "string"
+          },
+          "gap_summary": {
+            "title": "Gap Summary",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "selection_rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Selection Rationale"
+          }
+        },
+        "required": [
+          "candidate_email",
+          "name",
+          "reason",
+          "gap_summary"
+        ],
+        "title": "NearMiss",
+        "type": "object"
+      }
+    },
+    "description": "Failure case: no eligible candidates found.",
+    "properties": {
+      "closest_on_skills": {
+        "items": {
+          "$ref": "#/$defs/NearMiss"
+        },
+        "title": "Closest On Skills",
+        "type": "array"
+      },
+      "exclusion_log": {
+        "$ref": "#/$defs/ExclusionLog"
+      },
+      "near_misses": {
+        "items": {
+          "$ref": "#/$defs/NearMiss"
+        },
+        "title": "Near Misses",
+        "type": "array"
+      },
+      "reason": {
+        "title": "Reason",
+        "type": "string"
+      },
+      "role_id": {
+        "title": "Role Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "role_id",
+      "reason",
+      "near_misses",
+      "exclusion_log"
+    ],
+    "title": "NoMatchResult",
+    "type": "object"
+  },
+  "OpenRole": {
+    "$defs": {
+      "Location": {
+        "description": "Geographic location and remote/onsite eligibility (AD-086).\n\nThe overloaded ``remote_eligible`` boolean is split into two orthogonal facets:\n``remote_within_country`` (\"works remote from a home base\") and ``onsite_cities``\n(cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``\nnever clears an onsite (co-location) gate \u2014 only a city match or onsite-city membership does.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "City"
+          },
+          "country": {
+            "default": "India",
+            "title": "Country",
+            "type": "string"
+          },
+          "onsite_cities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Onsite Cities",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "remote_within_country": {
+            "default": false,
+            "title": "Remote Within Country",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          }
+        },
+        "title": "Location",
+        "type": "object"
+      },
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      },
+      "SkillDepth": {
+        "description": "How strictly a skill requirement must be met (AD-033).",
+        "enum": [
+          "hard",
+          "desired"
+        ],
+        "title": "SkillDepth",
+        "type": "string"
+      },
+      "SkillRequirement": {
+        "description": "A role's skill requirement with depth indicator.",
+        "properties": {
+          "depth": {
+            "$ref": "#/$defs/SkillDepth"
+          },
+          "min_proficiency": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProficiencyLevel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "depth"
+        ],
+        "title": "SkillRequirement",
+        "type": "object"
+      }
+    },
+    "description": "The input role (before clarification).",
+    "properties": {
+      "co_location_required": {
+        "title": "Co Location Required",
+        "type": "boolean"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Description"
+      },
+      "location": {
+        "$ref": "#/$defs/Location"
+      },
+      "preferred_skills": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Preferred Skills",
+        "type": "array"
+      },
+      "required_skills": {
+        "items": {
+          "$ref": "#/$defs/SkillRequirement"
+        },
+        "title": "Required Skills",
+        "type": "array"
+      },
+      "role_id": {
+        "title": "Role Id",
+        "type": "string"
+      },
+      "start_date": {
+        "format": "date",
+        "title": "Start Date",
+        "type": "string"
+      },
+      "title": {
+        "title": "Title",
+        "type": "string"
+      }
+    },
+    "required": [
+      "role_id",
+      "title",
+      "required_skills",
+      "location",
+      "co_location_required",
+      "start_date"
+    ],
+    "title": "OpenRole",
+    "type": "object"
+  },
+  "ProficiencyLevel": {
+    "enum": [
+      "beginner",
+      "intermediate",
+      "advanced",
+      "expert"
+    ]
+  },
+  "RollingOff": {
+    "description": "Availability variant: candidate is rolling off a project.",
+    "properties": {
+      "confidence": {
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ],
+        "title": "Confidence",
+        "type": "string"
+      },
+      "expected_date": {
+        "format": "date",
+        "title": "Expected Date",
+        "type": "string"
+      },
+      "type": {
+        "const": "rolling_off",
+        "default": "rolling_off",
+        "title": "Type",
+        "type": "string"
+      }
+    },
+    "required": [
+      "expected_date",
+      "confidence"
+    ],
+    "title": "RollingOff",
+    "type": "object"
+  },
+  "ShortlistResult": {
+    "$defs": {
+      "Candidate": {
+        "description": "A person from the supply sheets.",
+        "properties": {
+          "availability": {
+            "discriminator": {
+              "mapping": {
+                "free_now": "#/$defs/FreeNow",
+                "new_joiner": "#/$defs/NewJoiner",
+                "rolling_off": "#/$defs/RollingOff"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/FreeNow"
+              },
+              {
+                "$ref": "#/$defs/RollingOff"
+              },
+              {
+                "$ref": "#/$defs/NewJoiner"
+              }
+            ],
+            "title": "Availability"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "feedback": {
+            "$ref": "#/$defs/FeedbackSignals"
+          },
+          "location": {
+            "$ref": "#/$defs/Location"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile Summary"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/$defs/Skill"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/$defs/CandidateSource"
+          },
+          "years_experience": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Years Experience"
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "location",
+          "availability",
+          "skills",
+          "feedback",
+          "source"
+        ],
+        "title": "Candidate",
+        "type": "object"
+      },
+      "CandidateAssessment": {
+        "description": "Scored candidate with LLM-generated reasoning.",
+        "properties": {
+          "candidate": {
+            "$ref": "#/$defs/Candidate"
+          },
+          "combined_score": {
+            "title": "Combined Score",
+            "type": "number"
+          },
+          "desired_skill_coverage": {
+            "title": "Desired Skill Coverage",
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/EvidenceCitation"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "feedback_score": {
+            "title": "Feedback Score",
+            "type": "number"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/$defs/Flag"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "hard_skill_coverage": {
+            "title": "Hard Skill Coverage",
+            "type": "number"
+          },
+          "narrative": {
+            "title": "Narrative",
+            "type": "string"
+          },
+          "skill_match_score": {
+            "title": "Skill Match Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "candidate",
+          "skill_match_score",
+          "feedback_score",
+          "combined_score",
+          "flags",
+          "evidence",
+          "narrative",
+          "hard_skill_coverage",
+          "desired_skill_coverage"
+        ],
+        "title": "CandidateAssessment",
+        "type": "object"
+      },
+      "CandidateSource": {
+        "description": "Supply-sheet tab the candidate comes from.",
+        "enum": [
+          "beach",
+          "rolling_off",
+          "new_joiner"
+        ],
+        "title": "CandidateSource",
+        "type": "string"
+      },
+      "EvidenceCitation": {
+        "description": "Links a claim to its verbatim source (AD-040; AD-073).\n\n``text`` is the AD-073 **verified verbatim quote** \u2014 a span confirmed to exist in the source\nbefore the claim is accepted. ``source_hash``/``locator`` add optional lineage-to-source\n(which bronze blob + where inside it) for the enrich/gold stage; both default to ``None`` so\nexisting citations (gates/score/rank) are unaffected (AD-077, backwards-compatible).",
+        "properties": {
+          "locator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Locator"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "source": {
+            "$ref": "#/$defs/EvidenceSource"
+          },
+          "source_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Hash"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "EvidenceCitation",
+        "type": "object"
+      },
+      "EvidenceSource": {
+        "description": "Where an evidence citation came from.",
+        "enum": [
+          "supply_sheet",
+          "profile_pdf",
+          "feedback"
+        ],
+        "title": "EvidenceSource",
+        "type": "string"
+      },
+      "Exclusion": {
+        "description": "A single gate exclusion record.",
+        "properties": {
+          "candidate_email": {
+            "title": "Candidate Email",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/$defs/ExclusionReason"
+          }
+        },
+        "required": [
+          "candidate_email",
+          "reason",
+          "detail"
+        ],
+        "title": "Exclusion",
+        "type": "object"
+      },
+      "ExclusionLog": {
+        "description": "All candidates excluded by the deterministic gate.",
+        "properties": {
+          "exclusions": {
+            "items": {
+              "$ref": "#/$defs/Exclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "exclusions"
+        ],
+        "title": "ExclusionLog",
+        "type": "object"
+      },
+      "ExclusionReason": {
+        "description": "Why a candidate was excluded by the deterministic gate (AD-002).",
+        "enum": [
+          "location_mismatch",
+          "availability_mismatch",
+          "hard_skill_mismatch"
+        ],
+        "title": "ExclusionReason",
+        "type": "string"
+      },
+      "FeedbackEntry": {
+        "description": "A single piece of feedback from a named source.",
+        "properties": {
+          "retention_flag": {
+            "default": false,
+            "title": "Retention Flag",
+            "type": "boolean"
+          },
+          "sentiment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "positive",
+                  "neutral",
+                  "negative"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sentiment"
+          },
+          "source": {
+            "$ref": "#/$defs/FeedbackSource"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text"
+        ],
+        "title": "FeedbackEntry",
+        "type": "object"
+      },
+      "FeedbackSignals": {
+        "description": "Aggregated feedback for a candidate (AD-031: EE and client weighted equally).",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/$defs/FeedbackEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "title": "FeedbackSignals",
+        "type": "object"
+      },
+      "FeedbackSource": {
+        "description": "Origin of a feedback entry.",
+        "enum": [
+          "internal_ee",
+          "client"
+        ],
+        "title": "FeedbackSource",
+        "type": "string"
+      },
+      "Flag": {
+        "description": "A trade-off or warning to surface in the shortlist.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/$defs/FlagType"
+          }
+        },
+        "required": [
+          "type",
+          "message"
+        ],
+        "title": "Flag",
+        "type": "object"
+      },
+      "FlagType": {
+        "description": "Trade-off or warning surfaced in the candidate assessment.",
+        "enum": [
+          "unverified_skills",
+          "adjacency_used",
+          "roll_off_uncertain",
+          "retention_risk",
+          "freshness_warning"
+        ],
+        "title": "FlagType",
+        "type": "string"
+      },
+      "FreeNow": {
+        "description": "Availability variant: candidate is immediately available.",
+        "properties": {
+          "type": {
+            "const": "free_now",
+            "default": "free_now",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "FreeNow",
+        "type": "object"
+      },
+      "Location": {
+        "description": "Geographic location and remote/onsite eligibility (AD-086).\n\nThe overloaded ``remote_eligible`` boolean is split into two orthogonal facets:\n``remote_within_country`` (\"works remote from a home base\") and ``onsite_cities``\n(cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``\nnever clears an onsite (co-location) gate \u2014 only a city match or onsite-city membership does.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "City"
+          },
+          "country": {
+            "default": "India",
+            "title": "Country",
+            "type": "string"
+          },
+          "onsite_cities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Onsite Cities",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "remote_within_country": {
+            "default": false,
+            "title": "Remote Within Country",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          }
+        },
+        "title": "Location",
+        "type": "object"
+      },
+      "NewJoiner": {
+        "description": "Availability variant: candidate is a new joiner.",
+        "properties": {
+          "join_date": {
+            "format": "date",
+            "title": "Join Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "new_joiner",
+            "default": "new_joiner",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "join_date"
+        ],
+        "title": "NewJoiner",
+        "type": "object"
+      },
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      },
+      "RollingOff": {
+        "description": "Availability variant: candidate is rolling off a project.",
+        "properties": {
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "expected_date": {
+            "format": "date",
+            "title": "Expected Date",
+            "type": "string"
+          },
+          "type": {
+            "const": "rolling_off",
+            "default": "rolling_off",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_date",
+          "confidence"
+        ],
+        "title": "RollingOff",
+        "type": "object"
+      },
+      "Skill": {
+        "description": "A candidate skill with proficiency level.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proficiency": {
+            "$ref": "#/$defs/ProficiencyLevel"
+          }
+        },
+        "required": [
+          "name",
+          "proficiency"
+        ],
+        "title": "Skill",
+        "type": "object"
+      }
+    },
+    "description": "Success case: ranked candidate shortlist.",
+    "properties": {
+      "config_snapshot": {
+        "additionalProperties": true,
+        "title": "Config Snapshot",
+        "type": "object"
+      },
+      "exclusion_log": {
+        "$ref": "#/$defs/ExclusionLog"
+      },
+      "ranked_assessments": {
+        "items": {
+          "$ref": "#/$defs/CandidateAssessment"
+        },
+        "title": "Ranked Assessments",
+        "type": "array"
+      },
+      "role_id": {
+        "title": "Role Id",
+        "type": "string"
+      },
+      "total_eligible": {
+        "title": "Total Eligible",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "role_id",
+      "ranked_assessments",
+      "total_eligible",
+      "exclusion_log",
+      "config_snapshot"
+    ],
+    "title": "ShortlistResult",
+    "type": "object"
+  },
+  "Skill": {
+    "$defs": {
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      }
+    },
+    "description": "A candidate skill with proficiency level.",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "proficiency": {
+        "$ref": "#/$defs/ProficiencyLevel"
+      }
+    },
+    "required": [
+      "name",
+      "proficiency"
+    ],
+    "title": "Skill",
+    "type": "object"
+  },
+  "SkillDepth": {
+    "enum": [
+      "hard",
+      "desired"
+    ]
+  },
+  "SkillRequirement": {
+    "$defs": {
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      },
+      "SkillDepth": {
+        "description": "How strictly a skill requirement must be met (AD-033).",
+        "enum": [
+          "hard",
+          "desired"
+        ],
+        "title": "SkillDepth",
+        "type": "string"
+      }
+    },
+    "description": "A role's skill requirement with depth indicator.",
+    "properties": {
+      "depth": {
+        "$ref": "#/$defs/SkillDepth"
+      },
+      "min_proficiency": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ProficiencyLevel"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      }
+    },
+    "required": [
+      "name",
+      "depth"
+    ],
+    "title": "SkillRequirement",
+    "type": "object"
+  },
+  "TargetProfileScorecard": {
+    "$defs": {
+      "Location": {
+        "description": "Geographic location and remote/onsite eligibility (AD-086).\n\nThe overloaded ``remote_eligible`` boolean is split into two orthogonal facets:\n``remote_within_country`` (\"works remote from a home base\") and ``onsite_cities``\n(cities beyond ``city`` where the candidate will work onsite). ``remote_within_country``\nnever clears an onsite (co-location) gate \u2014 only a city match or onsite-city membership does.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "City"
+          },
+          "country": {
+            "default": "India",
+            "title": "Country",
+            "type": "string"
+          },
+          "onsite_cities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Onsite Cities",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "remote_within_country": {
+            "default": false,
+            "title": "Remote Within Country",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          }
+        },
+        "title": "Location",
+        "type": "object"
+      },
+      "ProficiencyLevel": {
+        "description": "Skill proficiency band.",
+        "enum": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "expert"
+        ],
+        "title": "ProficiencyLevel",
+        "type": "string"
+      },
+      "SkillDepth": {
+        "description": "How strictly a skill requirement must be met (AD-033).",
+        "enum": [
+          "hard",
+          "desired"
+        ],
+        "title": "SkillDepth",
+        "type": "string"
+      },
+      "SkillRequirement": {
+        "description": "A role's skill requirement with depth indicator.",
+        "properties": {
+          "depth": {
+            "$ref": "#/$defs/SkillDepth"
+          },
+          "min_proficiency": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProficiencyLevel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "depth"
+        ],
+        "title": "SkillRequirement",
+        "type": "object"
+      }
+    },
+    "description": "Output of match/clarify \u2014 the LLM's structured interpretation of the role.",
+    "properties": {
+      "availability_window_days": {
+        "default": 14,
+        "title": "Availability Window Days",
+        "type": "integer"
+      },
+      "clarification_notes": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Clarification Notes"
+      },
+      "co_location_required": {
+        "title": "Co Location Required",
+        "type": "boolean"
+      },
+      "desired_skills": {
+        "items": {
+          "$ref": "#/$defs/SkillRequirement"
+        },
+        "title": "Desired Skills",
+        "type": "array"
+      },
+      "hard_depth_skills": {
+        "items": {
+          "$ref": "#/$defs/SkillRequirement"
+        },
+        "title": "Hard Depth Skills",
+        "type": "array"
+      },
+      "location": {
+        "$ref": "#/$defs/Location"
+      },
+      "role_id": {
+        "title": "Role Id",
+        "type": "string"
+      },
+      "start_date": {
+        "format": "date",
+        "title": "Start Date",
+        "type": "string"
+      }
+    },
+    "required": [
+      "role_id",
+      "hard_depth_skills",
+      "desired_skills",
+      "location",
+      "co_location_required",
+      "start_date"
+    ],
+    "title": "TargetProfileScorecard",
+    "type": "object"
+  }
+}
