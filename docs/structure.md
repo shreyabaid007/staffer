@@ -7,18 +7,19 @@
 repo/
   CLAUDE.md                 # agent constitution (auto-loaded)
   docs/
-    product.md  tech.md  structure.md  decision.md  progress.md
+    product.md  tech.md  structure.md  decision.md  progress.md  progress.{A,B,C}.md   # per-lane (AD-061)
+  ee-ingestion-architecture.md  ee-query-architecture.md   # signed-off subsystem designs (repo root)
   specs/<lane>-<seq>-<slug>/
     requirements.md  design.md  tasks.md
   dsm/
     models.py    # shared domain models (Candidate, *Scorecard, *Assessment)
     ingest/      # CSV supply + Docling resume + feedback parsers → bronze/silver/gold (land·parse·silver·enrich·merge·reconcile·index); see ee-ingestion-architecture §13
-    pii/         # Presidio/spaCy; PseudonymisedLM (the ONLY path to OpenRouter); redact·leakscan·vault (encrypted identity store)
-    index/       # Modal embed client; Milvus client; hybrid retrieval + rerank
-    match/       # gates.py (pure), clarify.py (DSPy), score.py (DSPy), rank.py
-    cli/         # Typer: ingest / match / explain
-    eval/        # Promptfoo configs; DeepEval cases; invariants
-  modal/         # Modal app: embedder.py (BGE function, GPU spec)
+    pii/         # Presidio/spaCy; PseudonymisedLM (the ONLY path to OpenRouter); redact·leakscan·vault (persistent identity store — PLAINTEXT now, encryption deferred to AD-068)
+    index/       # Modal embed client; Milvus client; hybrid retrieval + rerank; build edge (build.py)
+    match/       # gates.py (pure), clarify.py (DSPy), score.py (DSPy), rank.py, demand.py, freshness.py
+    cli/         # Typer: ingest / index / match / explain
+    eval/        # three-tier pytest harness (AD-095): invariants · golden_set · faithfulness (DeepEval) · retrieval_quality · cassettes (NO Promptfoo)
+  modal/         # Modal app: embedder.py (BGE embedder + bge-reranker cross-encoder, GPU spec)
   config/        # weights, adjacency map, gate rules, model IDs, K
   data/          # raw/ inputs · bronze/ silver/ gold/ (content-addressed, immutable) · .cache/ (content+version keyed)
   tests/         # unit tests (mock all network/LLM)

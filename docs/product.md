@@ -21,7 +21,7 @@ We are **not** "removing human bias" — an LLM pipeline can introduce its own. 
 ## The rules of the system (current state)
 - **Scope:** one role in → ranked **top-5** (config) out; **batch** over the current snapshot; **CLI**.
 - **Candidate universe:** the people in the three supply sheets (Beach / Rolling Off / New Joiners); profiles + feedback enrich, joined by **email**.
-- **Location gate:** co-location=Yes → in-city or open-to-city; `remote-India` → any India location (city = soft preference).
+- **Location gate (AD-086):** co-location required → candidate's home city matches the role city **or** the role city is in the candidate's `onsite_cities` set (working-remote alone does **not** clear an onsite gate); co-location not required → any same-country (India) location passes. _Supersedes the earlier "open-to-city" / `remote_eligible` framing._
 - **Availability gate:** free by **role start + 14 days** ("free now" qualifies for any future start).
 - **Score:** **~70% skill match + 30% feedback / track-record** (config).
 - **Feedback:** internal EE **=** client (equal weight in score); **shown separately** in the rationale.

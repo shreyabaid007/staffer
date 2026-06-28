@@ -145,7 +145,7 @@ def exact_hard_skill_filter(
 
 
 # ---------------------------------------------------------------------------
-# Hybrid recall (step 6) — DEFERRED behind index.recall.enabled (B-2; §6.6/AD-089)
+# Hybrid recall (step 6) — ON by default (AD-109), gated by index.recall.enabled (B-2; §6.6/AD-089)
 # ---------------------------------------------------------------------------
 
 
@@ -165,18 +165,21 @@ def hybrid_recall(
     embed_client: EmbedClient,
     config: dict[str, Any],
 ) -> list[RetrievedCandidate]:
-    """Dense ⊕ BM25 ⊕ RRF recall over the exact-filtered pool — OFF by default (AD-089; §6.6).
+    """Dense ⊕ BM25 ⊕ RRF recall over the exact-filtered pool — ON by default (AD-109; §6.6).
 
-    Gated by ``config["index"]["recall"]["enabled"]`` (default ``False``). **OFF** → a passthrough:
-    one ``RetrievedCandidate`` per input with all scores ``None`` (at single-digit gated pools
-    recall has nothing to narrow — the gates + exact filter already did). **ON** → embed the role
-    query (``mode="query"``), dense top-N ⊕ BM25 top-N (both restricted to the pool ids), fuse by
-    RRF (deterministic: ``Σ 1/(RRF_K + rank)``), and return the fused top-N ordered by
-    ``rrf_score`` then ``candidate_id`` asc. A store / embed error falls back to the exhaustive
-    passthrough (never drops candidates, §6.6) — recall narrows for cost, not a correctness gate.
+    Gated by ``config["index"]["recall"]["enabled"]`` — **shipped ``true`` by default (AD-109)**;
+    the ``.get(..., False)`` below is only the missing-key fallback, not the shipped default.
 
-    Flipping ON is a config change, not a code change (AD-089): turn it on when the post-filter
-    pool routinely exceeds ~150.
+    **OFF** → a passthrough: one ``RetrievedCandidate`` per input with all scores ``None`` (at
+    single-digit gated pools recall has nothing to narrow — the gates + exact filter already did).
+    **ON** → embed the role query (``mode="query"``), dense top-N ⊕ BM25 top-N (both restricted to
+    the pool ids), fuse by RRF (deterministic: ``Σ 1/(RRF_K + rank)``), and return the fused top-N
+    ordered by ``rrf_score`` then ``candidate_id`` asc. A store / embed error falls back to the
+    exhaustive passthrough (never drops candidates, §6.6) — recall narrows for cost, not a
+    correctness gate.
+
+    Toggling is a config change, not code (AD-089 designed it; AD-109 ships it ON): set
+    ``enabled: false`` to force the exhaustive path on tiny pools.
     """
     recall_cfg = config.get("index", {}).get("recall", {})
     if not bool(recall_cfg.get("enabled", False)):
