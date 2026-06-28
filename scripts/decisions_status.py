@@ -23,8 +23,11 @@ from pathlib import Path
 
 DECISION = Path(__file__).resolve().parents[1] / "docs" / "decision.md"
 
-# A canonical ADR entry: "- **AD-NNN · Title** — Status — Decision …"
-_HEAD = re.compile(r"^- \*\*AD-(\d+) · (.+?)\*\* — (.+?) —", re.MULTILINE)
+# A canonical ADR entry begins "- **AD-NNN · Title** …". The status + decision body follow on the
+# rest of the line and are parsed separately (_STATUS) so an entry is NEVER dropped for lacking the
+# trailing " — " that a decision body would add (a short "… ** — Accepted" entry still parses).
+_HEAD = re.compile(r"^- \*\*AD-(\d+) · (.+?)\*\*(.*)$", re.MULTILINE)
+_STATUS = re.compile(r"—\s*(.+?)\s*(?:—|$)")  # first "— Status —" segment of the entry line
 # Supersession is read ONLY from the victim-side note "superseded … by … AD-N" that sits on the
 # dead ADR's own entry. The active "supersedes AD-M" direction is deliberately NOT parsed: it is
 # usually a *partial* supersession ("supersedes AD-060's EvidenceCitation shape") whose AD ref
@@ -32,6 +35,8 @@ _HEAD = re.compile(r"^- \*\*AD-(\d+) · (.+?)\*\* — (.+?) —", re.MULTILINE)
 # ADRs (AD-060 is the frozen contract). Precision over recall: a wrong "superseded" is worse than
 # a missed one. Convention: mark a fully-dead ADR with an inline "*(superseded by AD-N)*" note.
 _SUPERSEDED_BY = re.compile(r"superseded\b[^.]*?\bby\b[^.]*?AD-(\d+)", re.IGNORECASE)
+# A negated note ("…is **not** superseded by AD-N…") is not a supersession — skip it.
+_NEGATION = re.compile(r"\b(?:not|never|cannot|no longer)\b", re.IGNORECASE)
 # An ADR entry ends at the next ADR, or at any section header / banner / rule — so prose
 # *between* entries (e.g. a "## Gating rules" banner that names a supersession) is never
 # mis-attributed to the preceding ADR.
@@ -54,8 +59,10 @@ def _norm_status(raw: str) -> str:
 def parse_decisions(text: str | None = None) -> dict[int, Adr]:
     """Parse ``decision.md`` into ``{ad_id: Adr}`` with the supersession graph resolved.
 
-    Supersession is read from both directions — an ADR's own "superseded by AD-N" note and
-    another ADR's "supersedes AD-M" note — so it does not matter which side records it.
+    Supersession is read **only** from the victim-side "superseded by AD-N" note on the dead ADR's
+    own entry (see the ``_SUPERSEDED_BY`` comment for why the active "supersedes AD-M" direction is
+    not parsed); a negated note ("not superseded by …") is skipped. A dangling target (an AD-N that
+    is not itself a defined ADR) is kept, not silently dropped, so ``tests/docs`` can flag it.
     """
     text = text if text is not None else DECISION.read_text(encoding="utf-8")
     heads = list(_HEAD.finditer(text))
@@ -66,13 +73,16 @@ def parse_decisions(text: str | None = None) -> dict[int, Adr]:
         nxt_head = heads[i + 1].start() if i + 1 < len(heads) else len(text)
         nxt_bound = _BOUNDARY.search(text, h.end())
         end = min(nxt_head, nxt_bound.start() if nxt_bound else len(text))
-        adrs[ad_id] = Adr(id=ad_id, title=h.group(2).strip(), status=_norm_status(h.group(3)))
+        status_m = _STATUS.search(h.group(3))
+        status = _norm_status(status_m.group(1)) if status_m else ""
+        adrs[ad_id] = Adr(id=ad_id, title=h.group(2).strip(), status=status)
         blocks[ad_id] = text[h.start() : end]
     # Resolve supersession from the victim-side note on each ADR's own entry only.
     for ad_id, block in blocks.items():
-        for killer in _SUPERSEDED_BY.findall(block):
-            if int(killer) in adrs:
-                adrs[ad_id].superseded_by.add(int(killer))
+        for m in _SUPERSEDED_BY.finditer(block):
+            if _NEGATION.search(block[max(0, m.start() - 24) : m.start()]):
+                continue  # "…is not superseded by AD-N…" is not a supersession
+            adrs[ad_id].superseded_by.add(int(m.group(1)))
     return adrs
 
 

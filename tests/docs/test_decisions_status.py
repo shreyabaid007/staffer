@@ -7,10 +7,12 @@ dangling or backwards "superseded by AD-N") would silently mislabel the live set
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+DECISION = ROOT / "docs" / "decision.md"
 
 
 def _load_generator():
@@ -30,6 +32,15 @@ def test_parses_the_decision_log_and_renders() -> None:
     assert len(adrs) >= 70, f"only parsed {len(adrs)} ADRs — the entry format likely changed"
     out = ds.render(adrs)
     assert "In force" in out and "Superseded" in out
+
+
+def test_parser_drops_no_adr_entry() -> None:
+    """The parser count equals the number of "- **AD-NNN ·" entry lines — no silent drops."""
+    ds = _load_generator()
+    defined = len(
+        re.findall(r"^- \*\*AD-\d+ ·", DECISION.read_text(encoding="utf-8"), re.MULTILINE)
+    )
+    assert len(ds.parse_decisions()) == defined, "an ADR entry was silently dropped by the parser"
 
 
 def test_supersession_links_exist_and_point_forward() -> None:
