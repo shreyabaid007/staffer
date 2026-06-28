@@ -5,7 +5,7 @@
 > Headers below are stable so `/handoff` can target them. Append to the session log, newest first; rewrite the other sections from current state.
 
 ## In flight
-- **c-004 AI eval layer** — PR #27 (`feat/c/004-ai-eval-layer`), ready for review/merge. AD-104/105/106.
+- _No active Lane-C slice._ **c-004 AI eval layer is merged to `main`** (PR #27, AD-104/105/106) along with the **faithfulness judge calibration fix (PR #28)** — graded 1–10 rubric, 31 cases / 95 labels (80 faithful + 15 adversarial), threshold 0.70, TPR 1.00 / TNR 1.00. Prior Lane-C work also merged: c-002 eval harness (PR #23), c-003 real PII boundary + `FileVault` (PR #25, AD-101/102), AD-103 vault-miss close-out (rode with c-004). Next: **c-005** (AD-084). Read the index `docs/progress.md` for the live build state.
 
 ## Next up
 1. **c-005 — AD-084 generic outbound NER/org-dictionary scan (PII, next slice).** Close the one remaining real leak: third-party names in gold `projects` reach Modal's embedder unredacted (`build_embed_text` takes no `known_pii`). This is the query-score boundary's index-path counterpart. **Write the spec (`requirements → design → tasks`) and stop for sign-off** (golden rule 1).

@@ -23,10 +23,10 @@ Current state → `docs/progress.md` (index) + `docs/progress.{A,B,C}.md` (per-l
 6. **Refresh** — if reality diverged from a doc, fix it **in the same PR**. Stale docs are the main cause of drift.
 
 ## The harness — run these to verify your work
-- `make check` — format, lint, typecheck, unit tests, import contracts. **Must be green before any commit.**
-- `make check-all` — `make check` + `make eval`. Use once eval suite is configured.
+- `make check` — format, lint, typecheck, unit tests, import contracts, **Tier-1 eval invariants**. **Must be green before any commit.**
+- `make check-all` — `make check` + `make eval`.
 - `uv run pytest` · `uv run pyright` · `uv run ruff check --fix && uv run ruff format`
-- `make eval` — Promptfoo + DeepEval invariants: gates-respected · hard-skill-not-cleared-by-adjacency · evidence-cited · **no-PII-leak** · determinism. **Not yet configured — will fail until wired up.**
+- `make eval` — the three-tier pytest eval harness (AD-095/096): **Tier 1** deterministic invariants (gates-respected · hard-skill-not-cleared-by-adjacency · evidence-cited · **no-PII-leak** · determinism · adjacency-flag), **Tier 2** signature/cassette regression, **Tier 3** live smoke + drift guard, plus the AI eval layer — DeepEval faithfulness judge + retrieval metrics (AD-104/105/106). **Configured and green**; the live tiers `skipif` no API keys. (No Promptfoo — dropped in AD-095.)
 
 **Never disable a check to make it pass.** Fix the cause, or — if the check is wrong — change it in its own commit with a note.
 
@@ -45,3 +45,10 @@ Spec acceptance criteria met · `make check` green · new behaviour has a test �
 - One source of truth per fact — link, don't duplicate (rules in `product.md`/`tech.md`, history in `decision.md`, global state in `progress.md`, per-lane state in `progress.<lane>.md`).
 - Edit the real file; don't create `_v2`. Delete code; don't comment it out.
 - End the session via `/handoff` (lane from `.claude/lane`) so your lane file `docs/progress.<lane>.md` is current — never end mid-task with a red harness without saying so there.
+
+## Doc hygiene (enforced by `tests/docs` in `make check`)
+- **Never restate a config value or a count in living prose** — cite the key instead (e.g. "`config/default.yaml::index.recall.enabled`") rather than writing out its on/off value. Config/code is the only source of truth for a value; restating it creates a drift site (this is what rotted that default across ~6 files). `tests/docs/test_doc_invariants.py` fails the build when a steering doc restates a volatile value that contradicts config.
+- **Counts (tests / import-contracts / PR numbers) belong only in append-only session logs** (point-in-time history), never in a living section — they are wrong within a week.
+- **ADRs:** one definition per id; the `decision.md` footer's "next AD-NNN" and `progress.md`'s "current range" must track the log (enforced). On a feature branch use an **`AD-XXX` placeholder** and let `/handoff-index` assign the real number at merge — this avoids cross-lane id collisions. Change a decision only by a **superseding entry / inline `superseded by AD-N` note**, never by silent edit.
+- **Design docs** (`ee-*-architecture.md`) carry a `Status:` header; once a design is implemented, **code + ADRs are the truth** and the design doc must say so (add an "amendment since sign-off" note rather than letting it read as authoritative-but-wrong).
+- If you add a new always-true cross-doc fact (an ADR id, a config key, a module path in a steering doc), make sure it survives `make docs-check`; add an assertion if it's worth guarding.

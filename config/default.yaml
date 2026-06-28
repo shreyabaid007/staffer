@@ -62,9 +62,11 @@ index:
     db_path: "data/index/milvus.db"
     collection: "candidates"
     dense_metric: "IP"
-  # Query-time hybrid recall (b-002, AD-089). DEFERRED: OFF by default — at POC-scale gated pools
-  # there is nothing to narrow. Flip `enabled: true` (a config change, not code) when the
-  # post-exact-filter pool routinely exceeds ~150. top_n bounds the dense/BM25/RRF fan-out.
+  # Query-time hybrid recall (b-002, AD-089; default flipped ON by AD-109). ENABLED by default so the
+  # retrieval axis is exercised + measurable (the AD-106 metrics assume ON). Passthrough when OFF; on
+  # a store/embed error while ON it falls back to exhaustive passthrough (never drops candidates). At
+  # single-digit gated POC pools there is little to narrow — set `enabled: false` to force the
+  # exhaustive path. top_n bounds the dense/BM25/RRF fan-out.
   recall:
     enabled: true
     top_n: 100

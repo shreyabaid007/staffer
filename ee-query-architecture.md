@@ -11,16 +11,25 @@
 > contract (the `CandidateIndexRecord` facet split, the PII control plane, the Milvus store, the
 > canonical `Candidate`), this doc **consumes** it — it does not redefine it.
 >
-> **Status:** design doc, analogous to the ingestion architecture (which was ratified as
-> AD-065…AD-074). It **proposes** six query-time ADRs — **AD-086 … AD-091** (collected in §13) —
-> three of which (AD-086 location split, AD-088 `HARD_SKILL_MISMATCH`, AD-091 index-record home)
-> touch frozen / shared contracts and therefore **require team sign-off before any implementation**
-> (AD-060). The numbering starts at **AD-086** because AD-081…085 are already accepted (a-005 index
-> + the c-001 deprecation); `docs/decision.md` is authoritative. Nothing here is built yet; the
-> Pydantic models are illustrative interface definitions. The implementation prompts in
-> `query-slice-prompts.md` (slices B-1/B-2) operationalise this doc and, where they post-date it,
-> **supersede** it — notably: the demand side carries no candidate PII and needs **no redaction**
-> (§7), and `Notes/Constraints` rides the existing `OpenRole.description` field.
+> **Status: RATIFIED & IMPLEMENTED.** Originally a design doc analogous to the ingestion
+> architecture (AD-065…AD-074). It introduced query-time ADRs **AD-086 … AD-092**, which are **all
+> now accepted** (`docs/decision.md` is authoritative) and **built** in b-001 (deterministic
+> foundation) + b-002 (scoring + orchestration). Per **AD-085** this is the source of truth for
+> query-time gating, retrieval, scoring, and ranking. The frozen/shared-contract amendments
+> (AD-086 location split, AD-088 `HARD_SKILL_MISMATCH`, AD-091 index-record home, AD-092 freshness
+> flag) were signed off at their slice gates (AD-060). Numbering starts at **AD-086** because
+> AD-081…085 were already accepted (a-005 index + the c-001 deprecation).
+>
+> ⚠️ **Amendment since sign-off — recall default flipped ON (AD-109).** Throughout this doc hybrid
+> recall is described as *deferred / "flag OFF" by default* (the §6.6 prose, the flow diagrams, and
+> the §13 AD-089 entry). That was AD-089's original default; **AD-109 flipped it ON**
+> (`index.recall.enabled: true` in `config/default.yaml`). **Read every "OFF by default" here as ON
+> by default** — only the default changed; the OFF→exhaustive-passthrough mechanism and the
+> on-error fallback are unchanged.
+>
+> Where the implementation prompts in `query-slice-prompts.md` (slices B-1/B-2) post-date this doc
+> they **supersede** it — notably: the demand side carries no candidate PII and needs **no
+> redaction** (§7), and `Notes/Constraints` rides the existing `OpenRole.description` field.
 
 ---
 
@@ -238,7 +247,7 @@ class FreshnessVerdict(BaseModel, frozen=True):
 The heart of the doc. Every stage states **input · transformation · output · tool/library ·
 failure behaviour**.
 
-### 6.0 Candidate materialisation (the supply-side input to step 4) — *RESOLVED: `CandidateStore` port (AD-091, pending sign-off)*
+### 6.0 Candidate materialisation (the supply-side input to step 4) — *RESOLVED: `CandidateStore` port (AD-091, accepted)*
 
 Steps 4–8 all consume a serving `Candidate` (location + availability for the gate; typed
 `Skill.proficiency` for the exact filter's floor; `feedback`/`profile_summary` for the score; and,
@@ -682,7 +691,7 @@ Modal-hosted BGE embedder + `bge-reranker-base`, Presidio, structlog). **Query-t
 ## 12. Open questions
 
 1. **`CandidateIndexRecord` home + candidate materialisation (boundary).** **RESOLVED → AD-091 + §6.0**
-   (pending sign-off): a `CandidateStore` port with a CLI-injected gold adapter; `Grade` moves to
+   (accepted, b-002): a `CandidateStore` port with a CLI-injected gold adapter; `Grade` moves to
    `dsm/models.py`; `CandidateIndexRecord` is made ingest-free; the import contract is added. This was
    the load-bearing query-time blocker.
 2. **`FlagType.SKILL_CONFLICT`.** Surfacing resume↔feedback skill conflicts (gold `MergedSkill.conflict`)
@@ -716,7 +725,7 @@ Modal-hosted BGE embedder + `bge-reranker-base`, Presidio, structlog). **Query-t
 
 ---
 
-## 13. Proposed ADRs (pending sign-off — to be ratified into `docs/decision.md`)
+## 13. Query-time ADRs (AD-086…AD-092 — all ratified; see `docs/decision.md`)
 
 These are written here in the doc; **none is yet in `docs/decision.md`**. Numbering starts at
 **AD-086** (AD-081…085 are already accepted — a-005 index + the c-001 deprecation). **AD-086, AD-088,
@@ -724,7 +733,7 @@ and AD-091 touch frozen / shared contracts (AD-060) and must be signed off befor
 Next free ID after these is **AD-092**. (B-1 ratifies AD-086/087/088; B-2 ratifies AD-089/090/091.)
 
 - **AD-086 · Split `Location.remote_eligible` into `remote_within_country` + `onsite_cities`**
-  — *Proposed.* Replace the overloaded boolean with `remote_within_country: bool` and
+  — *Accepted (b-001/b-002).* Replace the overloaded boolean with `remote_within_country: bool` and
   `onsite_cities: frozenset[str]`. Onsite gate (`co_location_required=True`) passes iff
   `candidate.city == role.city OR role.city ∈ onsite_cities`; `remote_within_country` never clears
   an onsite gate. **Supersedes AD-063a's** `remote_eligible` location semantics and amends the
@@ -732,31 +741,33 @@ Next free ID after these is **AD-092**. (B-1 ratifies AD-086/087/088; B-2 ratifi
   filter facet. Why: the gate must tell "works remote from Pune" apart from "will go onsite in
   Chennai" (ROLE-02) — a load-bearing eval invariant. **Cross-lane (A owns index, C owns gates) +
   frozen-contract change → requires team sign-off.**
-- **AD-087 · Query-time as-of freshness guard (warn/refuse)** — *Proposed.* Compare `demand_as_of`
+- **AD-087 · Query-time as-of freshness guard (warn/refuse)** — *Accepted (b-001/b-002).* Compare `demand_as_of`
   vs supply `valid_as_of`: `ok` within `config.reconcile.max_staleness_days` (=30); `warn`-flag when
   the role start pre-dates the snapshot; `refuse` (block run) beyond the staleness bound. The
   query-time half of ingestion's freshness guard (AD-070). Touches no model; adds reuse of the
   existing `reconcile.max_staleness_days` config at match time.
-- **AD-088 · Add `ExclusionReason.HARD_SKILL_MISMATCH`** — *Recommended (resolved; pending sign-off).*
+- **AD-088 · Add `ExclusionReason.HARD_SKILL_MISMATCH`** — *Accepted (b-001/b-002).*
   The exact hard-skill filter (§6.5) must record *why* a candidate was dropped, but the frozen enum
   (`dsm/models.py`) has only `LOCATION_MISMATCH` / `AVAILABILITY_MISMATCH`. **Decision: add
   `HARD_SKILL_MISMATCH`** so the no-match path can explain hard-skill gaps and order their near-misses
   (below availability misses). **Frozen-contract amendment (AD-060) → requires sign-off.** (Rejected
   alternative: returning exclusions with no dedicated reason — it would make hard-skill no-matches
   unexplainable, violating the §9 lineage guarantee.)
-- **AD-089 · Defer query-time dense recall behind the index interface (flag OFF)** — *Proposed.*
+- **AD-089 · Defer query-time dense recall behind the index interface (flag OFF)** — *Accepted (b-001/b-002).*
   Ship deterministic exhaustive structured scoring + full-pool cross-encoder rerank over the gated,
   exact-filtered pool; keep the dense+BM25+RRF recall stage fully specified but `index.recall.enabled
   = false`, flipping ON when the post-filter pool routinely exceeds ~150. Ingest-time embedding
   (`dense_vector`) is produced regardless (AD-074); only query-time *consumption* is deferred.
+  **Superseded by AD-109: the shipped default is now `true` (ON); set `enabled: false` to force the
+  exhaustive path on tiny pools. Only the default changed — the OFF→passthrough mechanism stands.**
   Why: at single-digit gated pools recall has nothing to narrow, and exhaustive is more explainable.
   Reinforces AD-071; does not change AD-030 weights.
-- **AD-090 · Seniority is a soft signal, never a gate** — *Proposed.* Role seniority (Title +
+- **AD-090 · Seniority is a soft signal, never a gate** — *Accepted (b-001/b-002).* Role seniority (Title +
   hard-skill `min_proficiency`) maps to a target `Grade` used only in scoring/narrative, sourced
   from `CandidateIndexRecord.grade` + `years_experience`. Why: product invariants enumerate only
   location + availability as hard gates (AD-002); a seniority gate would be unsanctioned.
 - **AD-091 · `CandidateStore` port + `Grade`/`CandidateIndexRecord` home + `match`/`index` ⊥ `ingest`
-  contract** — *Recommended (resolved; pending sign-off).* Three coupled moves:
+  contract** — *Accepted (b-001/b-002).* Three coupled moves:
   1. **`CandidateStore` port (§6.0):** the serving `Candidate` is produced via a `CandidateStore`
      protocol (in `dsm/models.py`) with a gold-backed adapter injected at the CLI. Match/index depend
      on the interface only.

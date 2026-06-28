@@ -179,7 +179,7 @@ Role CSV → Parse demand
 | **Type checking** | [Pyright](https://github.com/microsoft/pyright) (strict) |
 | **Linting** | [Ruff](https://docs.astral.sh/ruff/) (format + lint) |
 | **Import contracts** | [import-linter](https://import-linter.readthedocs.io/) (5 architectural contracts) |
-| **Eval framework** | [DeepEval](https://github.com/confident-ai/deepeval) + [Promptfoo](https://promptfoo.dev/) |
+| **Eval framework** | Three-tier `pytest` harness (AD-095/096) + [DeepEval](https://github.com/confident-ai/deepeval) G-Eval faithfulness judge (AD-105). _Promptfoo dropped in AD-095._ |
 
 ## Project Structure
 
