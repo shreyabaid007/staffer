@@ -103,6 +103,10 @@ def wired_nl(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(commands, "_build_embed_client", lambda: None)
     monkeypatch.setattr(commands, "_build_query_store", lambda config, db_path="": None)
     monkeypatch.setattr(commands, "_build_clarify_predictor", lambda config: None)
+    # No-match NL path builds the near-miss rationale predictor; stub it so it never hits the LLM.
+    monkeypatch.setattr(
+        commands, "_build_near_miss_rationale_predictor", lambda config: lambda sc, cand, gap: ""
+    )
 
 
 def _wire_intake(monkeypatch: pytest.MonkeyPatch, fake: _FakeIntake, cache: object) -> None:

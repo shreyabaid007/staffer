@@ -173,16 +173,12 @@ def _assemble_skills(intake: RoleIntake) -> list[SkillRequirement]:
     (FR-1-AC-5). Skill ``name`` is normalised to lowercase (the index/score compare names exactly).
     """
     forced: list[SkillRequirement] = []
-    for skill in intake.hard_skills:
-        forced.append(
-            skill.model_copy(update={"name": skill.name.strip().lower(), "depth": SkillDepth.HARD})
-        )
-    for skill in intake.desired_skills:
-        forced.append(
-            skill.model_copy(
-                update={"name": skill.name.strip().lower(), "depth": SkillDepth.DESIRED}
+    buckets = ((intake.hard_skills, SkillDepth.HARD), (intake.desired_skills, SkillDepth.DESIRED))
+    for skills, depth in buckets:
+        for skill in skills:
+            forced.append(
+                skill.model_copy(update={"name": skill.name.strip().lower(), "depth": depth})
             )
-        )
     return forced
 
 
@@ -221,10 +217,10 @@ def assemble_role(
 
     assert location is not None and start_date is not None  # narrowed by the missing check above
     # FR-8 / AD-002: co_location_required is Python-derived, never taken from the LLM. A named city
-    # implies onsite unless the request stated remote; gate inputs stay code-owned.
-    co_location_required = bool(intake.location_city and intake.location_city.strip()) and not (
-        intake.remote_within_country
-    )
+    # implies onsite unless the request stated remote; gate inputs stay code-owned. Read the
+    # already-validated location.city (not the raw intake field) so it can't drift if
+    # _resolve_location ever normalises the city.
+    co_location_required = bool(location.city) and not intake.remote_within_country
     role = OpenRole(
         role_id=role_id,
         title=intake.title or "",

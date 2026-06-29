@@ -25,7 +25,7 @@ from dsm.index.retrieve import (
     rerank,
 )
 from dsm.index.text_builder import build_role_query_passage
-from dsm.match.clarify import clarify_role
+from dsm.match.clarify import ClarifyPredictor, clarify_role
 from dsm.match.demand import parse_demand
 from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict, check_freshness
 from dsm.match.gates import effective_free_date, filter_candidates
@@ -497,7 +497,7 @@ def _run_role(
     role: OpenRole,
     demand_as_of: date,
     *,
-    clarify_predict: Any,
+    clarify_predict: ClarifyPredictor | None,
     gold_dir: Path,
     db_path: str,
     vault_path: Path | None,
@@ -584,7 +584,7 @@ def _echo_role(role: OpenRole, start_phrase: str | None = None) -> None:
     not-from-prose, never implied as extracted.
     """
     loc = role.location
-    where = loc.city or ("remote (India)" if loc.remote_within_country else "—")
+    where = loc.city or (f"remote ({loc.country})" if loc.remote_within_country else "—")
     hard = [
         s.name + (f" ({s.min_proficiency.value})" if s.min_proficiency else "")
         for s in role.required_skills
@@ -608,7 +608,7 @@ def _echo_role(role: OpenRole, start_phrase: str | None = None) -> None:
     typer.echo("  (onsite_cities / preferred_skills are not parsed from prose)", err=True)
 
 
-def _clarify_missing(assembly: ClarificationNeeded, today: date) -> RoleIntake:
+def _clarify_missing(assembly: ClarificationNeeded) -> RoleIntake:
     """One bounded Python clarification round — one prompt per missing gate field, NO LLM (FR-4).
 
     Parses the operator's typed answers deterministically (a city string, or an ISO date) and
@@ -676,7 +676,7 @@ def _match_query(
     parsed = intake  # the RoleIntake the assembled role came from (updated after clarification)
     assembly = assemble_role(parsed, today, max_horizon_days=max_horizon, role_id=role_id)
     if isinstance(assembly, ClarificationNeeded):
-        parsed = _clarify_missing(assembly, today)  # single round, pure Python, no LLM (FR-4)
+        parsed = _clarify_missing(assembly)  # single round, pure Python, no LLM (FR-4)
         assembly = assemble_role(parsed, today, max_horizon_days=max_horizon, role_id=role_id)
         if isinstance(assembly, ClarificationNeeded):
             typer.echo(
