@@ -49,6 +49,20 @@ def effective_free_date(availability: AvailabilityState) -> date | None:
             return availability.join_date
 
 
+def is_excluded_city(candidate: Candidate, scorecard: TargetProfileScorecard) -> bool:
+    """Whether the candidate's **home city** is in the role's ``exclude_cities`` (c-007 negation).
+
+    Case-insensitive, home-``city`` only (``onsite_cities`` willingness is not consulted). Shared
+    by the location gate, the ``LOCATION_MISMATCH`` detail wording, and the near-miss skip so they
+    never drift. Returns ``False`` for a candidate with no home city (``city=None``) or an empty
+    ``exclude_cities`` (the default) — so the common path is untouched.
+    """
+    if not scorecard.exclude_cities:
+        return False
+    cand_key = (candidate.location.city or "").strip().casefold()
+    return bool(cand_key) and cand_key in {c.strip().casefold() for c in scorecard.exclude_cities}
+
+
 def _location_passes(candidate: Candidate, scorecard: TargetProfileScorecard) -> bool:
     """Whether the candidate clears the location gate (AD-086).
 
@@ -57,12 +71,16 @@ def _location_passes(candidate: Candidate, scorecard: TargetProfileScorecard) ->
         scorecard: the clarified role requirements.
 
     Returns:
-        For a **distributed** role (``co_location_required=False``): ``True`` iff the
-        candidate's country matches the role's country. For an **onsite** role
-        (``co_location_required=True``): ``True`` iff the role has a city and the
-        candidate's home city matches it (case-insensitive) **or** that city is in the
+        ``False`` if the candidate's **home city** is in ``scorecard.exclude_cities`` (c-007
+        query-side negation — checked **first**, regardless of co-location: the role does not want
+        a person from that city at all). Otherwise: for a **distributed** role
+        (``co_location_required=False``) ``True`` iff the candidate's country matches the role's
+        country; for an **onsite** role (``co_location_required=True``) ``True`` iff the role has a
+        city and the candidate's home city matches it (case-insensitive) **or** that city is in the
         candidate's ``onsite_cities``. ``remote_within_country`` never clears an onsite gate.
     """
+    if is_excluded_city(candidate, scorecard):
+        return False
     if not scorecard.co_location_required:
         return candidate.location.country == scorecard.location.country
     # Onsite: a role with no city has nothing to match against → no candidate clears.
@@ -119,14 +137,22 @@ def filter_candidates(
 
     for candidate in candidates:
         if not _location_passes(candidate, scorecard):
+            # c-007: distinguish an exclusion miss from a positive-location miss (reason enum
+            # unchanged — still LOCATION_MISMATCH; only the human-readable detail branches).
+            if is_excluded_city(candidate, scorecard):
+                detail = (
+                    f"Candidate is in {candidate.location.city}, which the role excludes (c-007)"
+                )
+            else:
+                detail = (
+                    f"Candidate is in {candidate.location.city}; "
+                    f"role requires {scorecard.location.city} (co-location)"
+                )
             exclusions.append(
                 Exclusion(
                     candidate_email=candidate.email,
                     reason=ExclusionReason.LOCATION_MISMATCH,
-                    detail=(
-                        f"Candidate is in {candidate.location.city}; "
-                        f"role requires {scorecard.location.city} (co-location)"
-                    ),
+                    detail=detail,
                 )
             )
             continue  # G-OUT-2: location failed → do not also check availability

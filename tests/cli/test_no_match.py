@@ -41,6 +41,38 @@ def _predict(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreEx
     return ScoreExtraction()
 
 
+def test_c007_excluded_candidate_is_not_a_near_miss() -> None:
+    """c-007 FR-3-AC-5: a query-excluded candidate is never surfaced as a near-miss.
+
+    The Chennai candidate CLEARS the hard skill (absent the exclusion they'd be a near-miss), but
+    "not Chennai" is non-negotiable — build_near_misses must skip them.
+    """
+    scorecard = TargetProfileScorecard(
+        role_id="ROLE-NEG",
+        hard_depth_skills=[SkillRequirement(name="python", depth=SkillDepth.HARD)],
+        desired_skills=[],
+        location=Location(city=None),
+        co_location_required=False,  # distributed "anywhere but Chennai"
+        exclude_cities=frozenset({"chennai"}),
+        start_date=date(2026, 7, 1),
+        availability_window_days=14,
+    )
+    excluded = Candidate(
+        email="cid:x",
+        name="X",
+        location=Location(city="Chennai"),
+        availability=FreeNow(),
+        skills=[Skill(name="python", proficiency=ProficiencyLevel.ADVANCED)],
+        feedback=FeedbackSignals(),
+        source=CandidateSource.BEACH,
+    )
+    _, log = filter_candidates([excluded], scorecard)
+    assert log.exclusions[0].reason is ExclusionReason.LOCATION_MISMATCH
+    assert (
+        build_near_misses([excluded], scorecard, log) == []
+    )  # excluded → not "one decision away"
+
+
 def _java_scorecard(hard: list[SkillRequirement]) -> TargetProfileScorecard:
     """A Mumbai co-location role with the given hard skills; deadline 2026-07-15."""
     return TargetProfileScorecard(

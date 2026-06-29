@@ -64,6 +64,7 @@ def _echo(role: OpenRole) -> TargetProfileScorecard:
         desired_skills=[s for s in role.required_skills if s.depth == SkillDepth.DESIRED],
         location=role.location,
         co_location_required=role.co_location_required,
+        exclude_cities=role.exclude_cities,  # c-007: gate input, from the role — never the LLM
         start_date=role.start_date,
         availability_window_days=14,
     )
@@ -100,6 +101,7 @@ def clarify_role(
         desired_skills=clarification.desired_skills,
         location=role.location,
         co_location_required=role.co_location_required,
+        exclude_cities=role.exclude_cities,  # c-007: gate input, from the role — never the LLM
         start_date=role.start_date,
         availability_window_days=14,
         clarification_notes=clarification.clarification_notes,
