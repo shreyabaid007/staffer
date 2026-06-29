@@ -134,8 +134,9 @@ behaviour-preserving for the CSV door).
   negation; A4 relaxation; an NL-parse Tier-2/3 cassette; offline MIPROv2 compile; NL `explain`;
   the free-form-`--query` unscanned-prose risk from FR-5-AC-2).
 
-**Acceptance:** `make check` GREEN (incl. `tests/docs`); `make decisions-status` shows AD-XXX/AD-XXY
-in force; spec acceptance criteria all met.
+**Acceptance:** `make check` GREEN (incl. `tests/docs`); `make decisions-status` runs clean (the
+AD-XXX/AD-XXY placeholders are unlisted until `/handoff-index` assigns real numbers at merge —
+they are not digit-ADRs); spec acceptance criteria all met.
 
 ---
 
