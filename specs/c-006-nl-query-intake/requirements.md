@@ -40,6 +40,10 @@ ranking are untouched (AD-002, Golden rules 2–3).
 - **Determinism**: same prose + same run-date + same `(model_id, prompt_version)` → same
   `OpenRole`. Pinned derivation version (AD-066) + a content-hash parse cache.
 - `--role-id` becomes **optional**; `match` requires **exactly one** of `--query` / `--role-id`.
+- **Parse-quality eval** (`make eval`): a signed-off golden set of real phrasings → expected typed
+  `OpenRole`, with an offline (deterministic, golden-parse replay) tier and a key-gated live tier
+  (real LLM). Mirrors the existing Tier-2/Tier-3 harness. *(Brought in-scope from the original
+  fast-follow note.)*
 
 ### Out of scope (do not touch)
 - **A2 — query-side negation / `exclude_*` fields.** Mutates the frozen `OpenRole` contract

@@ -262,8 +262,23 @@ NF-1):
 
 **Eval invariants:** none added, none relaxed. The `determinism` Tier-1 invariant continues to
 bind `run_match(candidates, scorecard, …)` — below the post-clarify scorecard, by construction
-out of the NL parse layer's scope (FR-6-AC-4). (An NL-parse Tier-2/3 regression cassette is a
-sensible fast-follow, out of scope here.)
+out of the NL parse layer's scope (FR-6-AC-4).
+
+**NL-intake parse-quality eval (in scope — `make eval`, not `make check`).** A signed-off golden
+set of real phrasings (`tests/fixtures/nl_intake_golden.json`, typed loader
+`dsm/eval/nl_intake_golden.py`) drives two tiers in `tests/eval/test_nl_intake.py`, mirroring the
+existing Tier-2/Tier-3 split:
+- **Offline (`eval_offline`, deterministic):** replay each case's signed-off `recorded_intake` (the
+  "golden parse") through `assemble_role` → assert the expected `OpenRole` / `ClarificationNeeded`
+  (location, Python-derived co-location, hard/desired skills, exact resolved `start_date`, or the
+  `missing` set). Pins parse→assemble accuracy + guards assembly regressions. No network.
+- **Live (`eval_live`, key-gated):** run the **real** intake predictor (`PseudonymisedLM`) on the
+  prose → assert the parse assembles to the expected **structural** fields (location, co-location,
+  hard skills present, never-guessed missing fields); the start date is checked for validity/window
+  only (the live LLM resolves relative to the real today). Skips cleanly without keys.
+
+The deterministic `assemble_role` logic itself stays unit-tested in `tests/match/test_intake.py`
+(under `make check`); this eval adds the parse-accuracy + live-quality layer the unit tests can't.
 
 ---
 

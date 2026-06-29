@@ -61,9 +61,9 @@
 - **Fully-deterministic Python relative-date resolver.** c-006 has the LLM resolve relative dates
   (today injected) + Python validate. A Python resolver for common patterns ("next month", "in N
   weeks") with the LLM extracting only the phrase is more robust — the natural fast-follow to AD-XXY.
-- **NL-parse Tier-2/3 eval cassette.** c-006 unit-tests assembly with a fake predictor; a recorded
-  cassette + a signature-shape regression (Tier 2) and a live smoke (Tier 3) would guard the real
-  parse, mirroring clarify/score.
+- ~~**NL-parse Tier-2/3 eval cassette.**~~ **Done in c-006** (T-005): signed-off golden phrasings
+  (`tests/fixtures/nl_intake_golden.json`) drive an offline deterministic parse-accuracy tier + a
+  key-gated live tier in `tests/eval/test_nl_intake.py` (`make eval`).
 - **Offline MIPROv2 compile of `RoleIntakeSignature`.** The signature is a bare `dspy.Predict` with
   config-loaded instructions (compileable by construction). Compile against a golden set of real
   phrasings once enough are captured (§12 #12 of the interview).

@@ -131,12 +131,29 @@ behaviour-preserving for the CSV door).
   `/handoff` (lane from `.claude/lane`). Do **not** edit `docs/progress.md` (index) — that happens
   at merge via `/handoff-index`.
 - `docs/backlog.md`: note the deferred fast-follows (fully-deterministic Python date resolver; A2
-  negation; A4 relaxation; an NL-parse Tier-2/3 cassette; offline MIPROv2 compile; NL `explain`;
-  the free-form-`--query` unscanned-prose risk from FR-5-AC-2).
+  negation; A4 relaxation; offline MIPROv2 compile; NL `explain`; the free-form-`--query`
+  unscanned-prose risk from FR-5-AC-2).
 
 **Acceptance:** `make check` GREEN (incl. `tests/docs`); `make decisions-status` runs clean (the
 AD-XXX/AD-XXY placeholders are unlisted until `/handoff-index` assigns real numbers at merge —
 they are not digit-ADRs); spec acceptance criteria all met.
+
+---
+
+## T-005 · NL-intake parse-quality eval (`make eval`)
+
+Add the parse-accuracy + live-quality layer (design §8 "NL-intake parse-quality eval"):
+- `tests/fixtures/nl_intake_golden.json` — signed-off golden phrasings: prose + `recorded_intake`
+  (the golden parse, a `RoleIntake`) + `expected` (assembled `OpenRole` / `ClarificationNeeded`).
+- `dsm/eval/nl_intake_golden.py` — typed loader (`NLIntakeGolden`/`NLIntakeCase`, mirrors
+  `golden_set.py`; `review_status` sign-off gate; reuses the frozen `RoleIntake`).
+- `tests/eval/test_nl_intake.py` — **`eval_offline`** deterministic replay (golden parse →
+  `assemble_role` → expected) + **`eval_live`** key-gated real-LLM smoke (structural fields;
+  start-date validity/window only). Mirrors `test_signatures` + `test_live_smoke`.
+
+**Acceptance:** `make eval` GREEN — offline tier deterministic (7 tests), live tier passes with keys
+(3 cases) and `skipif` without. Not in `make check` (eval-only, like the AI eval layer). `make
+check` still GREEN (lint/typecheck cover the new module + test).
 
 ---
 
@@ -149,3 +166,4 @@ they are not digit-ADRs); spec acceptance criteria all met.
 | T-002 | FR-1 (AC-1/4/5), FR-2 (AC-1/2/3), FR-4 (AC-1 logic), FR-6 (AC-2/3), FR-8 (AC-1/2), NF-4/5/6 |
 | T-003 | FR-1-AC-1/2, FR-3 (all), FR-4 (all), FR-5 (all), FR-6-AC-1/4, FR-7 (all), FR-8-AC-3, NF-1 |
 | T-004 | DoD docs/lane; backlog fast-follows |
+| T-005 | Parse-quality eval (in-scope; `make eval` offline + live tiers) |
