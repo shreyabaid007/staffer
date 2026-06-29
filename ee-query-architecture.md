@@ -31,7 +31,7 @@
 > they **supersede** it — notably: the demand side carries no candidate PII and needs **no
 > redaction** (§7), and `Notes/Constraints` rides the existing `OpenRole.description` field.
 >
-> ➕ **Amendment since sign-off — natural-language intake front door (c-006, AD-XXX/AD-XXY).** §6.1
+> ➕ **Amendment since sign-off — natural-language intake front door (c-006, AD-110/AD-111).** §6.1
 > describes one front door: a structured **Open Roles CSV** → `OpenRole`. c-006 adds a **parallel**
 > prose front door (`dsm match --query "<text>"`) that produces the **same** typed `OpenRole` via a
 > single-shot DSPy parse over `PseudonymisedLM` (pass-through — role text is non-PII, §7), a
