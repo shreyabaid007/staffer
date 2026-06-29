@@ -39,6 +39,37 @@ class DemandParseOutcome(BaseModel, frozen=True):
     skipped: list[str] = Field(default_factory=list)
 
 
+class RoleIntake(BaseModel, frozen=True):
+    """The NL-intake signature's structured output (c-006; AD-XXX/AD-XXY; § A1/A3).
+
+    A **match-local** DSPy output type — NOT a frozen ``dsm.models`` contract — mirroring
+    ``ScorecardClarification``/``ScoreExtraction``. Python (``dsm.match.intake.assemble_role``)
+    validates + assembles this into the **existing** frozen ``OpenRole``; the LLM only proposes /
+    extracts parse *facts*, it never decides eligibility (AD-002):
+
+    - There is deliberately **no** ``co_location_required`` field — that gate input is derived in
+      Python (``bool(location_city) and not remote_within_country``), never emitted by the LLM.
+    - ``location_city`` / ``start_date_iso`` are LLM-parsed proposals gated by the confirmation
+      echo before they reach a gate (the eligibility boundary is the *confirmed* ``OpenRole``).
+
+    All fields default to ``null``/empty so "absent ⇒ null, never guess" (the prompt's directive)
+    is representable. ``SkillRequirement`` is reused verbatim from ``dsm.models`` — never
+    redefined; ``assemble_role`` forces each element's ``depth`` from its bucket so the per-element
+    ``depth`` can't contradict the list it lands in. ``start_date_iso`` is the LLM's ISO
+    resolution of a (possibly relative) date with ``today`` injected; ``start_date_phrase`` keeps
+    the original wording for the echo + logs.
+    """
+
+    title: str | None = None
+    hard_skills: list[SkillRequirement] = Field(default_factory=list)
+    desired_skills: list[SkillRequirement] = Field(default_factory=list)
+    location_city: str | None = None  # None ⇒ unspecified or remote (LLM-parsed fact)
+    remote_within_country: bool = False  # maps to Location.remote_within_country (AD-086)
+    start_date_iso: str | None = None  # LLM-resolved ISO (today injected); Python validates
+    start_date_phrase: str | None = None  # original phrase, for the echo + logs
+    notes: str | None = None  # residual constraints → OpenRole.description
+
+
 class ScorecardClarification(BaseModel, frozen=True):
     """The clarify LLM's output (b-002; §6.2) — a match-local DSPy output type, not a frozen model.
 

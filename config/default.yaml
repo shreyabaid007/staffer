@@ -75,6 +75,24 @@ index:
   rerank:
     top_k: 10
 
+# Natural-language query intake (c-006, AD-XXX/AD-XXY). The `dsm match --query "<prose>"` front
+# door parses free text into the EXISTING OpenRole via a single-shot DSPy Predict over
+# PseudonymisedLM (pass-through — role text is non-PII). The model id is reused from
+# `models.reasoning_llm` (single source of truth — not duplicated here).
+nl_intake:
+  # Pinned prompt derivation version (AD-066). BUMP whenever config/prompts/role_intake.md changes:
+  # it is part of the parse cache key, so a silent prompt edit would otherwise reuse a stale parse.
+  prompt_version: "intake-v1"
+  # Pinned LM temperature — the intake parse must be deterministic (the existing clarify/score
+  # builders rely on the dspy default; intake pins it explicitly). NO dspy.Refine (temp 1.0).
+  temperature: 0
+  # Plausibility SANITY BOUND (not a gate parameter): reject a resolved start date more than this
+  # many days in the future (or any date before today) before it reaches the availability gate.
+  max_horizon_days: 730
+  # Content-addressed parse cache (key = sha256 of normalised prose | run-date | model_id |
+  # prompt_version). Lands under the already-gitignored data/.cache/* — never committed.
+  cache_dir: "data/.cache/nl_intake"
+
 # PII boundary (c-003, AD-101/098). The persistent identity vault path is a CLI option
 # (`--vault-path`, mirrors `--gold-dir`) and defaults alongside gold at `data/identity/vault.json`
 # (gitignored). `ner_enabled` toggles the Presidio NER residual pass at the outbound boundary; the
