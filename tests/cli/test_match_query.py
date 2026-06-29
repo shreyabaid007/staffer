@@ -133,6 +133,8 @@ def test_query_happy_path_echoes_and_prints_shortlist(
     captured = capsys.readouterr()
     assert "── Parsed role ──" in captured.err  # echo goes to stderr (FR-3)
     assert "co-location    : required (onsite)" in captured.err  # Python-derived (FR-8)
+    assert 'from "next month"' in captured.err  # resolved date shown WITH its phrase (FR-3-AC-1)
+    assert "kotlin" in captured.err  # hard skills surfaced in the echo
     payload = json.loads(captured.out)  # stdout is pure JSON
     assert isinstance(payload["role_id"], str) and payload["role_id"].startswith(
         "NL-"
@@ -169,6 +171,58 @@ def test_missing_location_triggers_single_clarification(
     payload = json.loads(capsys.readouterr().out)
     assert [a["candidate"]["email"] for a in payload["ranked_assessments"]] == ["cid:a"]
     assert fake.calls == 1  # the LLM is NOT re-invoked for the clarification (FR-4-AC-2)
+
+
+def test_both_missing_fields_clarified_in_one_round(
+    tmp_path: Path,
+    wired_nl: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """FR-4: location AND start both missing → one round prompts for each; no LLM re-invocation."""
+    gold_dir = tmp_path / "gold"
+    write_gold(_gold("cid:a", valid_as_of=_TODAY), gold_dir)
+    bare = RoleIntake(hard_skills=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)])
+    fake = _FakeIntake(bare)
+    _wire_intake(monkeypatch, fake, _DictCache())
+
+    def _answer(text: str, **kwargs: object) -> str:
+        return "Chennai" if "city" in text else _START  # location prompt vs start prompt
+
+    monkeypatch.setattr(typer, "prompt", _answer)
+    match(query="kotlin engineer", gold_dir=gold_dir, yes=True)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [a["candidate"]["email"] for a in payload["ranked_assessments"]] == ["cid:a"]
+    assert fake.calls == 1  # both fields filled in one Python round, no LLM loop
+
+
+def test_empty_query_aborts(
+    tmp_path: Path, wired_nl: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _wire_intake(monkeypatch, _FakeIntake(_chennai_kotlin_intake()), _DictCache())
+    with pytest.raises(typer.Exit) as exc:
+        match(query="   ", gold_dir=tmp_path / "gold", yes=True)
+    assert exc.value.exit_code == 1  # empty prose is rejected before reaching the LLM
+
+
+def test_build_intake_predictor_pins_temperature_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-1-AC-2: the live builder forwards temperature=0 to the LM (clarify/score don't)."""
+    import dsm.pii.pseudonymised_lm as plm
+    from dsm.config import load_config
+
+    recorded: dict[str, object] = {}
+
+    class _RecordingLM:
+        def __init__(self, model: str, **kwargs: object) -> None:
+            recorded["model"] = model
+            recorded["temperature"] = kwargs.get("temperature")
+
+    monkeypatch.setattr(plm, "PseudonymisedLM", _RecordingLM)
+    config = load_config()
+    commands._build_intake_predictor(config)  # builds make_intake_predictor(PseudonymisedLM(...))
+    assert recorded["temperature"] == config["nl_intake"]["temperature"] == 0
+    assert recorded["model"] == config["models"]["reasoning_llm"]
 
 
 def test_invalid_clarification_answer_aborts(

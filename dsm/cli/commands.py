@@ -574,13 +574,14 @@ def _match_role(
     )
 
 
-def _echo_role(role: OpenRole) -> None:
+def _echo_role(role: OpenRole, start_phrase: str | None = None) -> None:
     """Print the parsed ``OpenRole`` for human confirmation before any gate runs (FR-3).
 
     Lists every parser-populated, gating-relevant field — incl. the **Python-derived**
-    ``co_location_required`` (FR-8) and the resolved ``start_date`` — so a misparse is caught
-    before it gates. Fields the NL parser never populates (``onsite_cities``/``preferred_skills``)
-    are flagged as not-from-prose, never implied as extracted.
+    ``co_location_required`` (FR-8) and the resolved ``start_date`` **with its original phrase**
+    (``start_phrase``, e.g. ``next month``) so a relative-date misparse is caught before it gates.
+    Fields the NL parser never populates (``onsite_cities``/``preferred_skills``) are flagged as
+    not-from-prose, never implied as extracted.
     """
     loc = role.location
     where = loc.city or ("remote (India)" if loc.remote_within_country else "—")
@@ -591,13 +592,15 @@ def _echo_role(role: OpenRole) -> None:
     ]
     desired = [s.name for s in role.required_skills if s.depth == SkillDepth.DESIRED]
     onsite = "required (onsite)" if role.co_location_required else "not required"
+    iso = role.start_date.isoformat()
+    from_phrase = f'  (from "{start_phrase}")' if start_phrase and start_phrase != iso else ""
     # To stderr so the machine-readable shortlist JSON on stdout stays clean (mirrors the freshness
     # / error messages + the structlog→stderr routing).
     typer.echo("\n── Parsed role ──", err=True)
     typer.echo(f"  title          : {role.title or '—'}", err=True)
     typer.echo(f"  location       : {where}", err=True)
     typer.echo(f"  co-location    : {onsite}", err=True)
-    typer.echo(f"  start date     : {role.start_date.isoformat()}", err=True)
+    typer.echo(f"  start date     : {iso}{from_phrase}", err=True)
     typer.echo(f"  hard skills    : {', '.join(hard) or '—'}", err=True)
     typer.echo(f"  desired skills : {', '.join(desired) or '—'}", err=True)
     if role.description:
@@ -646,6 +649,10 @@ def _match_query(
     echoed**; gating proceeds only after confirmation (or ``--yes``). ``demand_as_of`` is the
     run-date (so freshness is ``ok``/``refuse`` only — AD-XXY). The parse is content-hash cached.
     """
+    if not prose.strip():
+        typer.echo("Query is empty — provide a role description.", err=True)
+        raise typer.Exit(1)
+
     config = load_config()
     today = date.today()
     nl_cfg = config["nl_intake"]
@@ -666,10 +673,11 @@ def _match_query(
 
     role_id = f"NL-{key[:8]}"
     max_horizon = int(nl_cfg["max_horizon_days"])
-    assembly = assemble_role(intake, today, max_horizon_days=max_horizon, role_id=role_id)
+    parsed = intake  # the RoleIntake the assembled role came from (updated after clarification)
+    assembly = assemble_role(parsed, today, max_horizon_days=max_horizon, role_id=role_id)
     if isinstance(assembly, ClarificationNeeded):
-        updated = _clarify_missing(assembly, today)  # single round, pure Python, no LLM (FR-4)
-        assembly = assemble_role(updated, today, max_horizon_days=max_horizon, role_id=role_id)
+        parsed = _clarify_missing(assembly, today)  # single round, pure Python, no LLM (FR-4)
+        assembly = assemble_role(parsed, today, max_horizon_days=max_horizon, role_id=role_id)
         if isinstance(assembly, ClarificationNeeded):
             typer.echo(
                 f"Still missing required field(s): {', '.join(assembly.missing)}. Aborting.",
@@ -678,7 +686,7 @@ def _match_query(
             raise typer.Exit(1)
 
     role = assembly
-    _echo_role(role)  # always shown, even under --yes (audit)
+    _echo_role(role, start_phrase=parsed.start_date_phrase)  # always shown, even under --yes
     if not (yes or typer.confirm("Proceed with this role?", err=True)):
         typer.echo("Cancelled — no shortlist produced.", err=True)
         raise typer.Exit(1)

@@ -145,6 +145,12 @@ class TestStartDateValidation:
         assert isinstance(result, ClarificationNeeded)
         assert result.missing == ["start"]
 
+    def test_out_of_window_date_triggers_start_clarification(self) -> None:
+        far = (_TODAY + timedelta(days=_HORIZON + 5)).isoformat()
+        result = _assemble(RoleIntake(location_city="Chennai", start_date_iso=far))
+        assert isinstance(result, ClarificationNeeded)
+        assert result.missing == ["start"]  # FR-2-AC-3 at the assemble level, not just resolve
+
 
 # ---------------------------------------------------------------------------
 # FR-4: missing required gate field → ClarificationNeeded (never a guess)
