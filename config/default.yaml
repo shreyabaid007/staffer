@@ -82,7 +82,7 @@ index:
 nl_intake:
   # Pinned prompt derivation version (AD-066). BUMP whenever config/prompts/role_intake.md changes:
   # it is part of the parse cache key, so a silent prompt edit would otherwise reuse a stale parse.
-  prompt_version: "intake-v1"
+  prompt_version: "intake-v2"  # bumped for the c-007 generalised location-negation rule
   # Pinned LM temperature — the intake parse must be deterministic (the existing clarify/score
   # builders rely on the dspy default; intake pins it explicitly). NO dspy.Refine (temp 1.0).
   temperature: 0
