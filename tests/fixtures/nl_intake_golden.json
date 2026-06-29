@@ -151,6 +151,32 @@
         "start_date": "2026-07-29"
       },
       "live": false
+    },
+    {
+      "case_id": "nl-07-kotlin-not-chennai",
+      "prose": "Senior Kotlin engineer, anywhere but Chennai, starting next month",
+      "recorded_intake": {
+        "title": "Senior Kotlin Engineer",
+        "hard_skills": [{"name": "kotlin", "depth": "hard", "min_proficiency": null}],
+        "desired_skills": [],
+        "location_city": null,
+        "remote_within_country": false,
+        "exclude_cities": ["Chennai"],
+        "start_date_iso": "2026-07-29",
+        "start_date_phrase": "next month",
+        "notes": null
+      },
+      "expected": {
+        "outcome": "role",
+        "location_city": null,
+        "remote_within_country": false,
+        "co_location_required": false,
+        "hard_skills": ["kotlin"],
+        "desired_skills": [],
+        "exclude_cities": ["chennai"],
+        "start_date": "2026-07-29"
+      },
+      "live": true
     }
   ]
 }
