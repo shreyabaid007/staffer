@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -25,11 +25,18 @@ from dsm.index.retrieve import (
     rerank,
 )
 from dsm.index.text_builder import build_role_query_passage
-from dsm.match.clarify import clarify_role
+from dsm.match.clarify import ClarifyPredictor, clarify_role
 from dsm.match.demand import parse_demand
 from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict, check_freshness
 from dsm.match.gates import effective_free_date, filter_candidates
-from dsm.match.models import ScoreExtraction
+from dsm.match.intake import (
+    ClarificationNeeded,
+    IntakeCache,
+    IntakePredictor,
+    assemble_role,
+    intake_cache_key,
+)
+from dsm.match.models import RoleIntake, ScoreExtraction
 from dsm.match.rank import rank_assessments
 from dsm.match.score import (
     NearMissRationalePredictor,
@@ -45,7 +52,9 @@ from dsm.models import (
     ExclusionReason,
     NearMiss,
     NoMatchResult,
+    OpenRole,
     ShortlistResult,
+    SkillDepth,
     TargetProfileScorecard,
 )
 
@@ -355,6 +364,60 @@ def _build_clarify_predictor(config: dict[str, Any]):  # pragma: no cover - exer
     return make_clarify_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
 
 
+def _build_intake_predictor(config: dict[str, Any]) -> IntakePredictor:  # pragma: no cover - live
+    """Build the live NL-intake predictor over PseudonymisedLM (monkeypatched in CLI tests).
+
+    Pass-through (invoked without ``pii_context``) — role text is non-PII (§7). Temperature is
+    pinned to ``nl_intake.temperature`` **explicitly** (FR-1-AC-2): unlike the clarify/score
+    builders (which rely on the dspy default), the intake parse must be deterministic.
+    """
+    from dsm.match.intake import make_intake_predictor
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    return make_intake_predictor(
+        PseudonymisedLM(
+            model=config["models"]["reasoning_llm"],
+            temperature=config["nl_intake"]["temperature"],
+        )
+    )
+
+
+class FileIntakeCache:
+    """File-backed NL-parse cache (c-006, FR-6): one JSON per content-hash key under ``cache_dir``.
+
+    Prose is non-PII (§7) and ``cache_dir`` lands under the already-gitignored ``data/.cache/*``,
+    so nothing is committed. A corrupt/unreadable entry is treated as a miss; a write failure is
+    logged and swallowed (a cache is best-effort, never load-bearing for correctness).
+    """
+
+    def __init__(self, cache_dir: Path) -> None:
+        self._dir = cache_dir
+
+    def get(self, key: str) -> RoleIntake | None:
+        path = self._dir / f"{key}.json"
+        if not path.is_file():
+            return None
+        try:
+            return RoleIntake.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _log.warning("intake.cache_unreadable", key=key)
+            return None
+
+    def put(self, key: str, value: RoleIntake) -> None:
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+            (self._dir / f"{key}.json").write_text(value.model_dump_json(), encoding="utf-8")
+        except OSError:
+            _log.warning("intake.cache_write_failed", key=key)
+
+
+def _build_intake_cache(
+    config: dict[str, Any],
+) -> IntakeCache:  # pragma: no cover - patched in tests
+    """Open the file-backed NL-parse cache rooted at ``nl_intake.cache_dir`` (repo-relative)."""
+    return FileIntakeCache(_DATA_DIR.parent / config["nl_intake"]["cache_dir"])
+
+
 def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma: no cover - live
     """Build the live score predictor over PseudonymisedLM (monkeypatched in CLI tests)."""
     from dsm.match.score import make_score_predictor
@@ -430,41 +493,39 @@ def _freshness_for(
     )
 
 
-def _match_role(
-    role_id: str, csv_path: Path, gold_dir: Path, db_path: str, vault_path: Path | None = None
+def _run_role(
+    role: OpenRole,
+    demand_as_of: date,
+    *,
+    clarify_predict: ClarifyPredictor | None,
+    gold_dir: Path,
+    db_path: str,
+    vault_path: Path | None,
 ) -> tuple[ShortlistResult | NoMatchResult, Vault]:
-    """Drive the full spine for one ``role_id`` (shared by ``match`` + ``explain``).
+    """Drive the query-time spine for one already-built ``OpenRole`` (shared by both front doors).
 
-    parse demand → select role → hydrate → freshness guard → clarify → ``run_match``. ``refuse``
-    blocks the run (``typer.Exit(1)``); ``warn`` is threaded into scoring. Single role per
-    invocation (AD-050). Builds the live deps (LM / embed / store) — monkeypatched in CLI tests.
+    hydrate → freshness guard → clarify → ``run_match``. ``refuse`` blocks the run
+    (``typer.Exit(1)``); ``warn`` is threaded into scoring. The ``clarify_predict`` seam is the
+    only difference between the doors: the **CSV** door passes the live clarify predictor (refine
+    from the Notes cell); the **NL** door passes ``None`` so ``clarify_role`` takes its echo path —
+    the intake LLM already interpreted the free text, so exactly one LLM interpretation runs
+    (AD-XXX). ``demand_as_of`` is the CSV banner date for the CSV door and the run-date for NL.
 
     Returns the **pseudonymised** pipeline result (identity = ``candidate_id``, AD-091) **and** the
     vault, so the caller can run :func:`render_identities` at the output edge (AD-107). Keeping the
     pipeline output pseudonymised leaves the determinism invariant + eval cassettes untouched.
     """
     config = load_config()
-    try:
-        outcome = parse_demand(csv_path)
-    except (FileNotFoundError, ValueError) as exc:
-        typer.echo(f"Cannot parse demand CSV: {exc}", err=True)
-        raise typer.Exit(1) from None
-
-    role = next((r for r in outcome.roles if r.role_id == role_id), None)
-    if role is None:
-        typer.echo(f"Role {role_id!r} not found in {csv_path}", err=True)
-        raise typer.Exit(1)
-
     store = GoldCandidateStore(gold_dir)
     candidates = store.get(store.all_ids())
 
-    verdict = _freshness_for(outcome.banner.demand_as_of, role.start_date, store, config)
+    verdict = _freshness_for(demand_as_of, role.start_date, store, config)
     if verdict is not None and verdict.action == REFUSE:
         typer.echo(verdict.message, err=True)
         raise typer.Exit(1)
 
     # clarify reads role text only (no candidate PII, §7) → predictor left unwrapped, pass-through.
-    scorecard = clarify_role(role, predict=_build_clarify_predictor(config))
+    scorecard = clarify_role(role, predict=clarify_predict)
     # score sees the candidate's de-anonymised gold free-text → wrap the predictor so each call
     # runs under pii_context from the vault (AD-101). Read path mirrors the ingest write.
     from dsm.pii.vault import FileVault
@@ -481,6 +542,163 @@ def _match_role(
         near_miss_predict=_build_near_miss_rationale_predictor(config),
     )
     return result, vault
+
+
+def _match_role(
+    role_id: str, csv_path: Path, gold_dir: Path, db_path: str, vault_path: Path | None = None
+) -> tuple[ShortlistResult | NoMatchResult, Vault]:
+    """CSV front door: parse demand → select ``role_id`` → :func:`_run_role` (explain uses it too).
+
+    ``demand_as_of`` is the Open Roles CSV banner date (AD-087). Single role per invocation
+    (AD-050). The live clarify predictor is built here and threaded into the shared spine.
+    """
+    config = load_config()
+    try:
+        outcome = parse_demand(csv_path)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(f"Cannot parse demand CSV: {exc}", err=True)
+        raise typer.Exit(1) from None
+
+    role = next((r for r in outcome.roles if r.role_id == role_id), None)
+    if role is None:
+        typer.echo(f"Role {role_id!r} not found in {csv_path}", err=True)
+        raise typer.Exit(1)
+
+    return _run_role(
+        role,
+        outcome.banner.demand_as_of,
+        clarify_predict=_build_clarify_predictor(config),
+        gold_dir=gold_dir,
+        db_path=db_path,
+        vault_path=vault_path,
+    )
+
+
+def _echo_role(role: OpenRole, start_phrase: str | None = None) -> None:
+    """Print the parsed ``OpenRole`` for human confirmation before any gate runs (FR-3).
+
+    Lists every parser-populated, gating-relevant field — incl. the **Python-derived**
+    ``co_location_required`` (FR-8) and the resolved ``start_date`` **with its original phrase**
+    (``start_phrase``, e.g. ``next month``) so a relative-date misparse is caught before it gates.
+    Fields the NL parser never populates (``onsite_cities``/``preferred_skills``) are flagged as
+    not-from-prose, never implied as extracted.
+    """
+    loc = role.location
+    where = loc.city or (f"remote ({loc.country})" if loc.remote_within_country else "—")
+    hard = [
+        s.name + (f" ({s.min_proficiency.value})" if s.min_proficiency else "")
+        for s in role.required_skills
+        if s.depth == SkillDepth.HARD
+    ]
+    desired = [s.name for s in role.required_skills if s.depth == SkillDepth.DESIRED]
+    onsite = "required (onsite)" if role.co_location_required else "not required"
+    iso = role.start_date.isoformat()
+    from_phrase = f'  (from "{start_phrase}")' if start_phrase and start_phrase != iso else ""
+    # To stderr so the machine-readable shortlist JSON on stdout stays clean (mirrors the freshness
+    # / error messages + the structlog→stderr routing).
+    typer.echo("\n── Parsed role ──", err=True)
+    typer.echo(f"  title          : {role.title or '—'}", err=True)
+    typer.echo(f"  location       : {where}", err=True)
+    typer.echo(f"  co-location    : {onsite}", err=True)
+    typer.echo(f"  start date     : {iso}{from_phrase}", err=True)
+    typer.echo(f"  hard skills    : {', '.join(hard) or '—'}", err=True)
+    typer.echo(f"  desired skills : {', '.join(desired) or '—'}", err=True)
+    if role.description:
+        typer.echo(f"  notes          : {role.description}", err=True)
+    typer.echo("  (onsite_cities / preferred_skills are not parsed from prose)", err=True)
+
+
+def _clarify_missing(assembly: ClarificationNeeded) -> RoleIntake:
+    """One bounded Python clarification round — one prompt per missing gate field, NO LLM (FR-4).
+
+    Parses the operator's typed answers deterministically (a city string, or an ISO date) and
+    returns an updated ``RoleIntake`` for a single re-assembly. The LLM is never re-invoked.
+    """
+    updates: dict[str, Any] = {}
+    for field in assembly.missing:
+        if field == "location":
+            answer = typer.prompt(
+                "Which city is the role in? (or type 'remote')", err=True
+            ).strip()
+            if answer.lower() == "remote":
+                updates["location_city"] = None
+                updates["remote_within_country"] = True
+            else:
+                updates["location_city"] = answer
+        else:  # "start"
+            answer = typer.prompt("What is the start date? (ISO YYYY-MM-DD)", err=True).strip()
+            updates["start_date_iso"] = answer
+            updates["start_date_phrase"] = answer
+    return assembly.partial.model_copy(update=updates)
+
+
+def _match_query(
+    prose: str,
+    gold_dir: Path,
+    db_path: str,
+    vault_path: Path | None = None,
+    *,
+    yes: bool = False,
+) -> tuple[ShortlistResult | NoMatchResult, Vault]:
+    """NL front door: parse prose → assemble/validate → echo+confirm → :func:`_run_role` (AD-XXX).
+
+    The intake LLM (single-shot, via ``PseudonymisedLM`` pass-through) parses the prose into a
+    typed ``RoleIntake``; **Python** assembles + validates it into the existing ``OpenRole``
+    (deriving ``co_location_required``, validating the resolved date). A missing required field
+    triggers **one** bounded Python clarification round (no LLM). The parsed role is **always
+    echoed**; gating proceeds only after confirmation (or ``--yes``). ``demand_as_of`` is the
+    run-date (so freshness is ``ok``/``refuse`` only — AD-XXY). The parse is content-hash cached.
+    """
+    if not prose.strip():
+        typer.echo("Query is empty — provide a role description.", err=True)
+        raise typer.Exit(1)
+
+    config = load_config()
+    today = date.today()
+    nl_cfg = config["nl_intake"]
+    model_id = config["models"]["reasoning_llm"]
+    key = intake_cache_key(prose, today, model_id, nl_cfg["prompt_version"])
+
+    cache = _build_intake_cache(config)
+    intake = cache.get(key)
+    if intake is None:
+        predict = _build_intake_predictor(config)
+        try:
+            intake = predict(prose, today)
+        except Exception as exc:  # noqa: BLE001 — no parse ⇒ no OpenRole to fall back to (≠ clarify)
+            _log.warning("intake.parse_failed", reason=type(exc).__name__)
+            typer.echo(f"Could not parse the query ({type(exc).__name__}).", err=True)
+            raise typer.Exit(1) from None
+        cache.put(key, intake)
+
+    role_id = f"NL-{key[:8]}"
+    max_horizon = int(nl_cfg["max_horizon_days"])
+    parsed = intake  # the RoleIntake the assembled role came from (updated after clarification)
+    assembly = assemble_role(parsed, today, max_horizon_days=max_horizon, role_id=role_id)
+    if isinstance(assembly, ClarificationNeeded):
+        parsed = _clarify_missing(assembly)  # single round, pure Python, no LLM (FR-4)
+        assembly = assemble_role(parsed, today, max_horizon_days=max_horizon, role_id=role_id)
+        if isinstance(assembly, ClarificationNeeded):
+            typer.echo(
+                f"Still missing required field(s): {', '.join(assembly.missing)}. Aborting.",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+    role = assembly
+    _echo_role(role, start_phrase=parsed.start_date_phrase)  # always shown, even under --yes
+    if not (yes or typer.confirm("Proceed with this role?", err=True)):
+        typer.echo("Cancelled — no shortlist produced.", err=True)
+        raise typer.Exit(1)
+
+    return _run_role(
+        role,
+        today,
+        clarify_predict=None,  # NL: intake already interpreted the free text → echo path (AD-XXX)
+        gold_dir=gold_dir,
+        db_path=db_path,
+        vault_path=vault_path,
+    )
 
 
 def render_identities(
@@ -617,20 +835,32 @@ def _lineage(result: ShortlistResult | NoMatchResult) -> dict[str, Any]:
 
 
 def match(
-    role_id: Annotated[str, typer.Option("--role-id")],
+    role_id: Annotated[str | None, typer.Option("--role-id")] = None,
+    query: Annotated[str | None, typer.Option("--query")] = None,
     csv_path: Annotated[Path, typer.Option("--csv-path")] = _DEMAND_DEFAULT,
     gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
     db_path: Annotated[str, typer.Option("--db-path")] = "",
     vault_path: Annotated[Path | None, typer.Option("--vault-path")] = None,
+    yes: Annotated[bool, typer.Option("--yes")] = False,
 ) -> None:
-    """Match one open role (``--role-id``, parsed from the demand CSV) to a ranked shortlist (§4).
+    """Match one open role to a ranked shortlist (§4) — from the demand CSV or free-text prose.
 
-    Runs the full spine: parse demand → freshness guard → clarify → gate → exact filter → recall →
-    rerank → score → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment.
-    Single role per invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON
-    with **real** candidate name/email rendered from the vault (AD-107).
+    Provide **exactly one** of ``--role-id`` (parsed from the demand CSV) or ``--query`` (free-text
+    prose). The prose door parses the request into the **same** typed ``OpenRole`` the CSV makes,
+    echoes it, and — unless ``--yes`` — asks for confirmation before gating (AD-XXX). Then the full
+    unchanged spine runs: freshness guard → clarify → gate → exact filter → recall → rerank → score
+    → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment. Single role per
+    invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON with **real**
+    candidate name/email rendered from the vault (AD-107).
     """
-    result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
+    if (role_id is None) == (query is None):
+        typer.echo("Provide exactly one of --role-id or --query.", err=True)
+        raise typer.Exit(1)
+    if query is not None:
+        result, vault = _match_query(query, gold_dir, db_path, vault_path, yes=yes)
+    else:
+        assert role_id is not None  # narrowed by the exactly-one check above
+        result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
     result = render_identities(result, vault)
     typer.echo(result.model_dump_json(indent=2))
 

@@ -51,6 +51,29 @@
   `_redact_messages`); the contextvar opt-in footgun; concurrent temp-file race in `_flush`;
   duplicated vault-path expression in `_match_role`/`ingest`. Some fold naturally into c-005.
 
+## Natural-language intake (c-006) follow-ups
+- **A2 · Query-side negation → hard filters.** Parse "not Chennai" / "anyone but X" into a typed
+  exclusion set enforced in the **pure-Python gate** (never the embedding). Mutates the frozen
+  `OpenRole` (`exclude_*` fields) → its own ADR + `make contract-snapshot`. Deferred from c-006.
+- **A4 · Bounded constraint-relaxation on no-match.** One explicitly-labelled deterministic pass,
+  never an LLM loop (would breach the non-agentic invariant). Prefer near-misses as the primary
+  answer (already shipped, AD-099/100). Needs its own ADR. Deferred from c-006.
+- **Fully-deterministic Python relative-date resolver.** c-006 has the LLM resolve relative dates
+  (today injected) + Python validate. A Python resolver for common patterns ("next month", "in N
+  weeks") with the LLM extracting only the phrase is more robust — the natural fast-follow to AD-XXY.
+- ~~**NL-parse Tier-2/3 eval cassette.**~~ **Done in c-006** (T-005): signed-off golden phrasings
+  (`tests/fixtures/nl_intake_golden.json`) drive an offline deterministic parse-accuracy tier + a
+  key-gated live tier in `tests/eval/test_nl_intake.py` (`make eval`).
+- **Offline MIPROv2 compile of `RoleIntakeSignature`.** The signature is a bare `dspy.Predict` with
+  config-loaded instructions (compileable by construction). Compile against a golden set of real
+  phrasings once enough are captured (§12 #12 of the interview).
+- **NL `dsm explain --query`.** `explain` is `--role-id` only today; surfacing the NL front door
+  through `explain` is a small follow-on.
+- **Free-form `--query` unscanned-prose risk (FR-5-AC-2).** The intake call is `PseudonymisedLM`
+  pass-through (no leak-scan, like clarify), trusting that role prose is non-PII. Free text invites
+  an operator to type a candidate name — a wider surface than the structured CSV cell. If ever
+  wrapped in `pii_context`, adopt `score.py`'s class-name `PIILeakError`-propagation discipline.
+
 ## Doc-foundation follow-ups (from the iteration-1 doc review)
 - **Merge gate for the index.** The `docs/progress.md` AD-range is machine-checked
   (`tests/docs`), but the prose sections (Current status / Works end-to-end) still rely on

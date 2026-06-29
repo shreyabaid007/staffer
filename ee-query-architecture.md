@@ -30,6 +30,17 @@
 > Where the implementation prompts in `query-slice-prompts.md` (slices B-1/B-2) post-date this doc
 > they **supersede** it — notably: the demand side carries no candidate PII and needs **no
 > redaction** (§7), and `Notes/Constraints` rides the existing `OpenRole.description` field.
+>
+> ➕ **Amendment since sign-off — natural-language intake front door (c-006, AD-XXX/AD-XXY).** §6.1
+> describes one front door: a structured **Open Roles CSV** → `OpenRole`. c-006 adds a **parallel**
+> prose front door (`dsm match --query "<text>"`) that produces the **same** typed `OpenRole` via a
+> single-shot DSPy parse over `PseudonymisedLM` (pass-through — role text is non-PII, §7), a
+> confirmation echo, and one bounded Python clarification, then feeds the unchanged spine. On the NL
+> path the intake LLM **replaces** the §6.2 clarify LLM pass (clarify runs its deterministic echo
+> path), so exactly one LLM interpretation of the role occurs. `co_location_required` is
+> **Python-derived**, never an LLM output (AD-002 / FR-8); relative dates are LLM-resolved with today
+> injected, then validated deterministically before the availability gate; `demand_as_of` = run-date
+> (so freshness is `ok`/`refuse` only). **Code + `specs/c-006-nl-query-intake/` are the truth.**
 
 ---
 

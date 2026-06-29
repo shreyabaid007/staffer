@@ -132,12 +132,24 @@ uv run dsm ingest
 # Build the search index (gold candidates → embed → Milvus)
 uv run dsm index
 
-# Match a role → ranked shortlist (JSON to stdout)
-uv run dsm match --role-id <ID>
+# Match a role → ranked shortlist (JSON to stdout). Provide EXACTLY ONE of:
+uv run dsm match --role-id <ID>                       # from the demand CSV
+uv run dsm match --query "senior Kotlin engineer in Chennai, payments, starting next month"
 
 # Match with full per-candidate explanations + lineage
 uv run dsm explain --role-id <ID>
 ```
+
+**Natural-language intake (`--query`).** Type a role in prose and the system parses it into the
+**same** typed role the CSV produces (a single-shot LLM parse via the PII boundary, then pure-Python
+validation), **echoes what it understood for you to confirm**, and only then runs the unchanged
+gate → retrieve → score → rank pipeline. Relative dates ("next month", "in 3 weeks") resolve against
+today and are validated before they reach the availability gate; a missing location/start triggers
+one bounded clarification. Eligibility stays deterministic — the parser only *proposes* the role.
+Pass `--yes` to skip the confirmation prompt for scripted use; the parsed role is still echoed to
+stderr for audit (stdout carries only the shortlist JSON). The model id and prompt/parse settings
+live in `config/default.yaml` (`models.reasoning_llm`, `nl_intake.*`); see
+`specs/c-006-nl-query-intake/` for the design.
 
 ### Ingestion pipeline
 
@@ -152,12 +164,13 @@ Raw CSVs + PDFs
 ### Query pipeline
 
 ```
-Role CSV → Parse demand
-  → Gate (location + availability, deterministic)
-    → Retrieve (hard-skill filter → hybrid recall → rerank)
-      → Score (LLM sub-scores → weighted combine)
-        → Rank (top-K + near-miss analysis)
-          → JSON shortlist with evidence
+Role CSV  ─┐
+           ├→ OpenRole → Gate (location + availability, deterministic)
+NL --query ┘   (prose: LLM parse → validate → echo + confirm)
+                 → Retrieve (hard-skill filter → hybrid recall → rerank)
+                   → Score (LLM sub-scores → weighted combine)
+                     → Rank (top-K + near-miss analysis)
+                       → JSON shortlist with evidence
 ```
 
 ## Tech Stack

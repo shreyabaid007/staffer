@@ -1,0 +1,156 @@
+{
+  "_meta": {
+    "labeller": "machine-draft, human-signed-off (shreya.baid@equalexperts.com)",
+    "label_date": "2026-06-29",
+    "review_status": "signed_off",
+    "today": "2026-06-29",
+    "notes": "NL-intake parse-quality golden set (c-006). Each case binds a real-style prose request to (a) the signed-off 'golden parse' (recorded_intake — what a correct RoleIntake looks like) and (b) the expected assembled OpenRole / ClarificationNeeded. Offline tier replays recorded_intake through assemble_role deterministically; live tier runs the real LLM on `prose`. Relative dates resolved against today=2026-06-29. `live: true` cases are exercised by the key-gated live tier."
+  },
+  "cases": [
+    {
+      "case_id": "nl-01-kotlin-chennai-payments",
+      "prose": "Senior Kotlin engineer in Chennai, payments platform, onsite, starting next month",
+      "recorded_intake": {
+        "title": "Senior Kotlin Engineer",
+        "hard_skills": [{"name": "kotlin", "depth": "hard", "min_proficiency": null}],
+        "desired_skills": [],
+        "location_city": "Chennai",
+        "remote_within_country": false,
+        "start_date_iso": "2026-07-29",
+        "start_date_phrase": "next month",
+        "notes": "Payments platform role. Onsite presence required."
+      },
+      "expected": {
+        "outcome": "role",
+        "location_city": "Chennai",
+        "remote_within_country": false,
+        "co_location_required": true,
+        "hard_skills": ["kotlin"],
+        "desired_skills": [],
+        "start_date": "2026-07-29"
+      },
+      "live": true
+    },
+    {
+      "case_id": "nl-02-react-remote-now",
+      "prose": "React developer, remote India, available now",
+      "recorded_intake": {
+        "title": "React Developer",
+        "hard_skills": [{"name": "react", "depth": "hard", "min_proficiency": null}],
+        "desired_skills": [],
+        "location_city": null,
+        "remote_within_country": true,
+        "start_date_iso": "2026-06-29",
+        "start_date_phrase": "available now",
+        "notes": null
+      },
+      "expected": {
+        "outcome": "role",
+        "location_city": null,
+        "remote_within_country": true,
+        "co_location_required": false,
+        "hard_skills": ["react"],
+        "desired_skills": [],
+        "start_date": "2026-06-29"
+      },
+      "live": true
+    },
+    {
+      "case_id": "nl-03-data-bengaluru-3weeks",
+      "prose": "Lead consultant for a Bengaluru data platform — Spark and Airflow, onsite, start in 3 weeks",
+      "recorded_intake": {
+        "title": "Lead Data Engineer",
+        "hard_skills": [
+          {"name": "spark", "depth": "hard", "min_proficiency": null},
+          {"name": "airflow", "depth": "hard", "min_proficiency": null}
+        ],
+        "desired_skills": [],
+        "location_city": "Bengaluru",
+        "remote_within_country": false,
+        "start_date_iso": "2026-07-20",
+        "start_date_phrase": "in 3 weeks",
+        "notes": "Data platform engagement."
+      },
+      "expected": {
+        "outcome": "role",
+        "location_city": "Bengaluru",
+        "remote_within_country": false,
+        "co_location_required": true,
+        "hard_skills": ["spark", "airflow"],
+        "desired_skills": [],
+        "start_date": "2026-07-20"
+      },
+      "live": false
+    },
+    {
+      "case_id": "nl-04-missing-location",
+      "prose": "Backend engineer, Java and Spring Boot, starting 2026-08-01",
+      "recorded_intake": {
+        "title": "Backend Engineer",
+        "hard_skills": [
+          {"name": "java", "depth": "hard", "min_proficiency": null},
+          {"name": "spring boot", "depth": "hard", "min_proficiency": null}
+        ],
+        "desired_skills": [],
+        "location_city": null,
+        "remote_within_country": false,
+        "start_date_iso": "2026-08-01",
+        "start_date_phrase": "2026-08-01",
+        "notes": null
+      },
+      "expected": {
+        "outcome": "clarification",
+        "missing": ["location"]
+      },
+      "live": true
+    },
+    {
+      "case_id": "nl-05-expert-java-pune",
+      "prose": "Need an expert Java engineer in Pune, onsite, starting next month",
+      "recorded_intake": {
+        "title": "Java Engineer",
+        "hard_skills": [{"name": "java", "depth": "hard", "min_proficiency": "expert"}],
+        "desired_skills": [],
+        "location_city": "Pune",
+        "remote_within_country": false,
+        "start_date_iso": "2026-07-29",
+        "start_date_phrase": "next month",
+        "notes": null
+      },
+      "expected": {
+        "outcome": "role",
+        "location_city": "Pune",
+        "remote_within_country": false,
+        "co_location_required": true,
+        "hard_skills": ["java"],
+        "desired_skills": [],
+        "start_date": "2026-07-29"
+      },
+      "live": false
+    },
+    {
+      "case_id": "nl-06-typescript-react-plus",
+      "prose": "Frontend engineer in Chennai, must have TypeScript, React a plus, onsite, starting next month",
+      "recorded_intake": {
+        "title": "Frontend Engineer",
+        "hard_skills": [{"name": "typescript", "depth": "hard", "min_proficiency": null}],
+        "desired_skills": [{"name": "react", "depth": "desired", "min_proficiency": null}],
+        "location_city": "Chennai",
+        "remote_within_country": false,
+        "start_date_iso": "2026-07-29",
+        "start_date_phrase": "next month",
+        "notes": null
+      },
+      "expected": {
+        "outcome": "role",
+        "location_city": "Chennai",
+        "remote_within_country": false,
+        "co_location_required": true,
+        "hard_skills": ["typescript"],
+        "desired_skills": ["react"],
+        "start_date": "2026-07-29"
+      },
+      "live": false
+    }
+  ]
+}
