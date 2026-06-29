@@ -185,6 +185,7 @@ class OpenRole(BaseModel, frozen=True):
     preferred_skills: list[str] = Field(default_factory=list)
     location: Location
     co_location_required: bool  # AD-020: the hard gate flag
+    exclude_cities: frozenset[str] = frozenset()  # c-007: query-side negation; gate-enforced
     start_date: date
     description: str | None = None  # free text for clarification
 
@@ -202,6 +203,7 @@ class TargetProfileScorecard(BaseModel, frozen=True):
     desired_skills: list[SkillRequirement]  # depth=DESIRED; adjacency allowed
     location: Location
     co_location_required: bool
+    exclude_cities: frozenset[str] = frozenset()  # c-007: threaded from OpenRole by clarify_role
     start_date: date
     availability_window_days: int = 14  # AD-021
     clarification_notes: str | None = None  # LLM's reasoning

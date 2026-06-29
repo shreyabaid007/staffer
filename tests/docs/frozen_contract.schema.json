@@ -1799,6 +1799,15 @@
         "default": null,
         "title": "Description"
       },
+      "exclude_cities": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Exclude Cities",
+        "type": "array",
+        "uniqueItems": true
+      },
       "location": {
         "$ref": "#/$defs/Location"
       },
@@ -2639,6 +2648,15 @@
         },
         "title": "Desired Skills",
         "type": "array"
+      },
+      "exclude_cities": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Exclude Cities",
+        "type": "array",
+        "uniqueItems": true
       },
       "hard_depth_skills": {
         "items": {

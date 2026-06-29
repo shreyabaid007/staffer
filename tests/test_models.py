@@ -215,10 +215,12 @@ def test_candidate_instantiates(candidate: Candidate) -> None:
 def test_open_role_instantiates(open_role: OpenRole) -> None:
     assert open_role.role_id == "ROLE-001"
     assert open_role.preferred_skills == []
+    assert open_role.exclude_cities == frozenset()  # c-007: defaults empty (FR-1-AC-1)
 
 
 def test_scorecard_instantiates(scorecard: TargetProfileScorecard) -> None:
     assert scorecard.availability_window_days == 14
+    assert scorecard.exclude_cities == frozenset()  # c-007: defaults empty (FR-1-AC-1)
 
 
 def test_exclusion_log_instantiates(exclusion_log: ExclusionLog) -> None:

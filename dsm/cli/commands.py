@@ -28,7 +28,7 @@ from dsm.index.text_builder import build_role_query_passage
 from dsm.match.clarify import ClarifyPredictor, clarify_role
 from dsm.match.demand import parse_demand
 from dsm.match.freshness import REFUSE, WARN, FreshnessVerdict, check_freshness
-from dsm.match.gates import effective_free_date, filter_candidates
+from dsm.match.gates import effective_free_date, filter_candidates, is_excluded_city
 from dsm.match.intake import (
     ClarificationNeeded,
     IntakeCache,
@@ -129,6 +129,10 @@ def build_near_misses(
         candidate = by_email.get(exclusion.candidate_email)
         if candidate is None:
             continue  # exclusion without a matching candidate — skip defensively
+        # c-007: a query-side exclusion ("not Chennai") is non-negotiable — an excluded candidate
+        # is never "one decision away", so never a near-miss (even if they clear the hard skills).
+        if is_excluded_city(candidate, scorecard):
+            continue
         # AD-099: only availability/location misses that clear hard skills are near-misses;
         # hard-skill misses (and gate misses that also fail skills) are not.
         if candidate.email not in clears_skills:
@@ -600,6 +604,8 @@ def _echo_role(role: OpenRole, start_phrase: str | None = None) -> None:
     typer.echo(f"  title          : {role.title or '—'}", err=True)
     typer.echo(f"  location       : {where}", err=True)
     typer.echo(f"  co-location    : {onsite}", err=True)
+    if role.exclude_cities:  # c-007: surface the gate-affecting exclusion for confirmation
+        typer.echo(f"  excludes       : {', '.join(sorted(role.exclude_cities))}", err=True)
     typer.echo(f"  start date     : {iso}{from_phrase}", err=True)
     typer.echo(f"  hard skills    : {', '.join(hard) or '—'}", err=True)
     typer.echo(f"  desired skills : {', '.join(desired) or '—'}", err=True)

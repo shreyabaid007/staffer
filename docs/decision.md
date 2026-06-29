@@ -237,4 +237,15 @@
 
 ---
 
+## Query-side negation (c-007)
+
+> Ratified as part of C-007 (`specs/c-007-query-negation/`, workshop item A2). **Frozen-contract
+> amendment** (AD-060) → `make contract-snapshot`. **Placeholder id on the feature branch** —
+> `/handoff-index` assigns the real number at merge (next id per the footer). Incorporates a
+> pre-sign-off adversarial review (1 major + 2 high-confidence gaps folded in).
+
+- **AD-XXX · Query-side location negation via `exclude_cities` (frozen-contract amendment; gate-enforced)** — Accepted — Add `exclude_cities: frozenset[str] = frozenset()` to **`OpenRole`** + **`TargetProfileScorecard`** (additive/optional/defaulted, backwards-compatible; `make contract-snapshot`; mirrors `Location.onsite_cities`, AD-086). The NL intake parses a location negation ("not Chennai", "anywhere but Chennai", "exclude Chennai") into `RoleIntake.exclude_cities` (match-local), `assemble_role` normalises it (lowercased frozenset) into `OpenRole.exclude_cities`, `clarify_role` threads it verbatim to the scorecard, and the **pure-Python location gate** (`dsm/match/gates.py::_location_passes`) excludes any candidate whose **home `city`** is in the set — checked **first**, regardless of `co_location_required`, and **never** via the recall/embedding query (the A2 invariant: negation is a hard filter, not cosine). The LLM only *proposes* the set — an LLM-parsed *fact* like `location_city` (the prose is its only source), confirmation-echoed before gating; eligibility stays deterministic + LLM-free (AD-002), so this does **not** repeat the c-006 co-location blocker (which was a *policy* inference, made Python-derived). **An exclusion is non-negotiable:** `build_near_misses` skips `LOCATION_MISMATCH` rows whose home city ∈ `exclude_cities`, so a deliberately-excluded candidate never re-surfaces as a "one decision away" near-miss. **"Anywhere but X"** (exclusion with no positive city) assembles as a **distributed** role (`location.city=None`, `co_location_required=False`), **not** a missing-location clarification — a missing-location clarification fires only when there is no city, not remote, **and** `exclude_cities` is empty. The `ExclusionReason` enum is unchanged — still `LOCATION_MISMATCH`; `filter_candidates` re-checks `candidate.city ∈ exclude_cities` only to pick the `Exclusion.detail` wording. **Scope: cities only** — `exclude_sectors`, candidate-level exclusion ("anyone but X", PII-adjacent), and query-side skill negation are deferred to their own ADRs. Rejected: routing the negation into the recall/embedding query (the exact failure A2 names); a new `ExclusionReason` (a city exclusion *is* a location mismatch); the LLM setting the exclusion as an eligibility decision (it proposes; Python + the echo gate it). See `specs/c-007-query-negation/`.
+
+---
+
 *Next ADRs start at AD-112.*

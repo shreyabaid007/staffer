@@ -65,6 +65,9 @@ class RoleIntake(BaseModel, frozen=True):
     desired_skills: list[SkillRequirement] = Field(default_factory=list)
     location_city: str | None = None  # None ⇒ unspecified or remote (LLM-parsed fact)
     remote_within_country: bool = False  # maps to Location.remote_within_country (AD-086)
+    exclude_cities: list[str] = Field(
+        default_factory=list
+    )  # c-007: "not Chennai" → gate exclusion
     start_date_iso: str | None = None  # LLM-resolved ISO (today injected); Python validates
     start_date_phrase: str | None = None  # original phrase, for the echo + logs
     notes: str | None = None  # residual constraints → OpenRole.description

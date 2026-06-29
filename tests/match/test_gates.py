@@ -41,6 +41,7 @@ def _scorecard(
     country: str = "India",
     co_location_required: bool,
     window_days: int = 14,
+    exclude_cities: frozenset[str] = frozenset(),
 ) -> TargetProfileScorecard:
     """Build a minimal scorecard; skills are irrelevant to the gates."""
     return TargetProfileScorecard(
@@ -49,6 +50,7 @@ def _scorecard(
         desired_skills=[],
         location=Location(city=city, country=country),
         co_location_required=co_location_required,
+        exclude_cities=exclude_cities,
         start_date=_START,
         availability_window_days=window_days,
     )
@@ -78,6 +80,61 @@ def _candidate(
         feedback=FeedbackSignals(),
         source=CandidateSource.BEACH,
     )
+
+
+# ---------------------------------------------------------------------------
+# Query-side negation — c-007 exclude_cities (FR-3-AC-1..6)
+# ---------------------------------------------------------------------------
+
+
+def test_c007_excluded_home_city_excluded_onsite() -> None:
+    """FR-3-AC-1: excluded home city → LOCATION_MISMATCH (onsite role) + exclusion detail."""
+    scorecard = _scorecard(
+        city="Bengaluru", co_location_required=True, exclude_cities=frozenset({"chennai"})
+    )
+    pool, log = filter_candidates([_candidate(city="Chennai")], scorecard)
+    assert pool.candidates == []
+    assert log.exclusions[0].reason is ExclusionReason.LOCATION_MISMATCH
+    assert "excludes" in log.exclusions[0].detail  # FR-3-AC-6 exclusion-specific wording
+
+
+def test_c007_excluded_home_city_excluded_distributed() -> None:
+    """FR-3-AC-1: the exclusion fires even for a distributed (co_location_required=False) role."""
+    scorecard = _scorecard(
+        city=None, co_location_required=False, exclude_cities=frozenset({"Chennai"})
+    )
+    pool, log = filter_candidates([_candidate(city="Chennai")], scorecard)  # case-insensitive
+    assert pool.candidates == []
+    assert log.exclusions[0].reason is ExclusionReason.LOCATION_MISMATCH
+
+
+def test_c007_non_excluded_city_passes_distributed() -> None:
+    """A Pune candidate clears a distributed 'not Chennai' role."""
+    scorecard = _scorecard(
+        city=None, co_location_required=False, exclude_cities=frozenset({"chennai"})
+    )
+    pool, log = filter_candidates([_candidate(city="Pune")], scorecard)
+    assert len(pool.candidates) == 1 and log.exclusions == []
+
+
+def test_c007_onsite_cities_willingness_not_triggered() -> None:
+    """FR-3-AC-2: exclusion matches home city only — onsite_cities willingness does not trigger."""
+    # Candidate is in Pune (not excluded) but open to onsite in Chennai (excluded). Home city wins.
+    scorecard = _scorecard(
+        city=None, co_location_required=False, exclude_cities=frozenset({"chennai"})
+    )
+    candidate = _candidate(city="Pune", onsite_cities=frozenset({"Chennai"}))
+    pool, _ = filter_candidates([candidate], scorecard)
+    assert len(pool.candidates) == 1  # not excluded — home city is Pune
+
+
+def test_c007_empty_exclude_cities_is_unchanged() -> None:
+    """FR-3-AC-3: the default empty set leaves the gate byte-identical (Chennai onsite passes)."""
+    scorecard = _scorecard(
+        city="Chennai", co_location_required=True
+    )  # exclude_cities defaults empty
+    pool, log = filter_candidates([_candidate(city="Chennai")], scorecard)
+    assert len(pool.candidates) == 1 and log.exclusions == []
 
 
 # ---------------------------------------------------------------------------

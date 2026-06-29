@@ -153,15 +153,19 @@ def _resolve_location(intake: RoleIntake) -> Location | None:
     """Build the role ``Location`` from the parsed intake, or ``None`` when it is missing.
 
     A named city → onsite-capable location (case preserved; the gate compares case-insensitively,
-    AD-086). ``remote_within_country`` with no city → a remote role (valid; needs no city). Neither
-    stated → ``None`` (the caller surfaces ``location`` for clarification; the LLM never guesses a
-    city). ``onsite_cities`` is a candidate-side facet (AD-086) and is never populated from prose.
+    AD-086). ``remote_within_country`` with no city → a remote role (valid; needs no city). A bare
+    exclusion ("not Chennai" with no positive city) → a **distributed** location (``city=None``,
+    not remote) — "anywhere but X", **not** a missing location (c-007). Otherwise (no city, not
+    remote, no exclusions) → ``None`` (the caller surfaces ``location`` for clarification; the LLM
+    never guesses a city). ``onsite_cities`` is a candidate-side facet (AD-086), not from prose.
     """
     city = (intake.location_city or "").strip()
     if city:
         return Location(city=city, remote_within_country=intake.remote_within_country)
     if intake.remote_within_country:
         return Location(city=None, remote_within_country=True)
+    if any(c.strip() for c in intake.exclude_cities):  # c-007: "anywhere but X" → distributed
+        return Location(city=None)
     return None
 
 
@@ -221,12 +225,15 @@ def assemble_role(
     # already-validated location.city (not the raw intake field) so it can't drift if
     # _resolve_location ever normalises the city.
     co_location_required = bool(location.city) and not intake.remote_within_country
+    # c-007: normalise the query-side negation into the gate-enforced exclusion set (lowercased).
+    exclude_cities = frozenset(c.strip().lower() for c in intake.exclude_cities if c.strip())
     role = OpenRole(
         role_id=role_id,
         title=intake.title or "",
         required_skills=_assemble_skills(intake),
         location=location,
         co_location_required=co_location_required,
+        exclude_cities=exclude_cities,
         start_date=start_date,
         description=intake.notes,
     )
@@ -236,6 +243,7 @@ def assemble_role(
         start_date=start_date.isoformat(),
         start_phrase=intake.start_date_phrase,
         co_location_required=co_location_required,
+        exclude_cities=sorted(exclude_cities),
         hard_skills=len(intake.hard_skills),
         desired_skills=len(intake.desired_skills),
     )

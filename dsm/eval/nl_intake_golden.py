@@ -50,6 +50,7 @@ class NLIntakeExpected(BaseModel):
     co_location_required: bool | None = None
     hard_skills: list[str] = Field(default_factory=list)
     desired_skills: list[str] = Field(default_factory=list)
+    exclude_cities: list[str] = Field(default_factory=list)  # c-007 query-side negation
     start_date: str | None = None  # ISO; offline-exact
     missing: list[str] = Field(default_factory=list)  # for the clarification outcome
 

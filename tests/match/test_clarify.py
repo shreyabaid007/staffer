@@ -18,16 +18,37 @@ _KOTLIN_HARD = SkillRequirement(
 _AWS_DESIRED = SkillRequirement(name="aws", depth=SkillDepth.DESIRED)
 
 
-def _role(*, description: str | None = None) -> OpenRole:
+def _role(
+    *, description: str | None = None, exclude_cities: frozenset[str] = frozenset()
+) -> OpenRole:
     return OpenRole(
         role_id="ROLE-01",
         title="Backend Engineer",
         required_skills=[_KOTLIN_HARD, _AWS_DESIRED],
         location=Location(city="Chennai"),
         co_location_required=True,
+        exclude_cities=exclude_cities,
         start_date=date(2026, 7, 1),
         description=description,
     )
+
+
+class TestExcludeCitiesThreadThrough:
+    def test_echo_path_threads_exclude_cities(self) -> None:
+        """c-007 FR-2: the echo path carries exclude_cities role → scorecard."""
+        sc = clarify_role(_role(exclude_cities=frozenset({"chennai"})))  # no predict → echo
+        assert sc.exclude_cities == frozenset({"chennai"})
+
+    def test_llm_refine_path_threads_exclude_cities(self) -> None:
+        """c-007 FR-2-AC-2: exclude_cities comes from the role, not the LLM, when clarify runs."""
+        refined = ScorecardClarification(
+            hard_depth_skills=[_KOTLIN_HARD], desired_skills=[_AWS_DESIRED]
+        )
+        sc = clarify_role(
+            _role(description="must have led payments", exclude_cities=frozenset({"chennai"})),
+            predict=lambda r: refined,
+        )
+        assert sc.exclude_cities == frozenset({"chennai"})  # gate input, from the role
 
 
 class TestEchoPath:

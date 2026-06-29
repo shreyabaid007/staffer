@@ -18,6 +18,15 @@ Rules:
   natural case is fine — it is normalised later). If the request says remote / "remote (India)" /
   no onsite presence, set `remote_within_country` true and leave `location_city` null. If neither
   is stated, leave both at their defaults — do not assume a city.
+- **Location negation.** Treat a negated location as the *opposite* of a positive one. **Any**
+  phrasing that rules a place *out* — "not `<city>`", "anywhere but `<city>`", "exclude `<city>`",
+  "no one from `<city>`", "outside `<city>`" — puts that city (verbatim, as written) into the
+  `exclude_cities` list. This applies to **any city**, not a fixed one. An excluded city is
+  **never** a positive `location_city`, and is not repeated in `notes`. Leave `location_city` null
+  unless the text *also* names a positive city to be in. A plain place with no negation word stays
+  `location_city`. Examples: "React dev, not Pune" → `exclude_cities=["Pune"]`, `location_city`
+  null; "backend role in Bengaluru, but not Hyderabad" → `location_city="Bengaluru"`,
+  `exclude_cities=["Hyderabad"]`.
 - **Start date.** If the request gives a start date, resolve it to a concrete ISO date in
   `start_date_iso` using `today` as the reference point — e.g. with `today = 2026-06-29`,
   "next month" → "2026-07-29", "in 3 weeks" → "2026-07-20", "available now"/"immediately" →

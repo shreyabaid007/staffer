@@ -145,7 +145,9 @@ uv run dsm explain --role-id <ID>
 validation), **echoes what it understood for you to confirm**, and only then runs the unchanged
 gate → retrieve → score → rank pipeline. Relative dates ("next month", "in 3 weeks") resolve against
 today and are validated before they reach the availability gate; a missing location/start triggers
-one bounded clarification. Eligibility stays deterministic — the parser only *proposes* the role.
+one bounded clarification. A **location negation** ("…not Chennai", "anywhere but Chennai") parses
+into a typed exclusion enforced by the **pure-Python location gate** (never the embedding) — see
+`specs/c-007-query-negation/`. Eligibility stays deterministic — the parser only *proposes* the role.
 Pass `--yes` to skip the confirmation prompt for scripted use; the parsed role is still echoed to
 stderr for audit (stdout carries only the shortlist JSON). The model id and prompt/parse settings
 live in `config/default.yaml` (`models.reasoning_llm`, `nl_intake.*`); see

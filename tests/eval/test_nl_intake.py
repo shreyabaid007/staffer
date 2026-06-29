@@ -71,6 +71,7 @@ class TestNLIntakeOffline:
         assert result.co_location_required == exp.co_location_required  # Python-derived (FR-8)
         assert _hard(result) == exp.hard_skills
         assert _desired(result) == exp.desired_skills
+        assert result.exclude_cities == frozenset(exp.exclude_cities)  # c-007
         if exp.start_date is not None:
             assert result.start_date.isoformat() == exp.start_date
 
@@ -115,6 +116,10 @@ class TestNLIntakeLive:
             f"{case.case_id}: expected hard skills {exp.hard_skills} not all present in "
             f"{_hard(result)}"
         )
+        if exp.exclude_cities:  # c-007: the real LLM extracted the negation into exclude_cities
+            assert {c.casefold() for c in exp.exclude_cities} <= {
+                c.casefold() for c in result.exclude_cities
+            }
         if exp.start_date is not None:
             # Live LLM resolves relative to the real today → check validity/window, not value.
             assert today <= result.start_date
