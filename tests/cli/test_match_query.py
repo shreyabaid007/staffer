@@ -293,6 +293,35 @@ def test_cache_hit_calls_predictor_once(
 # ---------------------------------------------------------------------------
 
 
+def test_query_negation_excludes_city_and_not_a_near_miss(
+    tmp_path: Path,
+    wired_nl: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """c-007: '… not Chennai' echoes the exclusion, gates out the Chennai candidate, and does not
+    surface it as a near-miss (even though it clears the hard skill)."""
+    gold_dir = tmp_path / "gold"
+    write_gold(_gold("cid:a", valid_as_of=_TODAY), gold_dir)  # Chennai, kotlin
+    intake = RoleIntake(
+        title="Kotlin Engineer",
+        hard_skills=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)],
+        exclude_cities=["Chennai"],  # no positive city → distributed "anywhere but Chennai"
+        start_date_iso=_START,
+        start_date_phrase="next month",
+    )
+    _wire_intake(monkeypatch, _FakeIntake(intake), _DictCache())
+
+    match(query="kotlin engineer, not chennai, starting next month", gold_dir=gold_dir, yes=True)
+
+    captured = capsys.readouterr()
+    assert "excludes" in captured.err and "chennai" in captured.err.lower()  # echoed for confirm
+    payload = json.loads(captured.out)
+    assert "ranked_assessments" not in payload  # no shortlist — the only candidate is excluded
+    near = [nm["candidate_email"] for nm in payload.get("near_misses", [])]
+    assert "cid:a" not in near  # non-negotiable exclusion → never a near-miss (FR-3-AC-5)
+
+
 def test_both_flags_error(tmp_path: Path, wired_nl: None) -> None:
     with pytest.raises(typer.Exit) as exc:
         match(role_id="ROLE-1", query="kotlin in chennai", gold_dir=tmp_path / "gold")

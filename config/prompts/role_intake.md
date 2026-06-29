@@ -18,6 +18,12 @@ Rules:
   natural case is fine — it is normalised later). If the request says remote / "remote (India)" /
   no onsite presence, set `remote_within_country` true and leave `location_city` null. If neither
   is stated, leave both at their defaults — do not assume a city.
+- **Location negation.** A negation about location ("not Chennai", "anywhere but Chennai",
+  "exclude Chennai", "no one from Chennai") goes in `exclude_cities` (a list of city names) —
+  **never** in `location_city`, and do not also repeat it in `notes`. A negated city is the
+  opposite of a positive location: "senior engineer, not Chennai" → `exclude_cities=["Chennai"]`
+  with `location_city` null (it means "anywhere but Chennai"). A plain city with no
+  "not"/"but"/"exclude" stays `location_city`.
 - **Start date.** If the request gives a start date, resolve it to a concrete ISO date in
   `start_date_iso` using `today` as the reference point — e.g. with `today = 2026-06-29`,
   "next month" → "2026-07-29", "in 3 weeks" → "2026-07-20", "available now"/"immediately" →

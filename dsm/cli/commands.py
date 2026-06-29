@@ -604,6 +604,8 @@ def _echo_role(role: OpenRole, start_phrase: str | None = None) -> None:
     typer.echo(f"  title          : {role.title or '—'}", err=True)
     typer.echo(f"  location       : {where}", err=True)
     typer.echo(f"  co-location    : {onsite}", err=True)
+    if role.exclude_cities:  # c-007: surface the gate-affecting exclusion for confirmation
+        typer.echo(f"  excludes       : {', '.join(sorted(role.exclude_cities))}", err=True)
     typer.echo(f"  start date     : {iso}{from_phrase}", err=True)
     typer.echo(f"  hard skills    : {', '.join(hard) or '—'}", err=True)
     typer.echo(f"  desired skills : {', '.join(desired) or '—'}", err=True)

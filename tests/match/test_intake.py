@@ -29,6 +29,38 @@ def _assemble(intake: RoleIntake, *, today: date = _TODAY) -> OpenRole | Clarifi
     return assemble_role(intake, today, max_horizon_days=_HORIZON, role_id="NL-test1234")
 
 
+class TestExcludeCities:
+    """c-007: query-side negation → OpenRole.exclude_cities."""
+
+    def test_anywhere_but_chennai_is_distributed_not_clarification(self) -> None:
+        # FR-4-AC-1: "not Chennai" with no positive city → distributed role, not a clarification.
+        intake = RoleIntake(
+            hard_skills=[SkillRequirement(name="kotlin", depth=SkillDepth.HARD)],
+            exclude_cities=["Chennai"],
+            start_date_iso="2026-07-29",
+        )
+        role = _assemble(intake)
+        assert isinstance(role, OpenRole)
+        assert role.location.city is None
+        assert role.co_location_required is False  # distributed
+        assert role.exclude_cities == frozenset({"chennai"})  # normalised lowercase
+
+    def test_positive_and_negative_coexist(self) -> None:
+        # FR-4-AC-2: a positive city + an exclusion both honoured.
+        role = _assemble(
+            RoleIntake(
+                location_city="Bengaluru", exclude_cities=["Chennai"], start_date_iso="2026-07-29"
+            )
+        )
+        assert isinstance(role, OpenRole)
+        assert role.location.city == "Bengaluru" and role.co_location_required is True
+        assert role.exclude_cities == frozenset({"chennai"})
+
+    def test_no_exclusion_defaults_empty(self) -> None:
+        role = _assemble(RoleIntake(location_city="Chennai", start_date_iso="2026-07-29"))
+        assert isinstance(role, OpenRole) and role.exclude_cities == frozenset()
+
+
 # ---------------------------------------------------------------------------
 # Real-style phrasings → correct OpenRole (the "say it out loud" fixtures, §8)
 # ---------------------------------------------------------------------------
