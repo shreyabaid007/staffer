@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staffer — demand · supply matcher</title>
+<style>
+  :root {
+    --ground: #F7F6F3; --surface: #FFFFFF; --raised: #FCFBF9;
+    --ink: #1B1A17; --muted: #5B564D; --faint: #8B857B;
+    --line: #E6E2D9; --line-2: #EFEDE6;
+    --accent: #2B4AC7; --accent-ink: #213a9c; --accent-soft: #E9ECF9; --accent-line: #CBD3F1;
+    --amber: #8A5712; --amber-soft: #F4EAD6; --amber-line: #E7D5AE;
+    --rose: #97374C; --rose-soft: #F4E2E6; --rose-line: #E7C9D0;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 15.5px; line-height: 1.58;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; padding: 0 24px 120px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  .hidden { display: none; }
+
+  .top {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    padding: 22px 0 16px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 42px;
+  }
+  .mark { font-weight: 680; letter-spacing: -0.02em; font-size: 19px; }
+  .mark b { color: var(--accent); }
+  .prov { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .prov .ok { color: var(--accent); }
+
+  .hero { margin-bottom: 30px; }
+  .hero h1 { font-family: var(--serif); font-weight: 600; font-size: 32px; line-height: 1.2; letter-spacing: -0.005em; margin: 0 0 13px; max-width: 21ch; }
+  .hero p { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.62; max-width: 60ch; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+
+  .composer { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 1px 2px rgba(27,26,23,.04); }
+  .modes { display: flex; gap: 4px; padding: 8px 8px 4px; }
+  .mode { font-family: var(--mono); font-size: 11.5px; padding: 6px 12px; border-radius: 8px; border: 1px solid transparent; color: var(--muted); cursor: pointer; background: none; }
+  .mode[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-line); }
+  .composer textarea { width: 100%; border: none; resize: none; background: none; color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.5; padding: 10px 12px 4px; min-height: 58px; }
+  .composer textarea:focus { outline: none; }
+  .composer .row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 8px; gap: 12px; }
+  .hint { font-size: 12.5px; color: var(--faint); }
+  button.go { font-family: var(--sans); font-size: 13.5px; font-weight: 560; background: var(--accent); color: #fff; border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer; }
+  button.go:hover { background: var(--accent-ink); }
+  button.gh { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 9px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: var(--sans); }
+  button.gh:hover { border-color: var(--accent); color: var(--accent); }
+
+  .drop { border: 1.5px dashed var(--line); border-radius: 11px; padding: 22px; text-align: center; cursor: pointer; color: var(--muted); background: var(--raised); margin: 4px 6px 8px; }
+  .drop:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .drop .ico { font-size: 19px; margin-bottom: 6px; }
+  .drop b { color: var(--ink); font-weight: 600; }
+  .drop .sub { font-size: 12px; color: var(--faint); margin-top: 5px; }
+  .sheet-head { font-family: var(--mono); font-size: 12px; color: var(--muted); padding: 6px 12px 10px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .roles { display: flex; flex-direction: column; gap: 5px; padding: 0 6px 4px; }
+  .role-row { display: grid; grid-template-columns: 84px 1fr auto; gap: 14px; align-items: center; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 10px 13px; cursor: pointer; width: 100%; font-family: var(--sans); }
+  .role-row:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .role-row .rid { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .role-row .rt { font-weight: 560; font-size: 14.5px; }
+  .role-row .rl { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 2px; display: block; }
+  .role-row .rp { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .skip-note { font-size: 12.5px; color: var(--amber); padding: 8px 13px 4px; }
+
+  .err { background: var(--rose-soft); border: 1px solid var(--rose-line); color: var(--rose); border-radius: 10px; padding: 11px 14px; margin-top: 14px; font-size: 13.5px; }
+
+  .parse { margin-top: 14px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 18px 20px; }
+  .parse h2 { font-size: 14px; font-weight: 600; margin: 0 0 16px; }
+  .parse h2 span { color: var(--muted); font-weight: 400; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .field .v { font-size: 14.5px; }
+  .field .v .mono { font-family: var(--mono); font-size: 13px; }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 12px; background: var(--line-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; margin: 0 4px 4px 0; }
+  .chip.neg { background: var(--rose-soft); border-color: var(--rose-line); color: var(--rose); }
+  .field .from { color: var(--faint); font-size: 12.5px; }
+  .clar { font-family: var(--sans); font-size: 14px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); width: 100%; }
+  .clar:focus { outline: none; border-color: var(--accent); }
+  .parse .confirm { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .parse .confirm .note { margin-right: auto; font-size: 12.5px; color: var(--muted); }
+
+  .results { margin-top: 40px; }
+  .results-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+  .results-head h2 { font-size: 15px; margin: 0; }
+  .results-head .count { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .results-head .count .dim { color: var(--faint); }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 18px 20px 16px; margin-bottom: 12px; }
+  .card.picked { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .ch { display: flex; align-items: center; gap: 11px; }
+  .rk { font-family: var(--mono); font-size: 12px; color: #fff; background: var(--ink); width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; flex: none; }
+  .nm { font-family: var(--sans); font-size: 18px; font-weight: 640; letter-spacing: -0.01em; color: var(--ink); background: none; border: none; padding: 0; cursor: pointer; text-align: left; flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .nm:hover { color: var(--accent); }
+  .nm .ar { color: var(--accent); font-weight: 500; margin-left: 4px; }
+  .sc { margin-left: auto; text-align: right; flex: none; line-height: 1; padding-left: 12px; }
+  .sc b { font-family: var(--mono); font-size: 23px; font-weight: 500; letter-spacing: -0.02em; }
+  .sc i { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); font-style: normal; margin-top: 3px; }
+  .sub { font-size: 13px; color: var(--muted); margin: 5px 0 0 33px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0 33px; font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+  .meta b { color: var(--muted); font-weight: 500; }
+
+  .bars { display: flex; flex-direction: column; gap: 7px; margin: 15px 0 0 33px; }
+  .bar { display: grid; grid-template-columns: 92px 1fr 38px; align-items: center; gap: 12px; }
+  .bar .bl { font-size: 12.5px; color: var(--muted); }
+  .bar .tr { height: 6px; background: var(--line-2); border-radius: 3px; overflow: hidden; }
+  .bar .fl { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .85s cubic-bezier(.2,.7,.2,1); }
+  .bar .fl.skill { background: var(--accent); }
+  .bar .fl.fb { background: #B07A2E; }
+  .bar .bv { font-family: var(--mono); font-size: 12.5px; text-align: right; }
+
+  .flags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0 33px; }
+  .dsec .flags { margin-left: 0; }
+  .flag { font-family: var(--mono); font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid; }
+  .flag.warn { background: var(--amber-soft); color: var(--amber); border-color: var(--amber-line); }
+  .flag.risk { background: var(--rose-soft); color: var(--rose); border-color: var(--rose-line); }
+  .flag.info { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-line); }
+
+  .ev { margin: 15px 0 0 33px; padding: 0 0 0 14px; border-left: 2px solid var(--line); font-size: 14px; color: var(--ink); }
+  .ev .src { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); display: block; margin-bottom: 4px; }
+  .nar { margin: 12px 0 0 33px; font-family: var(--serif); font-size: 15.5px; line-height: 1.55; color: #2D2B26; }
+
+  .act { display: flex; gap: 9px; margin: 16px 0 0 33px; }
+  .reason { display: none; flex-direction: column; gap: 5px; margin: 11px 0 0 33px; }
+  .reason.open { display: flex; }
+  .reason label { font-size: 11.5px; color: var(--muted); }
+  .reason input { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  .reason input:focus { outline: none; border-color: var(--accent); }
+
+  details.ruled { margin-top: 26px; }
+  details.ruled > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); padding: 11px 0; border-top: 1px solid var(--line); }
+  details.ruled > summary::-webkit-details-marker { display: none; }
+  details.ruled > summary .tw { font-family: var(--mono); font-size: 11px; transition: transform .2s; }
+  details.ruled[open] > summary .tw { transform: rotate(90deg); }
+  details.ruled > summary .pill { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-left: auto; }
+  .ruled-row { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: baseline; padding: 9px 0; font-size: 14px; border-bottom: 1px dashed var(--line); }
+  .ruled-row:last-child { border-bottom: none; }
+  .ruled-row .mk { font-family: var(--mono); font-size: 11.5px; }
+  .ruled-row .mk.gate { color: var(--rose); }
+  .ruled-row .mk.near { color: var(--amber); }
+  .ruled-row .mk.skill { color: var(--faint); }
+  .ruled-row .nmx { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left; }
+  .ruled-row .nmx:hover { color: var(--accent); }
+  .ruled-row .why { color: var(--muted); }
+
+  .savebar { display: flex; align-items: center; gap: 14px; margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .savebar .saved { font-size: 13px; color: var(--accent-ink); font-weight: 540; }
+  .savebar .saved .code { font-family: var(--mono); }
+
+  footer { margin-top: 38px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+  footer b { color: var(--ink); font-weight: 600; }
+
+  .scrim { position: fixed; inset: 0; background: rgba(27,26,23,.34); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 40; }
+  .scrim.on { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; right: 0; height: 100%; width: min(440px, 92vw);
+    background: var(--surface); border-left: 1px solid var(--line); box-shadow: -16px 0 40px rgba(27,26,23,.12);
+    transform: translateX(100%); transition: transform .28s cubic-bezier(.3,.7,.2,1); z-index: 50;
+    overflow-y: auto; padding: 22px 24px 40px;
+  }
+  .drawer.on { transform: translateX(0); }
+  .dx { position: absolute; top: 16px; right: 18px; background: none; border: none; font-size: 18px; color: var(--faint); cursor: pointer; line-height: 1; }
+  .dx:hover { color: var(--ink); }
+  .drawer h3 { font-size: 21px; font-weight: 660; letter-spacing: -0.01em; margin: 4px 0 4px; }
+  .drawer .drole { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+  .pdf { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 540; color: var(--accent-ink); background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: 9px; padding: 9px 13px; cursor: pointer; text-decoration: none; }
+  .pdf:hover { background: #dfe4f7; }
+  .pdf .pi { font-size: 14px; }
+  .pdfnote { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .dsec { margin-top: 20px; }
+  .dsec h4 { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin: 0 0 8px; }
+  .resume { font-family: var(--serif); font-size: 15px; line-height: 1.55; color: #2D2B26; margin: 0; }
+  .fb-entry { font-size: 13px; line-height: 1.5; background: var(--raised); border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: 8px; padding: 9px 11px; margin-bottom: 6px; }
+  .fb-entry .tag { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); display: block; margin-bottom: 2px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="mark">⚖&nbsp; <b>Staffer</b> &nbsp;demand · supply matcher</div>
+    <div class="prov">0.7&nbsp;skill · 0.3&nbsp;feedback &nbsp;·&nbsp; sonnet-4.6 &nbsp;·&nbsp; gates <span class="ok">deterministic</span></div>
+  </div>
+
+  <div class="hero">
+    <h1>Who fits this role — and what are you trading&nbsp;off?</h1>
+    <p>Type the role in plain English or pull it from the demand sheet. You see exactly how it was read, you confirm it, then every name comes back with its evidence, its trade-offs, and its résumé. You decide.</p>
+  </div>
+
+  <p class="eyebrow">01 · The role</p>
+  <div class="composer">
+    <div class="modes" role="tablist" aria-label="How to enter the role">
+      <button class="mode" role="tab" aria-selected="true" id="m-nl" onclick="setMode('nl')">Plain English</button>
+      <button class="mode" role="tab" aria-selected="false" id="m-csv" onclick="setMode('csv')">From demand sheet</button>
+    </div>
+
+    <div id="nl-block">
+      <textarea id="nl-input" aria-label="Describe the role">Senior Kotlin engineer for a payments platform, anywhere but Chennai, starting next month</textarea>
+      <div class="row">
+        <span class="hint">It only reads what you write — it won't invent a city, skill, or date.</span>
+        <button class="go" onclick="readNL()">Read it →</button>
+      </div>
+    </div>
+
+    <div id="csv-block" style="display:none;">
+      <div class="drop" id="drop" tabindex="0">
+        <div class="ico">⬆</div>
+        <div><b>Drop the Open Roles CSV</b> or click to browse</div>
+        <div class="sub">Role text only — no candidate data. The banner's “as of” date drives the freshness check.</div>
+      </div>
+      <input type="file" id="csv-file" accept=".csv,text/csv" style="display:none" onchange="onCsvChange(this)">
+      <div id="sheet" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div id="err" class="err hidden"></div>
+  <div id="parse" class="parse" style="display:none;"></div>
+
+  <div class="results hidden" id="results">
+    <p class="eyebrow">02 · Shortlist</p>
+    <div class="results-head">
+      <h2>Your best options</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="cards"></div>
+    <div id="ruled"></div>
+    <div class="savebar">
+      <button class="go" onclick="saveDecisions()">Save decisions</button>
+      <span class="hint">Recorded against the run, keyed to candidate id — kept for review, never changes this shortlist.</span>
+      <span class="saved" id="saved" style="display:none;"></span>
+    </div>
+    <footer>
+      <b>Click any name</b> — shortlisted or ruled out — to read the evidence and open the original résumé. <b>Location &amp; availability are hard rules</b> in plain code; the rest is weighted and shown; <b>you decide</b>, and your call is recorded for review — it never quietly retrains the next shortlist.
+    </footer>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="closeProfile()"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="Candidate profile">
+  <button class="dx" onclick="closeProfile()" aria-label="Close">✕</button>
+  <h3 id="p-name"></h3>
+  <p class="drole" id="p-role"></p>
+  <div id="p-pdf"></div>
+  <div id="p-body"></div>
+</aside>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let csvFile = null, lastResp = null;
+  const VIEWS = {};     // candidate_id -> AssessmentView (shortlisted)
+  const RULED = {};     // candidate_id -> {label, why} (ruled out)
+  const decisions = {}; // candidate_id -> {action, reason}
+
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const field = (k, v) => `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  const chips = (arr) => (arr || []).map((s) => `<span class="chip">${esc(s)}</span>`).join("");
+  const fromNote = (t) => `<span class="from">${t}</span>`;
+  // Vault miss: render_identities couldn't de-anonymise, so name/email == candidate_id. Show a
+  // short, readable label instead of the raw 64-char pseudonym (the real fix is to (re)ingest so
+  // the identity vault is populated — then real names render).
+  const displayName = (nm, cid) =>
+    nm && nm === cid ? "Candidate " + String(cid).replace(/^cid:/, "").slice(0, 8) : nm;
+  const pct = (x) => Math.round((x || 0) * 100) + "%";
+  const srcLabel = (s) => ({ profile_pdf: "résumé", feedback: "feedback", supply_sheet: "supply sheet" }[s] || s);
+  const flagClass = (t) => ({ RETENTION_RISK: "risk", FRESHNESS_WARNING: "warn", UNVERIFIED_SKILLS: "warn", ROLL_OFF_UNCERTAIN: "warn", ADJACENCY_USED: "info" }[t] || "info");
+  const reasonLabel = (r) => ({ LOCATION_MISMATCH: "location", AVAILABILITY_MISMATCH: "availability", HARD_SKILL_MISMATCH: "on skills" }[r] || "excluded");
+
+  function showError(msg) { const e = $("err"); e.textContent = msg; e.classList.remove("hidden"); }
+  function clearError() { $("err").classList.add("hidden"); }
+
+  async function api(path, opts) {
+    const res = await fetch(path, opts);
+    let body = null;
+    try { body = await res.json(); } catch (e) { /* non-JSON */ }
+    if (!res.ok) throw new Error((body && body.detail) || res.statusText || ("HTTP " + res.status));
+    return body;
+  }
+
+  function setMode(m) {
+    $("m-nl").setAttribute("aria-selected", m === "nl");
+    $("m-csv").setAttribute("aria-selected", m === "csv");
+    $("nl-block").style.display = m === "nl" ? "" : "none";
+    $("csv-block").style.display = m === "csv" ? "" : "none";
+  }
+
+  // ── NL door ──
+  async function readNL() {
+    clearError();
+    const prose = $("nl-input").value.trim();
+    if (!prose) { showError("Type a role description first."); return; }
+    try {
+      const resp = await api("/intake", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prose }) });
+      renderConfirm(prose, resp);
+    } catch (e) { showError(e.message); }
+  }
+
+  function renderConfirm(prose, resp) {
+    const p = $("parse");
+    if (resp.status === "needs_clarification") {
+      const inputs = resp.missing.map((f) => field(
+        f === "location" ? "Location" : "Start date",
+        `<input id="clar-${f}" class="clar" placeholder="${f === "location" ? "city, or 'remote'" : "YYYY-MM-DD"}">`
+      )).join("");
+      p.innerHTML = `<h2>One more detail <span>— the model won't guess a ${esc(resp.missing.join(" or "))}.</span></h2>
+        <div class="fields">${inputs}</div>
+        <div class="confirm"><span class="note">Location &amp; availability are enforced as hard rules — not by the model.</span>
+        <button class="go" id="confirm-btn">Find matches</button></div>`;
+      $("confirm-btn").onclick = () => {
+        const c = {};
+        resp.missing.forEach((f) => {
+          const v = $("clar-" + f).value.trim();
+          if (f === "location") c.location = v; else c.start = v;
+        });
+        runQuery(prose, c);
+      };
+    } else {
+      const e = resp.echo;
+      const startPhrase = (e.start_phrase && e.start_phrase !== e.start_date)
+        ? ` <span class="from">from “${esc(e.start_phrase)}”</span>` : "";
+      const excludes = e.exclude_cities.length
+        ? e.exclude_cities.map((c) => `<span class="chip neg">✕ ${esc(c)}</span>`).join("") : fromNote("none");
+      p.innerHTML = `<h2>Here's how I read it <span>— if it's off, fix the prose and re-read, then match.</span></h2>
+        <div class="fields">
+          ${field("Title", esc(e.title) || "—")}
+          ${field("Start", `<span class="mono">${esc(e.start_date)}</span>${startPhrase}`)}
+          ${field("Hard skills", chips(e.hard_skills) || fromNote("none"))}
+          ${field("Desired", chips(e.desired_skills) || fromNote("none stated"))}
+          ${field("Where", `<span class="from">${esc(e.location)} · ${e.co_location_required ? "onsite required" : "onsite not required"}</span>`)}
+          ${field("Excludes", excludes)}
+        </div>
+        <div class="confirm"><span class="note">Location &amp; availability are enforced as hard rules — not by the model.</span>
+        <button class="go" id="confirm-btn">Looks right — find matches</button></div>`;
+      $("confirm-btn").onclick = () => runQuery(prose, null);
+    }
+    p.style.display = "";
+    p.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }
+
+  async function runQuery(prose, clarifications) {
+    clearError();
+    try {
+      const resp = await api("/match/query", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prose, clarifications, confirm: true }),
+      });
+      renderResults(resp);
+    } catch (e) { showError(e.message); }
+  }
+
+  // ── CSV door ──
+  async function onCsvChange(input) {
+    clearError();
+    const file = input.files[0];
+    if (!file) return;
+    csvFile = file;
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      renderPicker(await api("/demand/parse", { method: "POST", body: fd }));
+    } catch (e) { showError(e.message); }
+  }
+
+  function renderPicker(resp) {
+    $("drop").style.display = "none";
+    const rows = resp.roles.map((r) => `
+      <button class="role-row" data-role-id="${esc(r.role_id)}">
+        <span class="rid">${esc(r.role_id)}</span>
+        <span><span class="rt">${esc(r.title) || "—"}</span><span class="rl">${esc(r.location)} · ${r.co_location_required ? "onsite" : "any"} · starts ${esc(r.start_date)}</span></span>
+        <span class="rp">→</span></button>`).join("");
+    const skip = resp.skipped.length
+      ? `<div class="skip-note">⚠ ${resp.skipped.length} row(s) skipped — fix and re-upload; never matched silently.</div>` : "";
+    const sheet = $("sheet"); sheet.style.display = "";
+    sheet.innerHTML = `<div class="sheet-head"><span>Open Roles · as of ${esc(resp.demand_as_of)}</span><span>· ${resp.roles.length} roles</span></div>
+      <div class="roles">${rows}</div>${skip}`;
+  }
+
+  async function runRole(roleId) {
+    clearError();
+    if (!csvFile) { showError("Upload the demand CSV first."); return; }
+    try {
+      const fd = new FormData(); fd.append("file", csvFile); fd.append("role_id", roleId);
+      renderResults(await api("/match/role", { method: "POST", body: fd }));
+    } catch (e) { showError(e.message); }
+  }
+
+  // ── results ──
+  function bar(label, score, cls) {
+    return `<div class="bar"><span class="bl">${label}</span><span class="tr"><span class="fl ${cls}" data-w="${Math.round((score || 0) * 100)}%"></span></span><span class="bv">${(score || 0).toFixed(2)}</span></div>`;
+  }
+
+  function cardHTML(a, rank) {
+    const c = a.candidate, cid = c.candidate_id;
+    const meta = [
+      `from <b>${esc(c.source)}</b>`, `avail <b>${esc(c.availability)}</b>`,
+      c.years_experience != null ? `exp <b>${c.years_experience} yrs</b>` : "",
+      `hard cover <b>${pct(a.hard_skill_coverage)}</b>`,
+    ].filter(Boolean).join("");
+    const flags = a.flags.map((f) => `<span class="flag ${flagClass(f.type)}">${esc(f.message)}</span>`).join("");
+    const ev = a.evidence.slice(0, 1).map((e) => `<blockquote class="ev"><span class="src">from ${esc(srcLabel(e.source))}</span>${esc(e.text)}</blockquote>`).join("");
+    return `<article class="card" id="card-${esc(cid)}">
+      <div class="ch"><span class="rk">${rank}</span>
+        <button class="nm" data-cid="${esc(cid)}" data-act="profile">${esc(displayName(c.name, cid))} <span class="ar">›</span></button>
+        <span class="sc"><b>${a.combined_score.toFixed(2)}</b><i>score</i></span></div>
+      <p class="sub">${esc(c.location)}${c.has_resume ? "" : " · no résumé on file"}</p>
+      <div class="meta">${meta}</div>
+      <div class="bars">${bar("Skill match", a.skill_match_score, "skill")}${bar("Feedback", a.feedback_score, "fb")}</div>
+      ${flags ? `<div class="flags">${flags}</div>` : ""}
+      ${ev}
+      ${a.narrative ? `<p class="nar">${esc(a.narrative)}</p>` : ""}
+      <div class="act"><button class="go" data-cid="${esc(cid)}" data-act="forward">Put forward</button>
+        <button class="gh" data-cid="${esc(cid)}" data-act="set_aside">Not this time</button></div>
+      <div class="reason" id="reason-${esc(cid)}"><label>Why?</label>
+        <input placeholder="one line — the signal we keep" data-cid="${esc(cid)}"></div>
+    </article>`;
+  }
+
+  function ruledHTML(resp) {
+    const shown = new Set(), rows = [];
+    const row = (cls, mark, cid, label, why) =>
+      `<div class="ruled-row"><span class="mk ${cls}">${mark}</span><span><button class="nmx" data-cid="${esc(cid)}">${esc(label)}</button> &nbsp;<span class="why">${esc(why)}</span></span></div>`;
+    (resp.near_misses || []).forEach((n) => {
+      const lbl = displayName(n.name, n.candidate_id);
+      shown.add(n.candidate_id); RULED[n.candidate_id] = { label: lbl, why: n.gap_summary };
+      rows.push(row("near", "near miss", n.candidate_id, lbl, n.gap_summary + (n.selection_rationale ? ` — ${n.selection_rationale}` : "")));
+    });
+    (resp.closest_on_skills || []).forEach((n) => {
+      if (shown.has(n.candidate_id)) return;
+      const lbl = displayName(n.name, n.candidate_id);
+      shown.add(n.candidate_id); RULED[n.candidate_id] = { label: lbl, why: n.gap_summary };
+      rows.push(row("skill", "on skills", n.candidate_id, lbl, n.gap_summary));
+    });
+    (resp.exclusions || []).forEach((e) => {
+      if (shown.has(e.candidate_id)) return;
+      const lbl = displayName(e.display, e.candidate_id);
+      shown.add(e.candidate_id); RULED[e.candidate_id] = { label: lbl, why: e.detail };
+      rows.push(row("gate", reasonLabel(e.reason), e.candidate_id, lbl, e.detail));
+    });
+    if (!rows.length) return "";
+    return `<details class="ruled"><summary><span class="tw">▶</span> Ruled out, and why <span class="pill">${rows.length}</span></summary>${rows.join("")}</details>`;
+  }
+
+  function renderResults(resp) {
+    lastResp = resp;
+    [VIEWS, RULED, decisions].forEach((m) => Object.keys(m).forEach((k) => delete m[k]));
+    $("parse").style.display = "none";
+    $("saved").style.display = "none";
+    if (resp.outcome === "no_match") {
+      $("cards").innerHTML = `<div class="card"><p class="nar">No candidate matched — ${esc(resp.no_match_reason || "")} The closest are listed below.</p></div>`;
+      $("count").innerHTML = `0 shortlisted · run <span class="dim">${esc(resp.run_id)}</span>`;
+    } else {
+      resp.shortlist.forEach((a) => { VIEWS[a.candidate.candidate_id] = a; });
+      $("cards").innerHTML = resp.shortlist.map((a, i) => cardHTML(a, i + 1)).join("");
+      const elig = resp.total_eligible == null ? "?" : resp.total_eligible;
+      $("count").innerHTML = `${resp.shortlist.length} of ${elig} considered · run <span class="dim">${esc(resp.run_id)}</span>`;
+    }
+    $("ruled").innerHTML = ruledHTML(resp);
+    $("results").classList.remove("hidden");
+    requestAnimationFrame(() => document.querySelectorAll(".fl").forEach((f) => { f.style.width = f.dataset.w; }));
+    $("results").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }
+
+  // ── decisions ──
+  function decide(cid, action) {
+    const card = $("card-" + cid);
+    if (card) card.classList.toggle("picked", action === "forward");
+    decisions[cid] = Object.assign(decisions[cid] || {}, { action });
+    const r = $("reason-" + cid);
+    if (r) { r.classList.add("open"); r.querySelector("label").textContent = action === "forward" ? "Why this person?" : "Why set aside? (the signal we keep)"; }
+  }
+  function noteReason(cid, val) { decisions[cid] = Object.assign(decisions[cid] || {}, { reason: val }); }
+
+  async function saveDecisions() {
+    clearError();
+    if (!lastResp) return;
+    const items = Object.entries(decisions).filter(([, d]) => d.action)
+      .map(([cid, d]) => ({ candidate_id: cid, action: d.action, reason: d.reason || null }));
+    const saved = $("saved"); saved.style.display = "";
+    if (!items.length) { saved.textContent = "Mark at least one candidate first."; return; }
+    try {
+      const resp = await api("/decisions", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_id: lastResp.run_id, role_id: lastResp.role_id, reviewer: "web-ui", decisions: items }),
+      });
+      saved.innerHTML = `✓ Recorded ${resp.recorded} against run <span class="code">${esc(resp.run_id)}</span> — kept for review; this shortlist is unchanged.`;
+    } catch (e) { showError(e.message); saved.style.display = "none"; }
+  }
+
+  // ── profile drawer ──
+  function openProfile(cid) {
+    const v = VIEWS[cid], r = RULED[cid];
+    $("p-name").textContent = v ? displayName(v.candidate.name, v.candidate.candidate_id) : (r ? r.label : cid);
+    $("p-role").textContent = v ? `${v.candidate.source} · ${v.candidate.location} · ${v.candidate.availability}` : (r ? r.why : "");
+    $("p-pdf").innerHTML = `<a class="pdf" href="#" id="pdf-link"><span class="pi">📄</span> Open original résumé (PDF) ↗</a><div class="pdfnote" id="pdfnote"></div>`;
+    $("pdf-link").onclick = (ev) => { ev.preventDefault(); loadResume(cid); };
+    let body = "";
+    if (v) {
+      if (v.narrative) body += `<div class="dsec"><h4>Why this candidate</h4><p class="resume">${esc(v.narrative)}</p></div>`;
+      if (v.evidence.length) body += `<div class="dsec"><h4>Evidence cited</h4>${v.evidence.map((e) => `<div class="fb-entry"><span class="tag">${esc(srcLabel(e.source))}</span>${esc(e.text)}</div>`).join("")}</div>`;
+      if (v.flags.length) body += `<div class="dsec"><h4>Trade-offs</h4><div class="flags">${v.flags.map((f) => `<span class="flag ${flagClass(f.type)}">${esc(f.message)}</span>`).join("")}</div></div>`;
+    } else if (r) {
+      body += `<div class="dsec"><h4>Why ruled out</h4><p class="resume">${esc(r.why)}</p></div>`;
+    }
+    $("p-body").innerHTML = body;
+    $("scrim").classList.add("on");
+    $("drawer").classList.add("on"); $("drawer").setAttribute("aria-hidden", "false");
+  }
+
+  async function loadResume(cid) {
+    const note = $("pdfnote"); note.textContent = "Opening…";
+    try {
+      const res = await fetch("/resume/" + encodeURIComponent(cid));
+      if (res.status === 404) { note.textContent = "No résumé on file — this candidate came from the supply sheet only."; return; }
+      if (!res.ok) { note.textContent = "Could not open résumé (HTTP " + res.status + ")."; return; }
+      const url = URL.createObjectURL(await res.blob());
+      window.open(url, "_blank");
+      note.textContent = "Opened in a new tab.";
+    } catch (e) { note.textContent = "Could not open résumé."; }
+  }
+
+  function closeProfile() {
+    $("scrim").classList.remove("on");
+    $("drawer").classList.remove("on"); $("drawer").setAttribute("aria-hidden", "true");
+  }
+
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeProfile(); });
+  $("drop").addEventListener("click", () => $("csv-file").click());
+  $("drop").addEventListener("keydown", (e) => { if (e.key === "Enter") $("csv-file").click(); });
+
+  // Delegated handlers on persistent containers — server values ride in data-* attributes, never
+  // interpolated into inline JS strings, so a quote in a role_id / candidate_id can't break out
+  // and execute (no XSS via a crafted demand CSV).
+  $("sheet").addEventListener("click", (e) => {
+    const b = e.target.closest("button.role-row[data-role-id]");
+    if (b) runRole(b.dataset.roleId);
+  });
+  $("cards").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-act]");
+    if (!b) return;
+    if (b.dataset.act === "profile") openProfile(b.dataset.cid);
+    else decide(b.dataset.cid, b.dataset.act);
+  });
+  $("cards").addEventListener("input", (e) => {
+    const i = e.target.closest("input[data-cid]");
+    if (i) noteReason(i.dataset.cid, i.value);
+  });
+  $("ruled").addEventListener("click", (e) => {
+    const b = e.target.closest("button.nmx[data-cid]");
+    if (b) openProfile(b.dataset.cid);
+  });
+</script>
+</body>
+</html>

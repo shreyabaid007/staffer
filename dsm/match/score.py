@@ -204,20 +204,20 @@ def _desired_skill_coverage(
 def _flags(
     candidate: Candidate, adjacency_used: bool, freshness: FreshnessVerdict | None
 ) -> list[Flag]:
-    """Surface the trade-offs as ``Flag``s — shown, never silently re-ranked (§6.8/§8)."""
+    """Surface the trade-offs as ``Flag``s — shown, never silently re-ranked."""
     flags: list[Flag] = []
     if adjacency_used:
         flags.append(
             Flag(
                 type=FlagType.ADJACENCY_USED,
-                message="Desired-skill credit awarded via an adjacent skill (AD-033).",
+                message="Desired-skill credit awarded via an adjacent skill.",
             )
         )
     if candidate.source is CandidateSource.NEW_JOINER:
         flags.append(
             Flag(
                 type=FlagType.UNVERIFIED_SKILLS,
-                message="New joiner — skills not yet demonstrated at EE (AD-032).",
+                message="New joiner — skills not yet demonstrated at EE.",
             )
         )
     availability = candidate.availability
@@ -225,14 +225,14 @@ def _flags(
         flags.append(
             Flag(
                 type=FlagType.ROLL_OFF_UNCERTAIN,
-                message="Roll-off date is low-confidence and may slip (AD-022).",
+                message="Roll-off date is low-confidence and may slip.",
             )
         )
     if any(entry.retention_flag for entry in candidate.feedback.entries):
         flags.append(
             Flag(
                 type=FlagType.RETENTION_RISK,
-                message="Client feedback asks to retain — staffing may face pushback (AD-023).",
+                message="Client feedback asks to retain — staffing may face pushback.",
             )
         )
     if freshness is not None and freshness.action == WARN:

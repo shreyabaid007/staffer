@@ -67,6 +67,47 @@ _log = structlog.get_logger("dsm.cli.commands")
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _RAW_DEFAULT = _DATA_DIR / "raw"
 _BRONZE_DEFAULT = _DATA_DIR / "bronze"
+
+
+def _tokenops_lm_kwargs(config: dict[str, Any], tag: str = "default") -> dict[str, Any]:
+    """Build extra kwargs for PseudonymisedLM when TokenOps proxy is enabled.
+
+    Returns an empty dict when disabled, so callers can always ``**`` it.
+    ``tag`` identifies the calling phase (e.g. "staffer:score") for cost attribution.
+    """
+    tokenops = config.get("tokenops", {})
+    if not tokenops.get("enabled", False):
+        return {}
+
+    import os
+
+    route = tokenops.get("route", "passthrough")
+    cache_mode = tokenops.get("cache", "enabled")
+    extra_headers: dict[str, str] = {"X-Tag": tag}
+    if route == "auto":
+        extra_headers["X-TokenOps-Route"] = "auto"
+    if cache_mode == "skip":
+        extra_headers["X-TokenOps-Cache"] = "skip"
+
+    kwargs: dict[str, Any] = {
+        "base_url": tokenops["base_url"],
+        "extra_headers": extra_headers,
+        "api_key": os.environ.get("TOKENOPS_API_KEY", "tokenops-no-auth"),
+    }
+    return kwargs
+
+
+def _tokenops_model(config: dict[str, Any]) -> str:
+    """Return the reasoning LLM model string, swapping the provider prefix when TokenOps is on.
+
+    DSPy uses ``openrouter/`` prefix for OpenRouter; when proxying through TokenOps
+    we need ``openai/`` so litellm sends it as an OpenAI-compatible request.
+    """
+    model = config["models"]["reasoning_llm"]
+    tokenops = config.get("tokenops", {})
+    if tokenops.get("enabled", False) and model.startswith("openrouter/"):
+        return "openai/" + model.removeprefix("openrouter/")
+    return model
 _SILVER_DEFAULT = _DATA_DIR / "silver"
 _GOLD_DEFAULT = _DATA_DIR / "gold"
 _DEMAND_DEFAULT = _RAW_DEFAULT / "demand" / "open_roles.csv"
@@ -365,7 +406,9 @@ def _build_clarify_predictor(config: dict[str, Any]):  # pragma: no cover - exer
     from dsm.match.clarify import make_clarify_predictor
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
-    return make_clarify_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"]))
+    kw = _tokenops_lm_kwargs(config, "staffer:clarify")
+    lm = PseudonymisedLM(model=_tokenops_model(config), **kw)
+    return make_clarify_predictor(lm)
 
 
 def _build_intake_predictor(config: dict[str, Any]) -> IntakePredictor:  # pragma: no cover - live
@@ -380,8 +423,9 @@ def _build_intake_predictor(config: dict[str, Any]) -> IntakePredictor:  # pragm
 
     return make_intake_predictor(
         PseudonymisedLM(
-            model=config["models"]["reasoning_llm"],
+            model=_tokenops_model(config),
             temperature=config["nl_intake"]["temperature"],
+            **_tokenops_lm_kwargs(config, "staffer:intake"),
         )
     )
 
@@ -428,7 +472,9 @@ def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma:
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
     ner = None if config.get("pii", {}).get("ner_enabled", True) else (lambda _t: [])
-    return make_score_predictor(PseudonymisedLM(model=config["models"]["reasoning_llm"], ner=ner))
+    kw = _tokenops_lm_kwargs(config, "staffer:score")
+    lm = PseudonymisedLM(model=_tokenops_model(config), ner=ner, **kw)
+    return make_score_predictor(lm)
 
 
 def _pii_aware_score_predictor(base: ScorePredictor, vault: Vault) -> ScorePredictor:
@@ -469,7 +515,10 @@ def _build_near_miss_rationale_predictor(  # pragma: no cover - exercised only l
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
     return make_near_miss_rationale_predictor(
-        PseudonymisedLM(model=config["models"]["reasoning_llm"])
+        PseudonymisedLM(
+            model=_tokenops_model(config),
+            **_tokenops_lm_kwargs(config, "staffer:near-miss"),
+        )
     )
 
 
@@ -905,7 +954,8 @@ def _build_resume_predictor(config: dict[str, Any]):  # pragma: no cover - exerc
     from dsm.ingest.enrich import make_resume_predictor
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
-    lm = PseudonymisedLM(model=config["models"]["reasoning_llm"])
+    kw = _tokenops_lm_kwargs(config, "staffer:enrich-resume")
+    lm = PseudonymisedLM(model=_tokenops_model(config), **kw)
     return make_resume_predictor(lm)
 
 
@@ -914,7 +964,8 @@ def _build_feedback_predictor(config: dict[str, Any]):  # pragma: no cover - exe
     from dsm.ingest.enrich import make_feedback_predictor
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
-    lm = PseudonymisedLM(model=config["models"]["reasoning_llm"])
+    kw = _tokenops_lm_kwargs(config, "staffer:enrich-feedback")
+    lm = PseudonymisedLM(model=_tokenops_model(config), **kw)
     return make_feedback_predictor(lm)
 
 
