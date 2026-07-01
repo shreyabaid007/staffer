@@ -43,6 +43,19 @@ models:
   embedder: "BAAI/bge-base-en-v1.5"
   reranker: "BAAI/bge-reranker-base"
 
+# TokenOps proxy integration (cost tracking + semantic caching).
+# When enabled, all PseudonymisedLM calls route through the TokenOps proxy
+# instead of hitting OpenRouter directly. The proxy tracks cost, caches
+# semantically similar prompts, and optionally routes to cheaper models.
+# Set TOKENOPS_API_KEY in env if the proxy requires auth.
+tokenops:
+  enabled: true
+  base_url: "https://shreyabaid007--tokenops-proxy-fastapi-app.modal.run/v1"
+  # "auto" = let TokenOps classifier pick the model; "passthrough" = honor our model choice
+  route: "auto"
+  # "skip" = bypass semantic cache (every call hits the LLM); omit or "enabled" = use cache
+  cache: "skip"
+
 # Ingest enrich stage (a-003). prompt_version bumps when config/prompts/* change; model_version is
 # sourced from models.reasoning_llm (single source of truth). A bump forces re-extraction (§11).
 enrich:
@@ -99,6 +112,13 @@ nl_intake:
 # deterministic vault-backed strip + outbound leak-scan stay the load-bearing guarantee either way.
 pii:
   ner_enabled: true
+
+# Web frontend (c-008, AD-XXX). The thin FastAPI JSON API + single static page over the same spine.
+# host/port are read ONLY by `dsm serve` (uvicorn); the app logic itself is transport-agnostic. The
+# page is served same-origin, so no CORS. No auth (localhost POC) — see docs/product.md § Out of scope.
+web:
+  host: "127.0.0.1"
+  port: 8000
 
 logging:
   level: "INFO"

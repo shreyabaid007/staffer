@@ -31,6 +31,10 @@ data/index/*
 # Identity vault: raw name/email keyed by candidate_id (AD-098) — never commit. Plaintext this
 # slice; encryption/retention/purge deferred to AD-068.
 data/identity/
+# Decision capture log: candidate_id-keyed, but carries operator-entered free-text reasons that
+# may name a consultant — never commit (c-008/AD-XXX).
+data/decisions/*
+!data/decisions/.gitkeep
 *.egg-info/
 dist/
 .mypy_cache/
