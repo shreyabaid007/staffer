@@ -120,5 +120,37 @@ web:
   host: "127.0.0.1"
   port: 8000
 
+# Guardrails AI defence-in-depth validation layer (c-009, AD-XXX). A COMPLEMENTARY input/output
+# content-safety layer around the PseudonymisedLM call sites — it does NOT replace the PII boundary
+# (AD-101/102), the deterministic gates (AD-002), or the verbatim citation check (AD-073). Wired at
+# the composition root (dsm/cli/commands.py); dsm.match never imports dsm.guardrails. Each validator
+# is independently toggleable. guardrails-ai + its hub validators are an OPTIONAL, eval-tier extra
+# (`pip install 'staffer[guardrails]'` + `guardrails hub install ...`); when absent each guard
+# degrades to a logged no-op (make check stays hermetic). Score-bounds clamping is unconditional
+# pure Python (also enforced by the frozen ScoreExtraction validator, AD-030) — no toggle here.
+guardrails:
+  enabled: true  # master toggle — false bypasses every guard (zero overhead)
+  input:
+    # Prompt-injection / jailbreak detection on untrusted candidate text (guardrails/detect_jailbreak,
+    # local HF model). Runs before redaction + the LLM call; on detection the candidate is skipped.
+    jailbreak_detection:
+      enabled: true
+      threshold: 0.81  # detect_jailbreak score threshold (higher = stricter)
+  output:
+    # Narrative-prose grounding vs the candidate's source context (bespokelabs/bespoke_minicheck).
+    # Remote API (needs BESPOKE_API_KEY) → eval-tier; complements citation verification (AD-073).
+    grounding:
+      enabled: true
+      threshold: 0.5
+  narrative:
+    # Age/gender/ethnicity bias screening on human-facing narratives (guardrails/bias_check, local).
+    bias_check:
+      enabled: true
+      threshold: 0.9
+    # Toxic / unprofessional language screening (guardrails/toxic_language, local).
+    toxicity:
+      enabled: true
+      threshold: 0.5
+
 logging:
   level: "INFO"
