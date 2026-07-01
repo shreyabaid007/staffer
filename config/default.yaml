@@ -88,7 +88,7 @@ index:
   rerank:
     top_k: 10
 
-# Natural-language query intake (c-006, AD-XXX/AD-XXY). The `dsm match --query "<prose>"` front
+# Natural-language query intake (c-006, AD-110/AD-111). The `dsm match --query "<prose>"` front
 # door parses free text into the EXISTING OpenRole via a single-shot DSPy Predict over
 # PseudonymisedLM (pass-through — role text is non-PII). The model id is reused from
 # `models.reasoning_llm` (single source of truth — not duplicated here).
@@ -113,7 +113,7 @@ nl_intake:
 pii:
   ner_enabled: true
 
-# Web frontend (c-008, AD-XXX). The thin FastAPI JSON API + single static page over the same spine.
+# Web frontend (c-008, AD-113). The thin FastAPI JSON API + single static page over the same spine.
 # host/port are read ONLY by `dsm serve` (uvicorn); the app logic itself is transport-agnostic. The
 # page is served same-origin, so no CORS. No auth (localhost POC) — see docs/product.md § Out of scope.
 web:

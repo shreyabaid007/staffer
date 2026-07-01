@@ -226,7 +226,7 @@ def test_build_intake_predictor_pins_temperature_zero(monkeypatch: pytest.Monkey
     config = load_config()
     commands._build_intake_predictor(config)  # builds make_intake_predictor(PseudonymisedLM(...))
     assert recorded["temperature"] == config["nl_intake"]["temperature"] == 0
-    assert recorded["model"] == config["models"]["reasoning_llm"]
+    assert recorded["model"] == commands._tokenops_model(config)
 
 
 def test_invalid_clarification_answer_aborts(
