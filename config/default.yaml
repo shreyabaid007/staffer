@@ -152,5 +152,14 @@ guardrails:
       enabled: true
       threshold: 0.5
 
+# MIPROv2 offline compilation (AD-XXX). Compile DSPy signatures against the golden set for
+# A/B comparison with hand-written prompts. Compiled artefacts are versioned files under
+# `artifacts/` — never auto-deployed (AD-066 determinism invariant preserved).
+compile:
+  teacher_model: "openrouter/anthropic/claude-opus-4-6"
+  auto: "light"       # conservative: 21 golden cases < 50 typical MIPROv2 minimum
+  num_threads: 4
+  artifacts_dir: "artifacts"
+
 logging:
   level: "INFO"

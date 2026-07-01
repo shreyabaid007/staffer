@@ -4424,7 +4424,7 @@ guardrails = [
 requires-dist = [
     { name = "deepeval", marker = "extra == 'dev'" },
     { name = "docling" },
-    { name = "dspy", specifier = ">=2.0" },
+    { name = "dspy", specifier = ">=3.0,<4" },
     { name = "fastapi" },
     { name = "guardrails-ai", marker = "extra == 'guardrails'", specifier = ">=0.10" },
     { name = "httpx" },
