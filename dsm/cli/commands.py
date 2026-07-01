@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
+import dspy
 import structlog
 import typer
 
@@ -66,6 +67,21 @@ from dsm.models import (
 # warning (e.g. a vault miss or a per-candidate skip) corrupt the CLI's parseable output.
 structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
 _log = structlog.get_logger("dsm.cli.commands")
+
+# DSPy disk + memory cache: deduplicates exact LLM calls (prompt × model × params).
+# Independent of the NL-intake parse cache (dsm/match/intake.py, content-hash keyed)
+# and the TokenOps proxy cache (cost routing, X-TokenOps-Cache header).
+dspy.configure_cache(
+    enable_disk_cache=True,
+    enable_memory_cache=True,
+    disk_size_limit_bytes=500_000_000,
+    restrict_pickle=True,
+)
+
+from dsm.observability import UsageTracker  # noqa: E402
+
+_usage_tracker = UsageTracker()
+dspy.configure(callbacks=[_usage_tracker])
 
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _RAW_DEFAULT = _DATA_DIR / "raw"
@@ -212,10 +228,14 @@ def build_near_misses(
     return [near_miss for _, near_miss in ranked]
 
 
-def _config_snapshot(config: dict[str, Any], freshness: FreshnessVerdict | None) -> dict[str, Any]:
+def _config_snapshot(
+    config: dict[str, Any],
+    freshness: FreshnessVerdict | None,
+    compiled_version: str | None = None,
+) -> dict[str, Any]:
     """Reproducibility snapshot embedded on every result (AD-064; extended for b-002 lineage)."""
     index_cfg = config.get("index", {})
-    return {
+    snap: dict[str, Any] = {
         "top_k": int(config["ranking"]["top_k"]),
         "weights": config["weights"],
         "models": config["models"],
@@ -223,6 +243,9 @@ def _config_snapshot(config: dict[str, Any], freshness: FreshnessVerdict | None)
         "rerank": index_cfg.get("rerank", {}),
         "freshness": freshness.model_dump() if freshness is not None else None,
     }
+    if compiled_version is not None:
+        snap["compiled_version"] = compiled_version
+    return snap
 
 
 def build_closest_on_skills(
@@ -337,6 +360,7 @@ def run_match(
     config: dict[str, Any],
     freshness: FreshnessVerdict | None = None,
     near_miss_predict: NearMissRationalePredictor | None = None,
+    compiled_version: str | None = None,
 ) -> ShortlistResult | NoMatchResult:
     """The query-time spine (§4/§10): gate → exact filter → recall → rerank → score → rank.
 
@@ -402,7 +426,7 @@ def run_match(
         scorecard.role_id,
         ExclusionLog(exclusions=all_exclusions),
         int(config["ranking"]["top_k"]),
-        _config_snapshot(config, freshness),
+        _config_snapshot(config, freshness, compiled_version=compiled_version),
     )
 
 
@@ -412,7 +436,11 @@ def _build_clarify_predictor(config: dict[str, Any]):  # pragma: no cover - exer
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
     kw = _tokenops_lm_kwargs(config, "staffer:clarify")
-    lm = PseudonymisedLM(model=_tokenops_model(config), **kw)
+    lm = PseudonymisedLM(
+        model=_tokenops_model(config),
+        cache_control_injection_points=[{"location": "message", "role": "system"}],
+        **kw,
+    )
     return make_clarify_predictor(lm)
 
 
@@ -430,6 +458,7 @@ def _build_intake_predictor(config: dict[str, Any]) -> IntakePredictor:  # pragm
         PseudonymisedLM(
             model=_tokenops_model(config),
             temperature=config["nl_intake"]["temperature"],
+            cache_control_injection_points=[{"location": "message", "role": "system"}],
             **_tokenops_lm_kwargs(config, "staffer:intake"),
         )
     )
@@ -478,8 +507,46 @@ def _build_score_predictor(config: dict[str, Any]) -> ScorePredictor:  # pragma:
 
     ner = None if config.get("pii", {}).get("ner_enabled", True) else (lambda _t: [])
     kw = _tokenops_lm_kwargs(config, "staffer:score")
-    lm = PseudonymisedLM(model=_tokenops_model(config), ner=ner, **kw)
+    lm = PseudonymisedLM(
+        model=_tokenops_model(config),
+        ner=ner,
+        cache_control_injection_points=[{"location": "message", "role": "system"}],
+        **kw,
+    )
     return make_score_predictor(lm)
+
+
+def _build_compiled_score_predictor(  # pragma: no cover - exercised only live
+    config: dict[str, Any], compiled_path: Path
+) -> ScorePredictor:
+    """Build a score predictor from a compiled MIPROv2 artefact (AD-XXX).
+
+    The compiled module carries optimised prompts/demonstrations from MIPROv2. At runtime it still
+    executes through ``PseudonymisedLM`` (the LM context set per-call) so the PII boundary holds.
+    """
+    from dsm.compile import load_compiled
+    from dsm.pii.pseudonymised_lm import PseudonymisedLM
+
+    compiled_module = load_compiled(compiled_path)
+    ner = None if config.get("pii", {}).get("ner_enabled", True) else (lambda _t: [])
+    kw = _tokenops_lm_kwargs(config, "staffer:score")
+    lm = PseudonymisedLM(
+        model=_tokenops_model(config),
+        ner=ner,
+        cache_control_injection_points=[{"location": "message", "role": "system"}],
+        **kw,
+    )
+
+    def _predict(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreExtraction:
+        with dspy.context(lm=lm):
+            return compiled_module(
+                role=scorecard,
+                candidate_skills=[f"{s.name} {s.proficiency.value}" for s in candidate.skills],
+                candidate_feedback=[e.text for e in candidate.feedback.entries],
+                profile_summary=candidate.profile_summary or "",
+            ).assessment
+
+    return _predict
 
 
 def _pii_aware_score_predictor(base: ScorePredictor, vault: Vault) -> ScorePredictor:
@@ -637,6 +704,7 @@ def _build_near_miss_rationale_predictor(  # pragma: no cover - exercised only l
     return make_near_miss_rationale_predictor(
         PseudonymisedLM(
             model=_tokenops_model(config),
+            cache_control_injection_points=[{"location": "message", "role": "system"}],
             **_tokenops_lm_kwargs(config, "staffer:near-miss"),
         )
     )
@@ -674,6 +742,7 @@ def _run_role(
     gold_dir: Path,
     db_path: str,
     vault_path: Path | None,
+    compiled_path: Path | None = None,
 ) -> tuple[ShortlistResult | NoMatchResult, Vault]:
     """Drive the query-time spine for one already-built ``OpenRole`` (shared by both front doors).
 
@@ -704,25 +773,35 @@ def _run_role(
     from dsm.pii.vault import FileVault
 
     vault = FileVault(vault_path or gold_dir.parent / "identity" / "vault.json")
+    if compiled_path is not None:
+        base_predictor = _build_compiled_score_predictor(config, compiled_path)
+    else:
+        base_predictor = _build_score_predictor(config)
     result = run_match(
         candidates,
         scorecard,
         store=_build_query_store(config, db_path),
         embed_client=_build_embed_client(),
         score_predict=_guarded_score_predictor(
-            _pii_aware_score_predictor(_build_score_predictor(config), vault), config, vault
+            _pii_aware_score_predictor(base_predictor, vault), config, vault
         ),
         config=config,
         freshness=verdict if verdict is not None and verdict.action == WARN else None,
         near_miss_predict=_guarded_rationale_predictor(
             _build_near_miss_rationale_predictor(config), config
         ),
+        compiled_version=compiled_path.name if compiled_path else None,
     )
     return result, vault
 
 
 def _match_role(
-    role_id: str, csv_path: Path, gold_dir: Path, db_path: str, vault_path: Path | None = None
+    role_id: str,
+    csv_path: Path,
+    gold_dir: Path,
+    db_path: str,
+    vault_path: Path | None = None,
+    compiled_path: Path | None = None,
 ) -> tuple[ShortlistResult | NoMatchResult, Vault]:
     """CSV front door: parse demand → select ``role_id`` → :func:`_run_role` (explain uses it too).
 
@@ -748,6 +827,7 @@ def _match_role(
         gold_dir=gold_dir,
         db_path=db_path,
         vault_path=vault_path,
+        compiled_path=compiled_path,
     )
 
 
@@ -818,6 +898,7 @@ def _match_query(
     vault_path: Path | None = None,
     *,
     yes: bool = False,
+    compiled_path: Path | None = None,
 ) -> tuple[ShortlistResult | NoMatchResult, Vault]:
     """NL front door: parse prose → assemble/validate → echo+confirm → :func:`_run_role` (AD-XXX).
 
@@ -877,6 +958,7 @@ def _match_query(
         gold_dir=gold_dir,
         db_path=db_path,
         vault_path=vault_path,
+        compiled_path=compiled_path,
     )
 
 
@@ -1021,6 +1103,7 @@ def match(
     db_path: Annotated[str, typer.Option("--db-path")] = "",
     vault_path: Annotated[Path | None, typer.Option("--vault-path")] = None,
     yes: Annotated[bool, typer.Option("--yes")] = False,
+    compiled: Annotated[Path | None, typer.Option("--compiled")] = None,
 ) -> None:
     """Match one open role to a ranked shortlist (§4) — from the demand CSV or free-text prose.
 
@@ -1031,15 +1114,20 @@ def match(
     → rank. ``refuse`` freshness blocks the run; ``warn`` flags every assessment. Single role per
     invocation (AD-050). Prints a ``ShortlistResult`` / ``NoMatchResult`` JSON with **real**
     candidate name/email rendered from the vault (AD-107).
+
+    ``--compiled``: path to a MIPROv2 compiled artefact (AD-XXX). When set, the compiled module
+    replaces the hand-written score predictor for A/B comparison.
     """
     if (role_id is None) == (query is None):
         typer.echo("Provide exactly one of --role-id or --query.", err=True)
         raise typer.Exit(1)
     if query is not None:
-        result, vault = _match_query(query, gold_dir, db_path, vault_path, yes=yes)
+        result, vault = _match_query(
+            query, gold_dir, db_path, vault_path, yes=yes, compiled_path=compiled
+        )
     else:
         assert role_id is not None  # narrowed by the exactly-one check above
-        result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
+        result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path, compiled)
     result = render_identities(result, vault)
     typer.echo(result.model_dump_json(indent=2))
 
@@ -1050,6 +1138,7 @@ def explain(
     gold_dir: Annotated[Path, typer.Option("--gold-dir")] = _GOLD_DEFAULT,
     db_path: Annotated[str, typer.Option("--db-path")] = "",
     vault_path: Annotated[Path | None, typer.Option("--vault-path")] = None,
+    compiled: Annotated[Path | None, typer.Option("--compiled")] = None,
 ) -> None:
     """Re-run the pipeline for ``--role-id`` and dump its full lineage (§9).
 
@@ -1057,10 +1146,15 @@ def explain(
     gate + exact-filter outcomes, recall mode, sub-scores, citations, ``config_snapshot``
     (shortlist); or the reason + ordered near-misses (no-match). No new persistence layer.
     Candidate name/email are rendered real from the vault (AD-107) before the lineage is built.
+
+    ``--compiled``: path to a MIPROv2 compiled artefact for A/B comparison (AD-XXX).
     """
-    result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path)
+    _usage_tracker.reset()
+    result, vault = _match_role(role_id, csv_path, gold_dir, db_path, vault_path, compiled)
     result = render_identities(result, vault)
-    typer.echo(json.dumps(_lineage(result), indent=2))
+    lineage = _lineage(result)
+    lineage["usage"] = _usage_tracker.usage_summary
+    typer.echo(json.dumps(lineage, indent=2))
 
 
 def _bronze_cell(raw: dict[str, str | list[str]], *names: str) -> str:
@@ -1079,7 +1173,11 @@ def _build_resume_predictor(config: dict[str, Any]):  # pragma: no cover - exerc
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
     kw = _tokenops_lm_kwargs(config, "staffer:enrich-resume")
-    lm = PseudonymisedLM(model=_tokenops_model(config), **kw)
+    lm = PseudonymisedLM(
+        model=_tokenops_model(config),
+        cache_control_injection_points=[{"location": "message", "role": "system"}],
+        **kw,
+    )
     return make_resume_predictor(lm)
 
 
@@ -1089,7 +1187,11 @@ def _build_feedback_predictor(config: dict[str, Any]):  # pragma: no cover - exe
     from dsm.pii.pseudonymised_lm import PseudonymisedLM
 
     kw = _tokenops_lm_kwargs(config, "staffer:enrich-feedback")
-    lm = PseudonymisedLM(model=_tokenops_model(config), **kw)
+    lm = PseudonymisedLM(
+        model=_tokenops_model(config),
+        cache_control_injection_points=[{"location": "message", "role": "system"}],
+        **kw,
+    )
     return make_feedback_predictor(lm)
 
 
@@ -1431,6 +1533,77 @@ def ingest(
     if parse_errors or silver_errors:
         raise typer.Exit(1)
     typer.echo("")
+
+
+def compile_signatures(
+    signature: Annotated[str, typer.Option("--signature")],
+    golden_set: Annotated[Path, typer.Option("--golden-set")] = Path(
+        "tests/fixtures/golden_set.json"
+    ),
+) -> None:
+    """Compile a DSPy signature against the golden set via MIPROv2 (AD-XXX).
+
+    Runs offline prompt optimisation using a stronger teacher LM. The compiled artefact is a
+    versioned JSON file under ``artifacts/`` — never auto-deployed. Use ``--compiled`` on
+    ``match`` / ``explain`` to load it for A/B comparison.
+
+    Signature names: score, clarify, intake, near-miss-rationale.
+    """
+    from dsm.compile import (
+        SIGNATURE_REGISTRY,
+        build_metric,
+        compile_signature,
+        golden_to_examples,
+        next_version,
+        save_compiled,
+    )
+
+    if signature not in SIGNATURE_REGISTRY:
+        typer.echo(
+            f"Unknown signature {signature!r}. Choose from: {', '.join(SIGNATURE_REGISTRY)}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    config = load_config()
+    compile_cfg = config.get("compile", {})
+    artifacts_dir = Path(compile_cfg.get("artifacts_dir", "artifacts"))
+
+    trainset = golden_to_examples(golden_set)
+    if not trainset:
+        typer.echo("No signed-off golden set cases — cannot compile.", err=True)
+        raise typer.Exit(1)
+
+    metric = build_metric()
+
+    teacher_model = compile_cfg.get("teacher_model", "openrouter/anthropic/claude-opus-4-6")
+    teacher_lm = dspy.LM(model=teacher_model)
+
+    dotpath = SIGNATURE_REGISTRY[signature]
+    module_path, class_name = dotpath.rsplit(".", 1)
+    import importlib
+
+    mod = importlib.import_module(module_path)
+    sig_class = getattr(mod, class_name)
+    module = dspy.Predict(sig_class)
+
+    auto_mode = compile_cfg.get("auto", "light")
+    if auto_mode not in ("light", "medium", "heavy"):
+        typer.echo(f"Invalid compile.auto mode {auto_mode!r} — use light/medium/heavy.", err=True)
+        raise typer.Exit(1)
+
+    compiled = compile_signature(
+        module,
+        trainset,
+        metric,
+        teacher_lm=teacher_lm,
+        auto=auto_mode,  # type: ignore[arg-type]  # validated above
+        num_threads=int(compile_cfg.get("num_threads", 4)),
+    )
+
+    version = next_version(artifacts_dir, signature)
+    path = save_compiled(compiled, artifacts_dir, signature, version)
+    typer.echo(f"Compiled artefact saved: {path}")
 
 
 def index(

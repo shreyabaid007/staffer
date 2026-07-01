@@ -5,7 +5,7 @@ description = "Demand-Supply Matcher — staffing decision engine"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0",
-    "dspy>=2.0",
+    "dspy>=3.0,<4",
     "presidio-analyzer",
     "presidio-anonymizer",
     "spacy",
@@ -114,6 +114,21 @@ name = "Guardrails must not depend on the spine, PII, ingest, or index"
 type = "forbidden"
 source_modules = ["dsm.guardrails"]
 forbidden_modules = ["dsm.match", "dsm.pii", "dsm.ingest", "dsm.index"]
+
+# AD-XXX: compilation runs on pseudonymised golden data — must not import PII, ingest, index, or modal.
+[[tool.importlinter.contracts]]
+name = "Compile must not depend on PII, ingest, index, or modal"
+type = "forbidden"
+source_modules = ["dsm.compile"]
+forbidden_modules = ["dsm.pii", "dsm.ingest", "dsm.index", "modal"]
+
+# AD-XXX: observability is a cross-cutting concern wired at the CLI composition root.
+# It must stay decoupled from the spine, PII, ingest, and index.
+[[tool.importlinter.contracts]]
+name = "Observability must not depend on the spine, PII, ingest, or index"
+type = "forbidden"
+source_modules = ["dsm.observability"]
+forbidden_modules = ["dsm.match", "dsm.pii", "dsm.ingest", "dsm.index", "modal"]
 
 [tool.pytest.ini_options]
 markers = [

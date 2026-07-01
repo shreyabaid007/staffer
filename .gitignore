@@ -35,6 +35,8 @@ data/identity/
 # may name a consultant — never commit (c-008/AD-XXX).
 data/decisions/*
 !data/decisions/.gitkeep
+# Compiled DSPy artefacts (MIPROv2 output — optimised prompt text, not code)
+artifacts/
 *.egg-info/
 dist/
 .mypy_cache/

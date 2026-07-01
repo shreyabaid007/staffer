@@ -15,13 +15,14 @@ from typing import Annotated  # noqa: E402  — after the KMP_DUPLICATE_LIB_OK g
 
 import typer  # noqa: E402  — must follow the KMP_DUPLICATE_LIB_OK guard above
 
-from dsm.cli.commands import explain, index, ingest, match  # noqa: E402
+from dsm.cli.commands import compile_signatures, explain, index, ingest, match  # noqa: E402
 
 app = typer.Typer(no_args_is_help=True)
 app.command("match")(match)
 app.command("explain")(explain)
 app.command("ingest")(ingest)
 app.command("index")(index)
+app.command("compile")(compile_signatures)
 
 
 @app.command("serve")
