@@ -29,7 +29,7 @@ def serve(
     host: Annotated[str | None, typer.Option("--host")] = None,
     port: Annotated[int | None, typer.Option("--port")] = None,
 ) -> None:
-    """Run the web frontend — FastAPI + uvicorn over the same spine (c-008, AD-XXX).
+    """Run the web frontend — FastAPI + uvicorn over the same spine (c-008, AD-113).
 
     Host/port default to ``config/default.yaml::web.*`` (CLI flags override). The page is served
     same-origin at ``/``; the JSON API is documented at ``/api``.

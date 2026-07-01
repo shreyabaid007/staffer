@@ -19,7 +19,7 @@ We are **not** "removing human bias" — an LLM pipeline can introduce its own. 
 - When nothing fits: return **empty + reason + closest near-misses.** Never a forced or fabricated match.
 
 ## The rules of the system (current state)
-- **Scope:** one role in → ranked **top-5** (config) out; **batch** over the current snapshot; **CLI** + a minimal single-page web review UI over the same spine (AD-XXX).
+- **Scope:** one role in → ranked **top-5** (config) out; **batch** over the current snapshot; **CLI** + a minimal single-page web review UI over the same spine (AD-113).
 - **Candidate universe:** the people in the three supply sheets (Beach / Rolling Off / New Joiners); profiles + feedback enrich, joined by **email**.
 - **Location gate (AD-086):** co-location required → candidate's home city matches the role city **or** the role city is in the candidate's `onsite_cities` set (working-remote alone does **not** clear an onsite gate); co-location not required → any same-country (India) location passes. _Supersedes the earlier "open-to-city" / `remote_eligible` framing._
 - **Availability gate:** free by **role start + 14 days** ("free now" qualifies for any future start).
@@ -30,7 +30,7 @@ We are **not** "removing human bias" — an LLM pipeline can introduce its own. 
 - **Explanation:** structured fields **+** a 1–2 sentence narrative per candidate.
 
 ## Out of scope (MVP)
-Cultural-fit scoring · multi-role / team formation · real-time / streaming refresh · authenticated / multi-user web app · bulk upload · cross-role priority allocation · days-on-beach utilisation logic · a feedback **learning** loop (the web UI captures put-forward / set-aside decisions append-only, but they never feed ranking — AD-XXX).
+Cultural-fit scoring · multi-role / team formation · real-time / streaming refresh · authenticated / multi-user web app · bulk upload · cross-role priority allocation · days-on-beach utilisation logic · a feedback **learning** loop (the web UI captures put-forward / set-aside decisions append-only, but they never feed ranking — AD-113).
 
 ## Definition of success
 Pass the seed evals: **ROLE-01** (Aarav gated out on availability; Kotlin beach consultants + an `unverified` new joiner surface, all with a payments-domain gap) and **ROLE-02** (only Chennai-based / Chennai-open pass), plus negative cases. **100% pass = insufficient coverage.**
