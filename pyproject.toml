@@ -34,6 +34,14 @@ dev = [
     "import-linter",
     "deepeval",
 ]
+# Guardrails AI defence-in-depth layer (c-009, AD-XXX). OPTIONAL + eval-tier: the guard modules
+# import `guardrails` lazily and no-op when it is absent, so `make check` stays hermetic (no model
+# download, no network). Install with `pip install 'staffer[guardrails]'`, then the hub validators:
+# `guardrails hub install hub://guardrails/detect_jailbreak` (+ bias_check, toxic_language,
+# bespokelabs/bespoke_minicheck). BESPOKE_API_KEY is needed for the grounding validator.
+guardrails = [
+    "guardrails-ai>=0.10",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -90,6 +98,22 @@ name = "Match must not depend on PII (query-time PII wiring lives at the CLI)"
 type = "forbidden"
 source_modules = ["dsm.match"]
 forbidden_modules = ["dsm.pii"]
+
+# AD-XXX (c-009): the Guardrails AI layer is a composition-root concern wired at the CLI (like PII).
+# The deterministic spine must never depend on it, and the guard package must stay decoupled from
+# the spine / PII / ingest — so it can never smuggle a non-deterministic LLM validator into a gate
+# or a PII decision. dsm.cli does the wiring (it already owns PseudonymisedLM + the guard builders).
+[[tool.importlinter.contracts]]
+name = "Match must not depend on guardrails (wired at the CLI)"
+type = "forbidden"
+source_modules = ["dsm.match"]
+forbidden_modules = ["dsm.guardrails"]
+
+[[tool.importlinter.contracts]]
+name = "Guardrails must not depend on the spine, PII, ingest, or index"
+type = "forbidden"
+source_modules = ["dsm.guardrails"]
+forbidden_modules = ["dsm.match", "dsm.pii", "dsm.ingest", "dsm.index"]
 
 [tool.pytest.ini_options]
 markers = [

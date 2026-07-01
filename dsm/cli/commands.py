@@ -16,6 +16,9 @@ if TYPE_CHECKING:
 
 from dsm.cli.store import GoldCandidateStore
 from dsm.config import load_config
+from dsm.guardrails.input_guard import InputRejectedError, build_input_guard, validate_input
+from dsm.guardrails.narrative_guard import build_narrative_guard, validate_narrative
+from dsm.guardrails.output_guard import build_grounding_guard, ground_narrative, validate_scores
 from dsm.index.embed_client import EmbedClient
 from dsm.index.milvus_store import MilvusIndexStore
 from dsm.index.retrieve import (
@@ -108,6 +111,8 @@ def _tokenops_model(config: dict[str, Any]) -> str:
     if tokenops.get("enabled", False) and model.startswith("openrouter/"):
         return "openai/" + model.removeprefix("openrouter/")
     return model
+
+
 _SILVER_DEFAULT = _DATA_DIR / "silver"
 _GOLD_DEFAULT = _DATA_DIR / "gold"
 _DEMAND_DEFAULT = _RAW_DEFAULT / "demand" / "open_roles.csv"
@@ -507,6 +512,121 @@ def _pii_aware_score_predictor(base: ScorePredictor, vault: Vault) -> ScorePredi
     return wrapped
 
 
+def _candidate_untrusted_text(candidate: Candidate) -> str:
+    """The candidate's free-text fields an injection could hide in (feedback + profile summary)."""
+    parts = [entry.text for entry in candidate.feedback.entries]
+    if candidate.profile_summary:
+        parts.append(candidate.profile_summary)
+    return "\n".join(p for p in parts if p)
+
+
+def _candidate_sources(candidate: Candidate) -> list[str]:
+    """The candidate's source facts for narrative grounding (skill names + feedback + summary)."""
+    sources = [skill.name for skill in candidate.skills]
+    sources.extend(entry.text for entry in candidate.feedback.entries)
+    if candidate.profile_summary:
+        sources.append(candidate.profile_summary)
+    return sources
+
+
+def _grounded_narrative(
+    guard: Any | None, narrative: str, candidate: Candidate, vault: Vault, config: dict[str, Any]
+) -> str:
+    """Run the remote grounding guard on **PII-redacted** text, then restore it (Rule 3 boundary).
+
+    ``bespoke_minicheck`` is a **remote** API, and both the narrative (de-anonymised on the way out
+    of ``PseudonymisedLM``) and the candidate's source facts carry real gold PII. So — like the
+    score call itself (AD-101) — we redact under the candidate's vault identity + NER residual and
+    **leak-scan** every fragment *before* the remote call, then de-anonymise the filtered result.
+    This gives grounding parity with the score-call outbound boundary (third-party-name residual is
+    the tracked AD-084 follow-up). The redaction lives here at the composition root because
+    ``dsm.guardrails`` must not import ``dsm.pii``.
+
+    Fail-open on the *feature*, fail-closed on the *boundary*: any redaction / leak-scan / guard
+    problem returns the original narrative and **never** sends raw PII to the API.
+    """
+    if guard is None or not narrative:
+        return narrative
+    from dsm.pii.leakscan import PIILeakError, assert_no_leak
+    from dsm.pii.redact import Redactor, deanonymize
+
+    identity = vault.get_identity(candidate.email)
+    known = [p for p in (identity or ()) if p]
+    ner = None if config.get("pii", {}).get("ner_enabled", True) else (lambda _t: [])
+    try:
+        redactor = Redactor(known, ner=ner)
+        red_narrative = redactor.redact(narrative)
+        red_sources = [redactor.redact(s) for s in _candidate_sources(candidate)]
+        for fragment in (red_narrative, *red_sources):
+            assert_no_leak(fragment, known_pii=known)  # hard gate before the remote call
+    except PIILeakError:
+        _log.warning("guardrails.grounding_skipped_pii", candidate_id=candidate.email)
+        return narrative
+    grounded = ground_narrative(guard, red_narrative, red_sources)
+    return deanonymize(grounded, redactor.mapping)
+
+
+def _guarded_score_predictor(
+    base: ScorePredictor, config: dict[str, Any], vault: Vault
+) -> ScorePredictor:
+    """Wrap a score predictor with the c-009 Guardrails layer (AD-XXX) — no-op when disabled.
+
+    **Phase 1 (input, FR-1):** the untrusted candidate text is injection-checked **before** the
+    wrapped predictor runs — i.e. before ``PseudonymisedLM``'s redaction + the LLM call
+    (FR-1-AC-4). An :class:`InputRejectedError` propagates to ``score_candidate``, which logs and
+    skips the candidate (never ranked) — the safe outcome for adversarial input. (The frozen
+    ``ExclusionReason`` enum has no ``INPUT_REJECTED`` value and a contract change is out of scope
+    here, AD-060, so the rejection surfaces as a PII-safe logged skip + the Tier-1 eval invariant,
+    not a new exclusion-log reason — see AD-XXX.)
+
+    **Phase 2/3 (output, FR-2/3/4):** clamp the sub-scores (regression tripwire), ground the
+    narrative prose against the candidate's sources (**redacted before the remote call**, via
+    :func:`_grounded_narrative`), then screen it for bias/toxicity. Every guard reads config and
+    no-ops when disabled/unavailable. Wired here at the composition root so ``dsm.match`` never
+    imports ``dsm.guardrails`` (NF-1)."""
+    input_guard = build_input_guard(config)
+    grounding_guard = build_grounding_guard(config)
+    narrative_guard = build_narrative_guard(config)
+
+    def wrapped(scorecard: TargetProfileScorecard, candidate: Candidate) -> ScoreExtraction:
+        validate_input(input_guard, _candidate_untrusted_text(candidate), candidate.email)
+        extraction = base(scorecard, candidate)
+        skill, feedback = validate_scores(extraction.skill_match_score, extraction.feedback_score)
+        narrative = _grounded_narrative(
+            grounding_guard, extraction.narrative, candidate, vault, config
+        )
+        narrative = validate_narrative(narrative_guard, narrative)
+        return extraction.model_copy(
+            update={
+                "skill_match_score": skill,
+                "feedback_score": feedback,
+                "narrative": narrative,
+            }
+        )
+
+    return wrapped
+
+
+def _guarded_rationale_predictor(
+    base: NearMissRationalePredictor, config: dict[str, Any]
+) -> NearMissRationalePredictor:
+    """Guard the near-miss rationale path (FR-1 + FR-4-AC-5) — no-op when disabled.
+
+    Injection-checks the candidate's untrusted text **before** the LLM call (a gate-excluded
+    candidate's adversarial feedback still reaches this predictor), then bias/toxicity-screens the
+    generated rationale. An :class:`InputRejectedError` propagates to ``explain_near_misses``,
+    which catches it and leaves ``selection_rationale=None`` — the near-miss is still shown.
+    """
+    input_guard = build_input_guard(config)
+    narrative_guard = build_narrative_guard(config)
+
+    def wrapped(scorecard: TargetProfileScorecard, candidate: Candidate, gap: str) -> str:
+        validate_input(input_guard, _candidate_untrusted_text(candidate), candidate.email)
+        return validate_narrative(narrative_guard, base(scorecard, candidate, gap))
+
+    return wrapped
+
+
 def _build_near_miss_rationale_predictor(  # pragma: no cover - exercised only live
     config: dict[str, Any],
 ) -> NearMissRationalePredictor:
@@ -589,10 +709,14 @@ def _run_role(
         scorecard,
         store=_build_query_store(config, db_path),
         embed_client=_build_embed_client(),
-        score_predict=_pii_aware_score_predictor(_build_score_predictor(config), vault),
+        score_predict=_guarded_score_predictor(
+            _pii_aware_score_predictor(_build_score_predictor(config), vault), config, vault
+        ),
         config=config,
         freshness=verdict if verdict is not None and verdict.action == WARN else None,
-        near_miss_predict=_build_near_miss_rationale_predictor(config),
+        near_miss_predict=_guarded_rationale_predictor(
+            _build_near_miss_rationale_predictor(config), config
+        ),
     )
     return result, vault
 
@@ -1151,10 +1275,17 @@ def ingest(
     feedbacks: dict[str, list[FeedbackExtraction]] = defaultdict(list)
     resume_recs = [r for r in all_normalized if r.source_type is SourceType.RESUME]
     feedback_recs = [r for r in all_normalized if r.source_type is SourceType.FEEDBACK]
+    # c-009 (FR-1-AC-1): injection-check the raw record text BEFORE redaction/enrich (FR-1-AC-4).
+    # An adversarial resume/feedback is skipped + logged (candidate_id only), never enriched.
+    input_guard = build_input_guard(config)
     try:
         if resume_recs:
             resume_predict = _build_resume_predictor(config)
             for r in resume_recs:
+                try:
+                    validate_input(input_guard, r.raw_text or "", r.candidate_id)
+                except InputRejectedError:
+                    continue
                 ext = enrich_resume(
                     r,
                     known_pii=known_pii.get(r.candidate_id, []),
@@ -1167,6 +1298,10 @@ def ingest(
         if feedback_recs:
             feedback_predict = _build_feedback_predictor(config)
             for r in feedback_recs:
+                try:
+                    validate_input(input_guard, r.raw_text or "", r.candidate_id)
+                except InputRejectedError:
+                    continue
                 ext = enrich_feedback(
                     r,
                     known_pii=known_pii.get(r.candidate_id, []),
