@@ -22,6 +22,25 @@ Non-gating model-quality metrics — `make eval` only, never `make check`.
 
 **Golden set status:** Labels are `"draft"` until human sign-off. Judge validation and metric reporting gate on `review_status == "signed_off"`. The judge is adopted only if TPR/TNR >= 80% against signed-off labels.
 
+## Eval hardening (AD-XXX, c-010)
+
+Production-grade additions closing 2026-best-practice gaps for a people-ranking RAG system. All `make eval` only; each has a deterministic offline tier (always runs) + a live tier (skip-gated on keys / the `guardrails` extra).
+
+| Component | What | Runner | Gate |
+|-----------|------|--------|------|
+| Guardrail-detector validation | c-009 jailbreak/bias/toxicity detectors scored as classifiers — precision/recall/F1/TPR/TNR + Cohen's κ + threshold-sweep calibration (`dsm/eval/guardrail_validation.py`) | `tests/eval/test_guardrail_validation.py` | live skips w/o the `guardrails` extra |
+| Injection red-team (OWASP LLM01) | signed-off payload corpus through the **guarded** pipeline → attack-success-rate = 0 + no narrative leak; live real-LLM susceptibility probe (`dsm/eval/red_team.py`) | `tests/eval/test_red_team.py` | live skips w/o keys |
+| Counterfactual fairness | demographic-proxy swap → deterministic layer byte-identical (offline) + real-LLM sub-score parity within tolerance (live) (`dsm/eval/fairness.py`) | `tests/eval/test_fairness.py` | live skips w/o keys |
+
+Corpora (`tests/fixtures/injection_corpus.json`, `guardrail_corpus.json`) are signed-off-gated like the golden set. **Recommended follow-up:** the faithfulness judge is self-family (Claude judging Claude → self-preference bias) — move to a non-self-family judge or a PoLL panel.
+
+## Governance mapping (NIST AI RMF)
+
+- **GOVERN** — decisions in `docs/decision.md`; signed-off, version-controlled eval corpora; `make check` commit gate.
+- **MAP** — failure modes catalogued in `workshop-feedback/` + per-spec requirements (injection surface, fairness promise, PII boundary).
+- **MEASURE** — this suite: deterministic invariants + faithfulness judge (validated) + retrieval metrics + guardrail-detector P/R/F1/κ + injection ASR + fairness parity.
+- **MANAGE** — guardrails (c-009) buy down the measured risk; near-misses + `dsm explain` keep a human in the loop; residual gaps tracked in `docs/backlog.md`.
+
 ## Running
 
 ```bash
