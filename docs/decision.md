@@ -275,4 +275,14 @@
 
 ---
 
+## AI eval hardening (c-010)
+
+> Ratified as part of C-010 (`specs/c-010-eval-hardening/`). Additive `make eval` capabilities; **no
+> deterministic-core / frozen-`dsm/models.py` / `make check`-scope change** → no `contract-snapshot`.
+> **AD number assigned at merge** (`AD-XXX` placeholder on the feature branch, per CLAUDE.md § Doc hygiene).
+
+- **AD-XXX · Production-grade AI eval hardening — guardrail-detector validation · injection red-team · counterfactual fairness** — Accepted — Add three **additive** `make eval` capabilities to close the highest-value 2026-best-practice gaps for a people-ranking RAG system, reusing the AI-eval-layer patterns (signed-off corpora + the `validate_judge` confusion-matrix pattern, AD-104/105): **(1) guardrail-detector validation + calibration** (`dsm/eval/guardrail_validation.py`) — score the c-009 detectors (jailbreak/bias/toxicity) as binary classifiers over a labelled attack+benign corpus with precision/recall/F1/TPR/TNR + **Cohen's κ** (κ>0.6 substantial, Verga et al. 2024) and a threshold sweep to a calibrated F1/Youden's-J operating point; **(2) prompt-injection red-team** (`dsm/eval/red_team.py`, OWASP LLM01) — a signed-off payload corpus planted through the **guarded** pipeline must yield **attack-success-rate = 0** (rejected before the LLM call, never ranked) with no injected instruction echoed in a narrative, plus a live real-LLM susceptibility probe; **(3) counterfactual fairness** (`dsm/eval/fairness.py`) — a demographic-proxy swap must leave the **deterministic** layer byte-identical (offline proxy-blindness proof) and the **real** score LLM's sub-scores within tolerance (live), backing `product.md`'s fairness promise. Each capability has a **deterministic offline tier** (always runs, hermetic) + a **live tier** (`eval_live`, skip-gated on keys / the `guardrails` extra), so a bare checkout stays green. The eval modules are **pure** (no `dsm.match`/`dsm.pii`/`dsm.guardrails` import at module load — the tests wire the pipeline/guards); corpora are signed-off-gated like the golden set. **Deterministic spine, frozen contract (AD-060), gates (AD-002), the PII boundary (AD-101), and the `make check` commit gate are all unchanged** — everything is under `make eval`. Rejected / deferred: full RAGAS answer/context-relevancy metrics (the output is a structured ranked list, already covered by rank/gate invariants + the faithfulness judge); a **non-self-family / PoLL faithfulness judge** (the current judge is self-family → self-preference bias — a recommended follow-up, not done here so the adopted judge isn't destabilised); automated red-team tooling (garak/PyRIT/DeepTeam); group **four-fifths** adverse-impact reporting (needs a real population — the counterfactual is the pre-data guard); grounding-detector validation (needs paired context). See `specs/c-010-eval-hardening/`.
+
+---
+
 *Next ADRs start at AD-115.*
