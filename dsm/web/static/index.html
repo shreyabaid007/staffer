@@ -12,6 +12,7 @@
     --accent: #2B4AC7; --accent-ink: #213a9c; --accent-soft: #E9ECF9; --accent-line: #CBD3F1;
     --amber: #8A5712; --amber-soft: #F4EAD6; --amber-line: #E7D5AE;
     --rose: #97374C; --rose-soft: #F4E2E6; --rose-line: #E7C9D0;
+    --green: #2D6B4A; --green-soft: #E3F0EA; --green-line: #B8D9C8;
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     --serif: "Iowan Old Style", Georgia, "Times New Roman", serif;
@@ -23,19 +24,39 @@
     -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
   }
   .wrap { max-width: 840px; margin: 0 auto; padding: 0 24px 120px; }
+  .wrap.wide { max-width: 1160px; padding-bottom: 0; }
+  #pane-supply .wrap.wide { padding-bottom: 120px; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
   .hidden { display: none; }
+  [hidden] { display: none !important; }
 
   .top {
     display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
-    padding: 22px 0 16px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 42px;
+    padding: 22px 0 12px; flex-wrap: wrap;
   }
   .mark { font-weight: 680; letter-spacing: -0.02em; font-size: 19px; }
   .mark b { color: var(--accent); }
   .prov { font-family: var(--mono); font-size: 12px; color: var(--faint); }
   .prov .ok { color: var(--accent); }
 
-  .hero { margin-bottom: 30px; }
+  /* ── primary tabs ── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); }
+  .tab-btn {
+    font-family: var(--sans); font-size: 14px; font-weight: 540;
+    padding: 10px 20px; border: none; background: none; color: var(--muted); cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn[aria-selected="true"] { color: var(--accent-ink); border-bottom-color: var(--accent); }
+  .tab-btn .badge {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    background: var(--accent-soft); color: var(--accent-ink);
+    border-radius: 10px; padding: 1px 7px; margin-left: 7px; vertical-align: 1px;
+  }
+  .pane { display: none; }
+  .pane.on { display: block; }
+
+  .hero { margin: 30px 0; }
   .hero h1 { font-family: var(--serif); font-weight: 600; font-size: 32px; line-height: 1.2; letter-spacing: -0.005em; margin: 0 0 13px; max-width: 21ch; }
   .hero p { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.62; max-width: 60ch; }
   .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
@@ -50,6 +71,7 @@
   .hint { font-size: 12.5px; color: var(--faint); }
   button.go { font-family: var(--sans); font-size: 13.5px; font-weight: 560; background: var(--accent); color: #fff; border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer; }
   button.go:hover { background: var(--accent-ink); }
+  button.go:disabled { background: var(--faint); cursor: default; }
   button.gh { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 9px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: var(--sans); }
   button.gh:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -179,16 +201,183 @@
   .fb-entry { font-size: 13px; line-height: 1.5; background: var(--raised); border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: 8px; padding: 9px 11px; margin-bottom: 6px; }
   .fb-entry .tag { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); display: block; margin-bottom: 2px; }
 
+  /* ── supply tab ── */
+  .supply-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 28px 0 16px; flex-wrap: wrap; }
+  .supply-head h1 { font-family: var(--serif); font-weight: 600; font-size: 26px; letter-spacing: -0.005em; margin: 0 0 6px; }
+  .supply-head p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 60ch; }
+  .ingest-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .job-pill { font-family: var(--mono); font-size: 11.5px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--line); color: var(--muted); }
+  .job-pill.running { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
+  .job-pill.succeeded { background: var(--green-soft); border-color: var(--green-line); color: var(--green); }
+  .job-pill.failed { background: var(--rose-soft); border-color: var(--rose-line); color: var(--rose); }
+  .job-summary { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin: 10px 0 0; line-height: 1.7; }
+  .job-summary b { color: var(--ink); font-weight: 500; }
+  .job-log { font-family: var(--mono); font-size: 11px; background: var(--surface); border: 1px solid var(--rose-line); border-radius: 8px; padding: 10px 12px; margin-top: 8px; white-space: pre-wrap; max-height: 240px; overflow: auto; color: var(--muted); }
+
+  .table-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-top: 14px; }
+  .table-toolbar { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line-2); }
+  .search-box { font-family: var(--sans); font-size: 13.5px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); width: 250px; color: var(--ink); }
+  .search-box:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+  .search-box::placeholder { color: var(--faint); }
+  .tbl-wrap { overflow-x: auto; }
+  table.data { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table.data th {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); text-align: left;
+    padding: 9px 13px; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--surface);
+  }
+  table.data td { padding: 9px 13px; border-bottom: 1px solid var(--line-2); font-size: 13.5px; vertical-align: middle; }
+  tr.c-row:hover td { background: var(--raised); }
+  tr.group-row td {
+    background: var(--raised); padding: 6px 13px;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  table.data thead + tbody tr.group-row td { border-top: none; }
+  .gdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 0.5px; }
+  .gdot.beach { background: var(--green); }
+  .gdot.rolling_off { background: var(--amber); }
+  .gdot.new_joiner { background: var(--accent); }
+  .g-count { color: var(--faint); margin-left: 6px; letter-spacing: 0; text-transform: none; }
+  .td-name { font-weight: 560; white-space: nowrap; }
+  .td-email { display: block; font-family: var(--mono); font-size: 11px; color: var(--faint); font-weight: 400; margin-top: 1px; }
+  .td-loc { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .schip { display: inline-block; font-family: var(--mono); font-size: 11px; background: var(--line-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px; margin: 0 3px 2px 0; }
+  .avail { font-family: var(--mono); font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
+  .avail.now { background: var(--green-soft); color: var(--green); border-color: var(--green-line); }
+  .avail.roll { background: var(--amber-soft); color: var(--amber); border-color: var(--amber-line); }
+  .avail.join { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-line); }
+  .sync { font-family: var(--mono); font-size: 10.5px; padding: 3px 9px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
+  .sync.ok { background: var(--green-soft); color: var(--green); border-color: var(--green-line); }
+  .sync.pending { background: var(--amber-soft); color: var(--amber); border-color: var(--amber-line); }
+  .up-btn {
+    font-family: var(--mono); font-size: 11px; padding: 4px 9px;
+    border: 1px dashed var(--line); border-radius: 6px; background: none;
+    color: var(--muted); cursor: pointer; white-space: nowrap; line-height: 1.4;
+  }
+  .up-btn:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .up-btn + .up-btn { margin-left: 4px; }
+  .file-chip {
+    display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px;
+    background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent-ink);
+    border-radius: 6px; padding: 3px 5px 3px 8px; max-width: 170px;
+  }
+  .file-chip .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-chip.fb { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber); margin-right: 4px; }
+  .chip-x { border: none; background: none; color: inherit; opacity: .55; cursor: pointer; font-size: 10px; padding: 1px 3px; border-radius: 3px; line-height: 1; }
+  .chip-x:hover { opacity: 1; background: var(--rose-soft); color: var(--rose); }
+  .row-x { width: 26px; height: 26px; border-radius: 6px; border: none; background: none; color: var(--faint); cursor: pointer; display: inline-grid; place-items: center; font-size: 12px; }
+  .row-x:hover { background: var(--rose-soft); color: var(--rose); }
+
+  tr.write-row > td { background: var(--raised); padding: 12px 14px 14px; }
+  .write-box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; max-width: 720px; }
+  .write-box h5 { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin: 0 0 9px; }
+  .write-box h5 b { color: var(--muted); }
+  textarea.md-write {
+    width: 100%; min-height: 96px; resize: vertical; font-family: var(--mono); font-size: 12.5px;
+    line-height: 1.55; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+  }
+  textarea.md-write:focus { outline: none; border-color: var(--accent); }
+  textarea.md-write::placeholder { color: var(--faint); }
+  .write-foot { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .fb-src { font-family: var(--sans); font-size: 12px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--muted); cursor: pointer; }
+  .write-foot .whint { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin-left: auto; }
+  .fb-files { margin: 8px 0 0; padding: 0; list-style: none; }
+  .fb-files li { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); padding: 3px 0; }
+
+  tr.add-ghost td { padding: 0; border-bottom: 1px solid var(--line-2); }
+  tr.add-ghost button { width: 100%; text-align: left; padding: 9px 13px; background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 13px; color: var(--faint); }
+  tr.add-ghost button:hover { color: var(--accent-ink); background: var(--accent-soft); }
+  tr.add-edit td { background: var(--accent-soft); border-bottom: 1px solid var(--accent-line); padding: 8px 8px 8px 13px; vertical-align: top; }
+  .inline-input { font-family: var(--sans); font-size: 13px; padding: 6px 9px; border: 1px solid var(--accent-line); border-radius: 6px; background: var(--surface); color: var(--ink); width: 100%; }
+  .inline-input:focus { outline: none; border-color: var(--accent); }
+  .inline-input::placeholder { color: var(--faint); }
+  .inline-input + .inline-input { margin-top: 5px; }
+  select.inline-input { cursor: pointer; }
+  .ie-actions { display: flex; gap: 5px; white-space: nowrap; }
+  .ok-btn, .no-btn { width: 28px; height: 28px; border-radius: 7px; cursor: pointer; display: inline-grid; place-items: center; font-size: 13px; border: 1px solid; }
+  .ok-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .ok-btn:hover { background: var(--accent-ink); }
+  .no-btn { background: var(--surface); border-color: var(--line); color: var(--muted); }
+  .no-btn:hover { border-color: var(--rose); color: var(--rose); }
+  .ie-note { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin-top: 6px; }
+  .legend { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 10px; line-height: 1.7; }
+  .legend b { color: var(--muted); font-weight: 500; }
+
+  #toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; font-size: 13px; padding: 10px 16px;
+    border-radius: 9px; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 60;
+    max-width: min(560px, 90vw);
+  }
+  #toast.on { opacity: 1; }
+  #toast.warn { background: var(--amber); }
+
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap wide">
   <div class="top">
     <div class="mark">⚖&nbsp; <b>Staffer</b> &nbsp;demand · supply matcher</div>
     <div class="prov">0.7&nbsp;skill · 0.3&nbsp;feedback &nbsp;·&nbsp; sonnet-4.6 &nbsp;·&nbsp; gates <span class="ok">deterministic</span></div>
   </div>
+  <div class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab-btn" role="tab" aria-selected="true" id="tab-supply" data-pane="pane-supply">Supply &amp; Ingest <span class="badge" id="pool-badge" hidden></span></button>
+    <button class="tab-btn" role="tab" aria-selected="false" id="tab-match" data-pane="pane-match">Open Roles &amp; Match</button>
+  </div>
+</div>
 
+<!-- ═══════════════ SUPPLY & INGEST ═══════════════ -->
+<div class="pane on" id="pane-supply">
+  <div class="wrap wide">
+    <div class="supply-head">
+      <div>
+        <h1>Consultant supply pool</h1>
+        <p>All three categories in one table, edited in place. Rows and files land in the raw supply data; <b>Run ingest</b> pushes changes through the pipeline — unchanged candidates are skipped, never re-processed.</p>
+      </div>
+      <div class="ingest-bar">
+        <span class="job-pill" id="job-pill">idle</span>
+        <button class="go" id="run-ingest">Run ingest ⟳</button>
+      </div>
+    </div>
+    <div id="supply-err" class="err hidden"></div>
+    <div class="job-summary" id="job-summary" hidden></div>
+    <div class="job-log" id="job-log" hidden></div>
+
+    <div class="table-card">
+      <div class="table-toolbar">
+        <input class="search-box" id="s-filter" type="text" placeholder="Filter by name, skill, location…">
+      </div>
+      <div class="tbl-wrap">
+        <table class="data" id="s-table">
+          <thead>
+            <tr>
+              <th style="min-width:165px">Name</th>
+              <th>Location</th>
+              <th style="min-width:150px">Skills</th>
+              <th>Availability</th>
+              <th style="min-width:130px">Resume</th>
+              <th style="min-width:150px">Feedback</th>
+              <th>Status</th>
+              <th style="width:38px"></th>
+            </tr>
+          </thead>
+          <tbody data-cat="beach"><tr class="group-row"><td colspan="8"><span class="gdot beach"></span>Beach <span class="g-count"></span></td></tr></tbody>
+          <tbody data-cat="rolling_off"><tr class="group-row"><td colspan="8"><span class="gdot rolling_off"></span>Rolling off <span class="g-count"></span></td></tr></tbody>
+          <tbody data-cat="new_joiner"><tr class="group-row"><td colspan="8"><span class="gdot new_joiner"></span>New joiners <span class="g-count"></span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="legend"><b>⬆ upload</b> resume pdf (must contain the candidate's email in its text) · <b>✎ write</b> feedback in Markdown or <b>⬆ file</b> it · <b>✕</b> on a chip removes that document, at the row end removes the consultant · <b>pending ingest</b> rows join the index after the next run.</p>
+  </div>
+</div>
+
+<!-- ═══════════════ OPEN ROLES & MATCH (c-008, unchanged behaviour) ═══════════════ -->
+<div class="pane" id="pane-match">
+<div class="wrap">
   <div class="hero">
     <h1>Who fits this role and what are you trading&nbsp;off?</h1>
     <p>Type the role in plain English or pull it from the demand sheet. You see exactly how it was read, you confirm it, then every name comes back with its evidence, its trade-offs, and its résumé. You decide.</p>
@@ -240,6 +429,7 @@
     </footer>
   </div>
 </div>
+</div>
 
 <div class="scrim" id="scrim" onclick="closeProfile()"></div>
 <aside class="drawer" id="drawer" aria-hidden="true" aria-label="Candidate profile">
@@ -249,6 +439,10 @@
   <div id="p-pdf"></div>
   <div id="p-body"></div>
 </aside>
+
+<div id="toast" role="status"></div>
+<input type="file" id="file-resume" accept=".pdf,application/pdf" hidden>
+<input type="file" id="file-fb" accept=".md,.txt" hidden>
 
 <script>
   const $ = (id) => document.getElementById(id);
@@ -283,6 +477,12 @@
     if (!res.ok) throw new Error((body && body.detail) || res.statusText || ("HTTP " + res.status));
     return body;
   }
+
+  // ── primary tabs ──
+  document.querySelectorAll(".tab-btn").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((x) => x.setAttribute("aria-selected", x === b));
+    document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("on", p.id === b.dataset.pane));
+  }));
 
   function setMode(m) {
     $("m-nl").setAttribute("aria-selected", m === "nl");
@@ -554,6 +754,347 @@
     const b = e.target.closest("button.nmx[data-cid]");
     if (b) openProfile(b.dataset.cid);
   });
+
+  // ═══════════════════════════ Supply & Ingest (c-011) ═══════════════════════════
+
+  const CAT_LABEL = { beach: "Beach", rolling_off: "Rolling off", new_joiner: "New joiners" };
+  const AVAIL_CLASS = { beach: "now", rolling_off: "roll", new_joiner: "join" };
+  const GRADES = ["Senior Consultant", "Lead Consultant", "Principal Consultant"];
+  let pendingUpload = null; // { email, kind }
+
+  function toast(msg, warn) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.toggle("warn", !!warn);
+    t.classList.add("on");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove("on"), 4200);
+  }
+  function showSupplyError(msg) { const e = $("supply-err"); e.textContent = msg; e.classList.remove("hidden"); }
+  function clearSupplyError() { $("supply-err").classList.add("hidden"); }
+
+  function availText(r) {
+    if (r.category === "beach") return "available now" + (r.days_on_beach != null ? " · " + r.days_on_beach + "d" : "");
+    if (r.category === "rolling_off") return "rolls off " + (r.roll_off_date || "TBC") + (r.confidence ? " · " + r.confidence : "");
+    return "joins " + (r.join_date || "TBC");
+  }
+
+  function resumeCellHTML(r) {
+    if (r.has_resume) {
+      return `<span class="file-chip" title="Resume on file">📄 <span class="fn">on file</span>
+        <button class="chip-x" data-act="rm-resume" title="Remove the web-uploaded resume">✕</button></span>`;
+    }
+    return `<button class="up-btn" data-act="up-resume" title="Upload resume PDF">⬆ upload pdf</button>`;
+  }
+
+  function fbCellHTML(r) {
+    const n = Math.max(r.feedback_count || 0, (r.feedback_files || []).length);
+    const count = n
+      ? `<span class="file-chip fb" title="${n} feedback item(s)">💬 <span class="fn">${n}</span></span>`
+      : "";
+    return `${count}<button class="up-btn" data-act="write-fb" title="Write feedback in Markdown">✎ write</button><button class="up-btn" data-act="up-fb" title="Upload a .md/.txt feedback file">⬆ file</button>`;
+  }
+
+  function supplyRowHTML(r) {
+    return `
+      <td class="td-name">${esc(r.name)}<span class="td-email">${esc(r.email)}</span></td>
+      <td class="td-loc">${esc(r.location || "—")}</td>
+      <td>${(r.skills || []).map((k) => `<span class="schip">${esc(k)}</span>`).join("")}</td>
+      <td><span class="avail ${AVAIL_CLASS[r.category]}">${esc(availText(r))}</span></td>
+      <td>${resumeCellHTML(r)}</td>
+      <td>${fbCellHTML(r)}</td>
+      <td><span class="sync ${r.ingested ? "ok" : "pending"}">${r.ingested ? "synced" : "pending ingest"}</span></td>
+      <td><button class="row-x" data-act="rm-row" title="Remove consultant from the sheet">✕</button></td>`;
+  }
+
+  function ghostRowHTML(cat) {
+    return `<td colspan="8"><button class="ghost-add">+ Add candidate to ${CAT_LABEL[cat]}</button></td>`;
+  }
+
+  function editRowHTML(cat) {
+    let availCell;
+    if (cat === "beach") {
+      availCell = `<span class="avail now">available now</span>`;
+    } else if (cat === "rolling_off") {
+      availCell = `<input class="inline-input ie-date" type="date" title="Roll-off date">
+                   <select class="inline-input ie-conf"><option value="high">high confidence</option><option value="medium" selected>medium confidence</option><option value="low">low confidence</option></select>`;
+    } else {
+      availCell = `<input class="inline-input ie-date" type="date" title="Join date">`;
+    }
+    const grades = GRADES.map((g) => `<option>${g}</option>`).join("");
+    return `
+      <td><input class="inline-input ie-name" placeholder="Full name">
+          <input class="inline-input ie-email" placeholder="email@company.example"></td>
+      <td><input class="inline-input ie-loc" placeholder="City">
+          <select class="inline-input ie-chennai"><option value="no">Chennai: No</option><option value="yes">Chennai: Yes</option></select></td>
+      <td><input class="inline-input ie-skills" placeholder="kotlin, spring, aws">
+          <select class="inline-input ie-grade">${grades}</select></td>
+      <td>${availCell}</td>
+      <td colspan="4"><div class="ie-actions">
+        <button class="ok-btn" title="Save row">✓</button>
+        <button class="no-btn" title="Cancel">✕</button>
+      </div><div class="ie-note">saves the row — then attach the resume &amp; feedback on it</div></td>`;
+  }
+
+  function writeRowHTML(r) {
+    const files = (r.feedback_files || []).map((f) =>
+      `<li><span>${esc(f)}</span><button class="chip-x" data-act="rm-fb-file" data-file="${esc(f)}" title="Delete this feedback file">✕</button></li>`
+    ).join("");
+    return `<td colspan="8"><div class="write-box">
+      <h5>Feedback · <b>${esc(r.name)}</b></h5>
+      <textarea class="md-write" placeholder="**Strengths** — led the payments rewrite end-to-end.&#10;- Client called communication a standout&#10;- Deep Kotlin / Spring; mentored two juniors"></textarea>
+      <div class="write-foot">
+        <select class="fb-src"><option value="internal_ee">Source: Internal EE</option><option value="client">Source: Client</option></select>
+        <button class="go" data-act="save-fb">Save feedback</button>
+        <button class="gh" data-act="cancel-fb">Cancel</button>
+        <span class="whint">markdown · saved as .md — appended, never overwrites</span>
+      </div>
+      ${files ? `<ul class="fb-files">${files}</ul>` : ""}
+    </div></td>`;
+  }
+
+  function renderSupply(data) {
+    let total = 0;
+    data.sheets.forEach((sheet) => {
+      const tb = document.querySelector(`tbody[data-cat="${sheet.category}"]`);
+      tb.querySelectorAll("tr:not(.group-row)").forEach((tr) => tr.remove());
+      sheet.rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.className = "c-row";
+        tr.dataset.d = JSON.stringify(r);
+        tr.innerHTML = supplyRowHTML(r);
+        tb.appendChild(tr);
+      });
+      total += sheet.rows.length;
+      const asOf = sheet.as_of ? ` · as of ${sheet.as_of}` : "";
+      tb.querySelector(".g-count").textContent =
+        `${sheet.rows.length} consultant${sheet.rows.length === 1 ? "" : "s"}${asOf}`;
+      const ghost = document.createElement("tr");
+      ghost.className = "add-ghost";
+      ghost.innerHTML = ghostRowHTML(sheet.category);
+      tb.appendChild(ghost);
+      sheet.skipped.forEach((s) => console.warn("supply row skipped:", s));
+    });
+    const badge = $("pool-badge");
+    badge.textContent = total; badge.hidden = false;
+    applyFilter();
+  }
+
+  async function loadSupply() {
+    clearSupplyError();
+    try { renderSupply(await api("/supply")); }
+    catch (e) { showSupplyError("Could not load the supply pool: " + e.message); }
+  }
+
+  // ── ingest job ──
+  function renderJob(s) {
+    const pill = $("job-pill");
+    pill.textContent = s.state === "running" ? "ingesting…" : s.state;
+    pill.className = "job-pill " + s.state;
+    $("run-ingest").disabled = s.state === "running";
+    const sum = $("job-summary"), log = $("job-log");
+    if (s.summary && s.state !== "running") {
+      const v = s.summary;
+      sum.innerHTML =
+        `files: <b>${v.landed}</b> landed · <b>${v.skipped}</b> unchanged &nbsp;—&nbsp; ` +
+        `gold: <b>${v.gold_updated}</b> updated · <b>${v.gold_unchanged}</b> unchanged · <b>${v.tombstoned}</b> tombstoned${v.revived ? ` · <b>${v.revived}</b> revived` : ""} &nbsp;—&nbsp; ` +
+        `enrich LLM: <b>${v.enrich_llm_calls}</b> calls · <b>${v.enrich_cache_hits}</b> cache hits &nbsp;—&nbsp; ` +
+        `index: <b>${v.indexed}</b> embedded · <b>${v.index_skipped_unchanged}</b> skipped · <b>${v.index_removed}</b> removed`;
+      sum.hidden = false;
+    } else if (s.state === "running") {
+      sum.hidden = false;
+      sum.textContent = "Pipeline running — unchanged candidates will be skipped, not re-processed…";
+    }
+    if (s.state === "failed" && s.log_tail && s.log_tail.length) {
+      log.textContent = s.log_tail.join("\n");
+      log.hidden = false;
+    } else { log.hidden = true; }
+  }
+
+  async function pollJob() {
+    try {
+      const s = await api("/ingest/status");
+      renderJob(s);
+      if (s.state === "running") { setTimeout(pollJob, 1500); return; }
+      if (s.state === "succeeded") { toast("Ingest complete — supply statuses refreshed."); loadSupply(); }
+      if (s.state === "failed") { toast("Ingest failed — see the log below the header.", true); }
+    } catch (e) { showSupplyError(e.message); }
+  }
+
+  $("run-ingest").addEventListener("click", async () => {
+    clearSupplyError();
+    try {
+      renderJob(await api("/ingest/run", { method: "POST" }));
+      pollJob();
+    } catch (e) { showSupplyError(e.message); }
+  });
+
+  // ── supply table interactions (delegated; data rides in data-* — no inline JS) ──
+  const sTable = $("s-table");
+
+  function rowData(tr) { return JSON.parse(tr.dataset.d); }
+  function closestRow(el) {
+    const tr = el.closest("tr");
+    return tr.classList.contains("write-row") ? tr.previousElementSibling : tr;
+  }
+  function dropWriteRow(tr) {
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains("write-row")) next.remove();
+  }
+
+  sTable.addEventListener("click", async (e) => {
+    const act = e.target.closest("[data-act]");
+    const ghost = e.target.closest(".ghost-add");
+    const ok = e.target.closest(".ok-btn");
+    const no = e.target.closest(".no-btn");
+
+    if (act) {
+      const cRow = closestRow(act);
+      const r = rowData(cRow);
+      clearSupplyError();
+      try {
+        switch (act.dataset.act) {
+          case "up-resume":
+            pendingUpload = { email: r.email };
+            $("file-resume").click();
+            return;
+          case "rm-resume":
+            await api(`/supply/candidates/${encodeURIComponent(r.email)}/resume`, { method: "DELETE" });
+            toast("Resume removed — run ingest to update the index.");
+            loadSupply();
+            return;
+          case "up-fb":
+            pendingUpload = { email: r.email };
+            $("file-fb").click();
+            return;
+          case "write-fb": {
+            let next = cRow.nextElementSibling;
+            if (next && next.classList.contains("write-row")) { next.remove(); return; }
+            next = document.createElement("tr");
+            next.className = "write-row";
+            next.innerHTML = writeRowHTML(r);
+            cRow.after(next);
+            next.querySelector(".md-write").focus();
+            return;
+          }
+          case "save-fb": {
+            const box = act.closest(".write-box");
+            const text = box.querySelector(".md-write").value.trim();
+            if (!text) { toast("Write something first.", true); return; }
+            const source = box.querySelector(".fb-src").value;
+            const resp = await api(`/supply/candidates/${encodeURIComponent(r.email)}/feedback`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text, source }),
+            });
+            toast(`Feedback saved as ${resp.stored} — run ingest to score it.`);
+            loadSupply();
+            return;
+          }
+          case "cancel-fb":
+            act.closest("tr").remove();
+            return;
+          case "rm-fb-file":
+            await api(`/supply/candidates/${encodeURIComponent(r.email)}/feedback/${encodeURIComponent(act.dataset.file)}`, { method: "DELETE" });
+            toast("Feedback file deleted — run ingest to update.");
+            loadSupply();
+            return;
+          case "rm-row":
+            await api(`/supply/candidates/${r.category}/${encodeURIComponent(r.email)}`, { method: "DELETE" });
+            toast(`${r.name} removed — the next ingest tombstones them in the index.`);
+            loadSupply();
+            return;
+        }
+      } catch (err) { showSupplyError(err.message); }
+      return;
+    }
+
+    if (ghost) {
+      const gRow = ghost.closest("tr");
+      const cat = gRow.closest("tbody").dataset.cat;
+      const edit = document.createElement("tr");
+      edit.className = "add-edit";
+      edit.innerHTML = editRowHTML(cat);
+      gRow.before(edit);
+      gRow.hidden = true;
+      edit.querySelector(".ie-name").focus();
+      return;
+    }
+
+    if (ok || no) {
+      const edit = e.target.closest("tr.add-edit");
+      const tb = edit.closest("tbody");
+      const gRow = tb.querySelector("tr.add-ghost");
+      if (no) { edit.remove(); gRow.hidden = false; return; }
+      const val = (sel) => { const el = edit.querySelector(sel); return el ? el.value.trim() : ""; };
+      const cat = tb.dataset.cat;
+      const body = {
+        category: cat,
+        name: val(".ie-name"),
+        email: val(".ie-email"),
+        grade: val(".ie-grade") || null,
+        skills: val(".ie-skills").split(",").map((s) => s.trim()).filter(Boolean),
+        location: val(".ie-loc") || null,
+        chennai_open: val(".ie-chennai") === "yes",
+      };
+      if (cat === "rolling_off") { body.roll_off_date = val(".ie-date") || null; body.confidence = val(".ie-conf") || null; }
+      if (cat === "new_joiner") { body.join_date = val(".ie-date") || null; }
+      clearSupplyError();
+      try {
+        await api("/supply/candidates", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        toast(`${body.name || "Candidate"} added to ${CAT_LABEL[cat]} — run ingest to index them.`);
+        loadSupply();
+      } catch (err) { showSupplyError(err.message); }
+      return;
+    }
+  });
+
+  // real file pickers → multipart upload
+  $("file-resume").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file || !pendingUpload) return;
+    const fd = new FormData(); fd.append("file", file);
+    clearSupplyError();
+    try {
+      const resp = await api(`/supply/candidates/${encodeURIComponent(pendingUpload.email)}/resume`, { method: "POST", body: fd });
+      if (resp.link_check === "ok") toast(`Resume stored as ${resp.stored}.`);
+      else if (resp.link_check === "no_email_found") toast(`Stored, but ${pendingUpload.email} was not found in the PDF text — it may not link at ingest.`, true);
+      else toast(`Resume stored as ${resp.stored} (text not extractable here — ingest will OCR it).`);
+      loadSupply();
+    } catch (err) { showSupplyError(err.message); }
+    pendingUpload = null;
+  });
+  $("file-fb").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file || !pendingUpload) return;
+    const fd = new FormData(); fd.append("file", file);
+    clearSupplyError();
+    try {
+      const resp = await api(`/supply/candidates/${encodeURIComponent(pendingUpload.email)}/feedback/file`, { method: "POST", body: fd });
+      toast(`Feedback stored as ${resp.stored} — run ingest to score it.`);
+      loadSupply();
+    } catch (err) { showSupplyError(err.message); }
+    pendingUpload = null;
+  });
+
+  // filter
+  function applyFilter() {
+    const q = $("s-filter").value.toLowerCase();
+    document.querySelectorAll("#s-table tr.c-row").forEach((tr) => {
+      const hit = !q || tr.textContent.toLowerCase().includes(q);
+      tr.hidden = !hit;
+      if (!hit) dropWriteRow(tr);
+    });
+  }
+  $("s-filter").addEventListener("input", applyFilter);
+
+  // boot: load the pool + pick up a job already in flight (e.g. page refresh mid-run)
+  loadSupply();
+  api("/ingest/status").then((s) => { renderJob(s); if (s.state === "running") pollJob(); }).catch(() => {});
 </script>
 </body>
 </html>
