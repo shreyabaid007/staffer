@@ -162,10 +162,14 @@ def test_prompt_version_bump_invalidates_cache(
     assert _ingest(tmp_path).exit_code == 0
     assert len(counting_enrich) == 1
 
+    import copy
+
     from dsm.config import load_config
 
-    bumped = load_config()
-    bumped["enrich"] = dict(bumped["enrich"], prompt_version="enrich-v2-test")
+    # Deep-copy: load_config() is lru_cached and returns the shared dict — mutating it would
+    # leak the bumped prompt_version into every later test in the session.
+    bumped = copy.deepcopy(load_config())
+    bumped["enrich"]["prompt_version"] = "enrich-v2-test"
     monkeypatch.setattr("dsm.config.load_config", lambda: bumped)
 
     r2 = _ingest(tmp_path)

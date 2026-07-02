@@ -306,10 +306,11 @@ class TestIngestJob:
         resp = client.post("/ingest/run")
         assert resp.status_code == 202, resp.text
         # The stubbed pipeline finishes fast; poll the status until done.
+        status = client.get("/ingest/status").json()
         for _ in range(100):
-            status = client.get("/ingest/status").json()
             if status["state"] != "running":
                 break
+            status = client.get("/ingest/status").json()
         assert status["state"] == "succeeded"
         assert [c[-1] for c in fake.calls] == ["ingest", "index"]
         summary = status["summary"]
@@ -344,10 +345,11 @@ class TestIngestJob:
         fake = _FakeRunner(returncode=1)
         monkeypatch.setattr(jobs, "_Runner", lambda: fake)
         client.post("/ingest/run")
+        status = client.get("/ingest/status").json()
         for _ in range(100):
-            status = client.get("/ingest/status").json()
             if status["state"] != "running":
                 break
+            status = client.get("/ingest/status").json()
         assert status["state"] == "failed"
         assert [c[-1] for c in fake.calls] == ["ingest"]  # stopped at the failing step
         assert status["log_tail"], "a failed job must surface its log tail"

@@ -49,9 +49,7 @@ def enrich_cache_key(
     under an unchanged ``source_hash``.
     """
     text_hash = hashlib.sha256((raw_text or "").encode("utf-8")).hexdigest()
-    material = "\x1f".join(
-        (candidate_id, source_hash, text_hash, prompt_version, model_version)
-    )
+    material = "\x1f".join((candidate_id, source_hash, text_hash, prompt_version, model_version))
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
