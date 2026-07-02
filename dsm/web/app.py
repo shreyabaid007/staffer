@@ -15,14 +15,21 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from dsm.web import service
+from dsm.web import jobs, service, supply
 from dsm.web.models import (
+    AddCandidateRequest,
+    AttachmentResponse,
+    Category,
     DecisionRequest,
     DecisionResponse,
     DemandParseResponse,
+    FeedbackWriteRequest,
+    IngestStatusResponse,
     IntakeRequest,
     IntakeResponse,
     MatchResponse,
+    SupplyResponse,
+    SupplyRowView,
 )
 from dsm.web.service import WebServiceError
 
@@ -38,6 +45,16 @@ class WebPaths:
     decisions_dir: Path
     vault_path: Path | None = None
     db_path: str = ""
+    raw_dir: Path | None = None  # c-011: supply CSVs + resumes + feedback (defaults below)
+    jobs_dir: Path | None = None  # c-011: ingest-job logs
+
+    @property
+    def raw(self) -> Path:
+        return self.raw_dir if self.raw_dir is not None else service._RAW_DEFAULT
+
+    @property
+    def jobs(self) -> Path:
+        return self.jobs_dir if self.jobs_dir is not None else service._JOBS_DEFAULT
 
 
 def get_paths() -> WebPaths:
@@ -124,3 +141,81 @@ def resume(candidate_id: str, paths: _Paths) -> Response:
 def decisions(req: DecisionRequest, paths: _Paths) -> DecisionResponse:
     """Record put-forward / set-aside decisions (append-only; never feeds ranking — FR-7)."""
     return service.record_decisions(req, decisions_dir=paths.decisions_dir)
+
+
+# ---------------------------------------------------------------------------
+# Supply management + ingest trigger (c-011; AD-XXY)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/supply", response_model=SupplyResponse)
+def supply_read(paths: _Paths) -> SupplyResponse:
+    """All three category sheets from the current raw CSVs + per-row sync status (FR-1)."""
+    return supply.read_supply(raw_dir=paths.raw, gold_dir=paths.gold_dir)
+
+
+@app.post("/supply/candidates", response_model=SupplyRowView, status_code=201)
+def supply_add(req: AddCandidateRequest, paths: _Paths) -> SupplyRowView:
+    """Append a candidate row to its category sheet (banner bumped; 409 duplicate — FR-2)."""
+    return supply.add_candidate(req, raw_dir=paths.raw, gold_dir=paths.gold_dir)
+
+
+# NOTE: the attachment routes (`…/{email}/resume`, `…/{email}/feedback…`) are registered
+# BEFORE the two-param row delete (`…/{category}/{email}`) — Starlette matches in order, and
+# the literal-tail patterns must win over the generic two-segment one.
+
+
+@app.post("/supply/candidates/{email}/resume", response_model=AttachmentResponse)
+def resume_upload(
+    email: str, paths: _Paths, file: Annotated[UploadFile, File()]
+) -> AttachmentResponse:
+    """Store the resume PDF (replace-on-re-upload) + pre-ingest link check (FR-3-AC-1/2)."""
+    return supply.store_resume(email, file.file.read(), raw_dir=paths.raw)
+
+
+@app.delete("/supply/candidates/{email}/resume", status_code=204)
+def resume_delete(email: str, paths: _Paths) -> None:
+    """Delete the web-uploaded resume PDF (the next ingest reflects the removal — FR-3-AC-4)."""
+    supply.delete_resume(email, raw_dir=paths.raw)
+
+
+@app.post("/supply/candidates/{email}/feedback", response_model=AttachmentResponse)
+def feedback_write(email: str, req: FeedbackWriteRequest, paths: _Paths) -> AttachmentResponse:
+    """Store written-Markdown feedback, guaranteed to link to this candidate (FR-3-AC-3)."""
+    return supply.store_feedback(email, req.text, source=req.source, raw_dir=paths.raw)
+
+
+@app.post("/supply/candidates/{email}/feedback/file", response_model=AttachmentResponse)
+def feedback_upload(
+    email: str, paths: _Paths, file: Annotated[UploadFile, File()]
+) -> AttachmentResponse:
+    """Store an uploaded feedback file (.md/.txt) with the same guaranteed-link pass."""
+    name = (file.filename or "").lower()
+    if not name.endswith((".md", ".txt")):
+        raise supply.InvalidUpload("Feedback upload must be a .md or .txt file.")
+    text = file.file.read().decode("utf-8", errors="replace")
+    return supply.store_feedback(email, text, source="internal_ee", raw_dir=paths.raw)
+
+
+@app.delete("/supply/candidates/{email}/feedback/{filename}", status_code=204)
+def feedback_delete(email: str, filename: str, paths: _Paths) -> None:
+    """Delete one linked feedback file (traversal-guarded — FR-3-AC-4)."""
+    supply.delete_feedback(email, filename, raw_dir=paths.raw)
+
+
+@app.delete("/supply/candidates/{category}/{email}", status_code=204)
+def supply_remove(category: Category, email: str, paths: _Paths) -> None:
+    """Remove the row by email from the category sheet (the next ingest tombstones — FR-2)."""
+    supply.remove_candidate(category, email, raw_dir=paths.raw)
+
+
+@app.post("/ingest/run", response_model=IngestStatusResponse, status_code=202)
+def ingest_run(paths: _Paths) -> IngestStatusResponse:
+    """Start the background ingest→index job (single-flight: 409 while running — FR-4)."""
+    return jobs.start_ingest_job(jobs_dir=paths.jobs)
+
+
+@app.get("/ingest/status", response_model=IngestStatusResponse)
+def ingest_status() -> IngestStatusResponse:
+    """The current/last job's state + the parsed incremental summary (FR-4-AC-1)."""
+    return jobs.job_status()

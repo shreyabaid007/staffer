@@ -962,6 +962,18 @@ def _match_query(
     )
 
 
+def derive_candidate_id(email: str) -> str:
+    """Pseudonymous ``candidate_id`` for an email (HMAC, AD-067) — a composition-root seam.
+
+    Exists so ``dsm.web`` can join supply rows to gold **without importing ``dsm.pii``**
+    (the AD-113 boundary, reused by c-011/AD-XXY): web calls the CLI composition root, and
+    the PII import stays here.
+    """
+    from dsm.pii.vault import candidate_id
+
+    return candidate_id(email)
+
+
 def render_identities(
     result: ShortlistResult | NoMatchResult, vault: Vault
 ) -> ShortlistResult | NoMatchResult:

@@ -62,6 +62,8 @@ from dsm.web.models import (
 _GOLD_DEFAULT = commands._GOLD_DEFAULT
 _BRONZE_DEFAULT = commands._BRONZE_DEFAULT
 _DECISIONS_DEFAULT = commands._DATA_DIR / "decisions"
+_RAW_DEFAULT = commands._RAW_DEFAULT  # c-011: supply CSVs + resumes + feedback
+_JOBS_DEFAULT = commands._DATA_DIR / "ingest_jobs"  # c-011: ingest-job logs (gitignored)
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
