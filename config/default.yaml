@@ -65,7 +65,7 @@ enrich:
 # Snapshot reconciliation (a-003, AD-070). Warn when the latest snapshot is older than this many
 # days; the refuse-vs-role-start half of the guard is enforced at match time.
 reconcile:
-  max_staleness_days: 30
+  max_staleness_days: 45
 
 # Index build + upsert (a-005). The Milvus Lite store the indexer writes; the CLI passes these to
 # MilvusIndexStore (the store reads no config itself — mirrors rank, AD-064). The embedder id used as

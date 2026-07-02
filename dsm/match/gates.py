@@ -140,9 +140,7 @@ def filter_candidates(
             # c-007: distinguish an exclusion miss from a positive-location miss (reason enum
             # unchanged — still LOCATION_MISMATCH; only the human-readable detail branches).
             if is_excluded_city(candidate, scorecard):
-                detail = (
-                    f"Candidate is in {candidate.location.city}, which the role excludes (c-007)"
-                )
+                detail = f"Candidate is in {candidate.location.city}, which the role excludes"
             else:
                 detail = (
                     f"Candidate is in {candidate.location.city}; "
