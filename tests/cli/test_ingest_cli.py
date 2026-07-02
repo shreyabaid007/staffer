@@ -134,18 +134,22 @@ def test_ingest_vault_file_is_the_only_place_raw_identity_lives(tmp_path: Path) 
 
 
 def test_idempotent_rerun_does_not_tombstone(tmp_path: Path) -> None:
-    """Regression: a re-run lands everything SKIPPED → 0 candidates processed; it must leave gold
-    UNCHANGED, never tombstone the prior set (RC-1 guard)."""
+    """Regression: a re-run lands everything SKIPPED; it must leave gold byte-stable — zero
+    writes via the c-011 gold write gate (AD-XXX; was the pre-c-011 early-return message) —
+    and never tombstone the prior set (RC-1 guard)."""
     import json
 
     first = _run(tmp_path)
     assert first.exit_code == 0, first.output
+    before = {p.name: p.read_text() for p in (tmp_path / "gold").glob("*.json")}
 
     second = _run(tmp_path)  # same tmp_path → manifest already has every hash → all SKIPPED
     assert second.exit_code == 0, second.output
-    assert "gold left unchanged" in second.output
-    assert "tombstones  : 3" not in second.output
+    assert "updated=0" in second.output  # write gate: nothing rewritten
+    assert "tombstones  : 0" in second.output
 
+    after = {p.name: p.read_text() for p in (tmp_path / "gold").glob("*.json")}
+    assert after == before  # byte-stable, not merely re-written-equal
     for path in (tmp_path / "gold").glob("*.json"):
         assert json.loads(path.read_text())["is_tombstoned"] is False
 

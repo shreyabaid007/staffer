@@ -1214,7 +1214,7 @@ def ingest(
     import os
     import uuid
 
-    from dsm.ingest.blobstore import LocalFSBlobStore, write_records
+    from dsm.ingest.blobstore import LocalFSBlobStore, has_records, read_records, write_records
     from dsm.ingest.land import land
     from dsm.ingest.lineage import build_run_manifest, count_unmapped_skills
     from dsm.ingest.manifest import JSONLManifest
@@ -1262,8 +1262,13 @@ def ingest(
     all_normalized: list[NormalizedRecord] = []
     bronze_supply: list[BronzeRecord] = []
     for entry in entries:
+        # Full-corpus processing (c-011, AD-XXX): every file currently present — LANDED *or*
+        # SKIPPED — feeds normalize → merge, so a partial re-land can no longer overwrite
+        # unchanged candidates' gold without their resume/feedback content (the G-1 defect).
+        # INVALID stays excluded. SKIPPED blobs read their persisted bronze records back
+        # (no Docling re-parse); the re-parse fallback covers a wiped records file.
         not_parseable = (
-            entry.status is not LandingStatus.LANDED
+            entry.status not in (LandingStatus.LANDED, LandingStatus.SKIPPED)
             or entry.raw_bytes_hash is None
             or entry.source_type is None
         )
@@ -1271,15 +1276,19 @@ def ingest(
             continue
         assert entry.raw_bytes_hash is not None
         assert entry.source_type is not None
-        data = blobs.get(entry.raw_bytes_hash)
         try:
-            records = parse_blob(
-                data,
-                entry.source_type,
-                entry.raw_bytes_hash,
-                run_id=rid,
-            )
-            write_records(records, entry.raw_bytes_hash, bronze_dir)
+            if entry.status is LandingStatus.SKIPPED and has_records(
+                entry.raw_bytes_hash, bronze_dir
+            ):
+                records = read_records(entry.raw_bytes_hash, bronze_dir)
+            else:
+                records = parse_blob(
+                    blobs.get(entry.raw_bytes_hash),
+                    entry.source_type,
+                    entry.raw_bytes_hash,
+                    run_id=rid,
+                )
+                write_records(records, entry.raw_bytes_hash, bronze_dir)
             total_records += len(records)
             if entry.source_type in _SUPPLY_TYPES:
                 bronze_supply.extend(records)  # source of name+email for redaction/vault refs
@@ -1342,6 +1351,7 @@ def ingest(
 
     from dsm.config import load_config
     from dsm.ingest.enrich import enrich_feedback, enrich_resume
+    from dsm.ingest.enrich_cache import FileEnrichCache, enrich_cache_key
     from dsm.ingest.goldstore import list_gold_ids, read_gold, write_gold
     from dsm.ingest.lineage import (
         RunMetrics,
@@ -1380,39 +1390,77 @@ def ingest(
     # c-009 (FR-1-AC-1): injection-check the raw record text BEFORE redaction/enrich (FR-1-AC-4).
     # An adversarial resume/feedback is skipped + logged (candidate_id only), never enriched.
     input_guard = build_input_guard(config)
+    # Content-keyed extraction cache (c-011, AD-XXX): an unchanged record reuses its prior
+    # extraction — zero LLM calls. The guard runs BEFORE the cache lookup (a tightened guard
+    # still screens cached-era content); a failed/None extraction is never cached (retries).
+    enrich_cache = FileEnrichCache(gold_dir.parent / "enrich_cache")
+    e_prompt: str = config["enrich"]["prompt_version"]
+    e_model: str = config["models"]["reasoning_llm"]
+    enrich_calls = 0
+    enrich_cache_hits = 0
+    resume_predict = None
+    feedback_predict = None
     try:
-        if resume_recs:
-            resume_predict = _build_resume_predictor(config)
-            for r in resume_recs:
-                try:
-                    validate_input(input_guard, r.raw_text or "", r.candidate_id)
-                except InputRejectedError:
-                    continue
-                ext = enrich_resume(
-                    r,
-                    known_pii=known_pii.get(r.candidate_id, []),
-                    predict=resume_predict,
-                    run_id=rid,
-                    metrics=metrics,
-                )
-                if ext is not None:
-                    profiles[r.candidate_id] = ext
-        if feedback_recs:
-            feedback_predict = _build_feedback_predictor(config)
-            for r in feedback_recs:
-                try:
-                    validate_input(input_guard, r.raw_text or "", r.candidate_id)
-                except InputRejectedError:
-                    continue
-                ext = enrich_feedback(
-                    r,
-                    known_pii=known_pii.get(r.candidate_id, []),
-                    predict=feedback_predict,
-                    run_id=rid,
-                    metrics=metrics,
-                )
-                if ext is not None:
-                    feedbacks[r.candidate_id].append(ext)
+        for r in resume_recs:
+            try:
+                validate_input(input_guard, r.raw_text or "", r.candidate_id)
+            except InputRejectedError:
+                continue
+            key = enrich_cache_key(
+                candidate_id=r.candidate_id,
+                source_hash=r.source_hash,
+                raw_text=r.raw_text,
+                prompt_version=e_prompt,
+                model_version=e_model,
+            )
+            cached_resume = enrich_cache.get_resume(key)
+            if cached_resume is not None:
+                profiles[r.candidate_id] = cached_resume
+                enrich_cache_hits += 1
+                continue
+            if resume_predict is None:  # lazy: an all-hit run builds no predictor
+                resume_predict = _build_resume_predictor(config)
+            enrich_calls += 1
+            ext = enrich_resume(
+                r,
+                known_pii=known_pii.get(r.candidate_id, []),
+                predict=resume_predict,
+                run_id=rid,
+                metrics=metrics,
+            )
+            if ext is not None:
+                profiles[r.candidate_id] = ext
+                enrich_cache.put_resume(key, ext, key_material={"source_hash": r.source_hash})
+        for r in feedback_recs:
+            try:
+                validate_input(input_guard, r.raw_text or "", r.candidate_id)
+            except InputRejectedError:
+                continue
+            key = enrich_cache_key(
+                candidate_id=r.candidate_id,
+                source_hash=r.source_hash,
+                raw_text=r.raw_text,
+                prompt_version=e_prompt,
+                model_version=e_model,
+            )
+            cached_feedback = enrich_cache.get_feedback(key)
+            if cached_feedback is not None:
+                feedbacks[r.candidate_id].append(cached_feedback)
+                enrich_cache_hits += 1
+                continue
+            if feedback_predict is None:
+                feedback_predict = _build_feedback_predictor(config)
+            enrich_calls += 1
+            ext = enrich_feedback(
+                r,
+                known_pii=known_pii.get(r.candidate_id, []),
+                predict=feedback_predict,
+                run_id=rid,
+                metrics=metrics,
+            )
+            if ext is not None:
+                feedbacks[r.candidate_id].append(ext)
+                enrich_cache.put_feedback(key, ext, key_material={"source_hash": r.source_hash})
     except PIILeakError:
         log_leak_block(run_id=rid, candidate_id="?", source_hash="?", hit_count=1, metrics=metrics)
         typer.echo("  GOLD ABORTED: outbound leak-scan blocked a call (AD-069)", err=True)
@@ -1488,8 +1536,22 @@ def ingest(
         typer.echo("")
         return
 
+    # Gold write gate (c-011, AD-XXX): skip byte-stable entities so an idempotent re-run
+    # writes nothing and the summary reports updated vs unchanged honestly. The index's
+    # (gold_hash, model_version) gate (AD-082) then skips their re-embed too.
+    gold_updated = 0
+    gold_unchanged = 0
     for g in gold:
+        prior = read_gold(g.candidate_id, gold_dir)
+        if (
+            prior is not None
+            and prior.gold_hash == g.gold_hash
+            and prior.is_tombstoned == g.is_tombstoned
+        ):
+            gold_unchanged += 1
+            continue
         write_gold(g, gold_dir)
+        gold_updated += 1
     for cid in rec.tombstoned_ids:
         prior = read_gold(cid, gold_dir)
         if prior is not None:
@@ -1508,6 +1570,8 @@ def ingest(
     quality = build_quality_metrics(gold, run_metrics=metrics, tombstones=len(rec.tombstoned_ids))
 
     typer.echo(f"  entities    : {quality.gold_count}")
+    typer.echo(f"  gold writes : updated={gold_updated} unchanged={gold_unchanged}")
+    typer.echo(f"  enrich      : llm_calls={enrich_calls} cache_hits={enrich_cache_hits}")
     cov = quality.coverage
     typer.echo(f"  coverage    : thin={cov['thin']} medium={cov['medium']} rich={cov['rich']}")
     typer.echo(f"  conflicts   : {quality.conflicts}")

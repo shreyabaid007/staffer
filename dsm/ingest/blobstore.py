@@ -122,6 +122,16 @@ def write_records(
     return dest
 
 
+def has_records(source_hash: str, bronze_root: Path) -> bool:
+    """Whether a persisted records file exists for ``source_hash``.
+
+    Distinguishes "never persisted" from a legitimately **empty** records file (an invalid
+    source that parsed to zero records) — ``read_records`` returns ``[]`` for both, but only
+    the former should trigger a re-parse fallback (c-011 full-corpus read-back).
+    """
+    return _records_path(bronze_root, source_hash).is_file()
+
+
 def read_records(source_hash: str, bronze_root: Path) -> list[BronzeRecord]:
     """Read back ``BronzeRecord``s for a source hash from ``records/<hex>.jsonl``.
 
