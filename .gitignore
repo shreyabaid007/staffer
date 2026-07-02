@@ -25,6 +25,12 @@ data/silver/records/*
 # Gold carries vault refs + verbatim evidence quotes (may include client orgs) — never commit (GS-3)
 data/gold/*
 !data/gold/.gitkeep
+
+# Enrich extraction cache + web ingest-job logs (c-011, AD-XXX/AD-XXY) — derived, PII-dense
+data/enrich_cache/*
+!data/enrich_cache/.gitkeep
+data/ingest_jobs/*
+!data/ingest_jobs/.gitkeep
 # Index is a rebuildable artifact: derived (PII-free) vectors + metadata in Milvus Lite (NF-5)
 data/index/*
 !data/index/.gitkeep
